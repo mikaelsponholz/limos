@@ -10,3 +10,12 @@ __pycache__/
 
 # Challenge data: never commit
 data/
+.agent/
+.runtime/
+.venv/
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+!.env.example
+.pytest-tmp/
