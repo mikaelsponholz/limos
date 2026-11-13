@@ -1,0 +1,23 @@
+[
+  {
+    "request_id": "r_wed01",
+    "created_at": "2026-11-14T09:12:02+02:00",
+    "title": "Wedding for 120, 21 Nov",
+    "status": "WAITING_APPROVAL",
+    "total": 82.07
+  },
+  {
+    "request_id": "r_week07",
+    "created_at": "2026-11-14T08:40:10+02:00",
+    "title": "Restaurant weekly order",
+    "status": "ORDERED",
+    "total": 214.6
+  },
+  {
+    "request_id": "r_bday02",
+    "created_at": "2026-11-14T08:05:44+02:00",
+    "title": "Children's birthday for 25, 22 Nov",
+    "status": "REJECTED",
+    "total": 118.35
+  }
+]

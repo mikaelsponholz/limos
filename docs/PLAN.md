@@ -1,252 +1,298 @@
 # Limos plan
 
-Limos is a purchasing agent for professional kitchens, built at Junction 2026 for the Valio Aimo "Trusted Trade Agents" challenge. A buyer describes an event and the menu. The agent expands dishes into ingredients, finds products, checks price and availability, handles exceptions, and either orders within its authority or asks a human to approve. Every decision lands in a human-readable audit trail.
+Limos is a purchasing agent for professional kitchens, built at Junction 2026 for the Valio Aimo "Trusted Trade Agents" challenge, with side entries for the Gemini API, Codex and Aiven challenges.
 
-Principle: **the AI proposes, the rules decide.** Gemini plans and suggests. Deterministic code decides what can be ordered.
+A kitchen describes an event or picks a preset. Gemini expands it into an item list, searches the catalogue, checks price and availability and chooses products. The Limos gateway locks the price in a quote, deterministic rules decide whether it can be ordered alone or needs a human, and every step lands in an append-only decision log. Any outside agent (for example Claude Desktop over MCP) buys through the same gateway under the same guardrails.
 
-## 1. Data findings (Step 1, 2026-11-13)
+Pitch: **the AI proposes, the rules decide, the human signs.** The value for the kitchen is time saved on routine search, comparison and ordering. Copy never makes speed promises or numbers we haven't measured.
 
-Source files live in `data/` (git-ignored, never redistributed): `openapi.json`, product data JSON (17 546 products, 85 MB), its schema, delivery reliability CSV (4 425 rows), carbon footprint CSV (11 033 rows).
+This plan merges Mikael's and Johannes's versions (team decisions of 2026-11-13). The API contract is [`docs/api_contract.md`](api_contract.md).
+
+## 1. Data findings (verified 2026-11-13)
+
+Source files are fetched by `scripts/fetch_valio_data.py` into `data/valio/` and never committed: product data JSON (17 546 products, 85 MB), its schema, delivery reliability CSV (4 425 rows), carbon footprint CSV (11 033 rows), `openapi.json`.
 
 ### Valio mock API
 
-- Endpoints: `GET /api/ping`, `POST /api/price`, `POST /api/availability`, plus download links for the three data files. Auth: `X-API-Key` header.
-- **There is no order endpoint.** Ordering is simulated by our own order service behind an interface, so a real order API can replace it.
-- Requests take `customer` (ignored), `requestedDate`, and 1 to 1 000 product codes. Undisclosed rate limits; the spec says to query only shortlisted products.
-- **Price**: net and gross per sales unit, `comparisonPrice` per `KG` or `L`, VAT rate, list price, `netPriceFound` (2 of 40 sampled), `error`. Prices were identical for different requested dates. `catalogPrice / comparisonPrice` gives kg or litres per sales unit (461273: 107.97 / 5.40 = 20 L). We use this as a pack-size cross-check.
-- **Availability** (40 products, 5 requested dates):
-  - The response did not change with `requestedDate`. Every available product had `availableDate` 2026-11-16 (Monday), even when we asked for 2026-11-14. Requesting a date before that is a real late-delivery case.
-  - `logisticModel` is `Stock` or `Terminal`. Terminal always reports 999 999 (unknown amount). Stock reports either real numbers (7, 10, 22, 43, 319, 552, 1 976 sales units, so partial stock is real) or sentinels such as 9 999 999 999 and 4 999 999 999 (ample).
-  - 6 of 40 had empty `scheduleLines` (cannot be delivered), and 2 had amount 0 without a date. Unknown product ids also return an empty `scheduleLines`, not an error.
-  - `closingTime` for Terminal products was already in the past (2026-11-12) while still offering 2026-11-16. We log it as a warning, not a block. Open question for the organisers.
-  - Not checked: whether availability changes over time during the event. We re-check availability before placing an order and log any difference.
+- `GET /api/ping`, `POST /api/price`, `POST /api/availability`, and download links for the three data files. Auth: `X-API-Key`.
+- **No quote or order endpoint.** Limos implements quotes and orders itself. Orders are simulated and say so.
+- 1 to 1 000 product codes per call, undisclosed rate limits. We query only shortlists (normally under 20 products).
+- **Price**: net and gross per sales unit, `comparisonPrice` per `KG` or `L`, VAT rate, list price, `netPriceFound`, `error`. Prices didn't change with the requested date. `validTo` is 9999-12-31. `catalogPrice / comparisonPrice` = kg or l per sales unit, used to cross-check pack sizes.
+- **Availability** (40 products, 5 dates):
+  - `requestedDate` didn't change the answer. Every deliverable product had `availableDate` 2026-11-16, so asking for an earlier date is a real late-delivery case.
+  - `Stock` products report real amounts (7, 10, 22, 43, 319...) or "ample" sentinels (9 999 999 999). `Terminal` products always report 999 999 (unknown amount).
+  - 6 of 40 had empty `scheduleLines`, 2 had amount 0. Unknown ids also return empty `scheduleLines`, not an error.
+  - Terminal `closingTime` was 2026-11-12 (already past) while still offering 2026-11-16. A passed cut-off is a **warning flag, not a block**, or every Terminal product would fail.
+  - Not checked: whether availability changes during the event. We re-check before ordering.
 
 ### Product data fields
 
-| Need | Field | Coverage and notes |
+| Need | Field | Notes |
 |---|---|---|
-| Name | `synkkaData.names[]` (fi, en, sv) | fi 100 %, en ~100 %, sv 92 % |
-| Origin | `countryOfOrigin` (ISO alpha-2, lowercase) | 99.9 %. `fi` on 7 849 products. Can disagree with the name (a courgette named NL is coded `es`) |
-| Origin, detail | `synkkaData.countriesOfOrigin[]` (numeric ISO, 246 = FI), `ingredients[].origins[]` (FARMING, MILKING, REARING...) | 82 % / 21 % |
-| Finnish labels | `classifications[name=packagingMarkedLabel]`: `GOODS_FROM_FINLAND_BLUE_SWAN` 2 057, `MADE_IN_FINLAND_FLAG_WITH_KEY` 1 772, `FINNISH_HEART_SYMBOL` 826, `PUHTAASTI_KOTIMAINEN` 7 | |
-| Organic | same group: `EU_ORGANIC_FARMING` 456, `KRAV_MARK` 26, `OFFICIAL_ECO_LABEL_SUN` 17, `SOIL_ASSOCIATION_ORGANIC_SYMBOL` 11 | 473 names contain "luomu". Fresh produce often has no labels at all, so we also read the name, marked as weaker evidence |
-| Other labels | `SVANEN`, `EU_ECO_LABEL`, `RAINFOREST_ALLIANCE`, `FAIR_TRADE_MARK`, `MARINE_STEWARDSHIP_COUNCIL_LABEL`, `AQUACULTURE_STEWARDSHIP_COUNCIL` | |
-| Allergens | `classifications[name=allergen]` values: GS1 code + `CONTAINS` / `MAY_CONTAIN`. `nonAllergen` holds `FREE_FROM` | Group present on 99.9 %, but often empty. Fresh produce usually has no allergen data |
-| Allergen codes (GS1) | AM milk, ML lactose, AW cereals with gluten, UW wheat, GB barley, NR rye, GO oats, ST spelt, AE egg, AF fish, AC crustaceans, UM molluscs, AP peanut, AN tree nuts (SA almond, SH hazelnut, SW walnut, SC cashew, SP pecan, SR brazil, SM macadamia, ...), AY soy, AS sesame, BC celery, BM mustard, AU sulphites, NL lupin | Mapping lives in `lib/catalog/allergens.ts` |
-| Lactose and diet | `classifications[name=nutritionalClaim]`: `FREE_FROM_LACTOSE` 4 178, `LOW_LACTOSE` 321, `FREE_FROM_GLUTEN` 3 047, `VEGAN` 2 959, `VEGETARIAN` 2 358, `FREE_FROM_EGGS` 418 | `LOW_LACTOSE` does not count as lactose-free |
-| Ingredients text | `synkkaData.keyIngredients[]` (80 %), allergens in CAPITALS | Used for a secondary allergen check |
-| Units | `salesUnit` (KI 8 005, ST 5 607, KG 1 068, PAK, BAG, RAS, PRK, BOT...), `baseUnit`, `units[]` with `sizeInBaseUnits` | Unit codes are untranslated technical codes; we keep our own label map |
-| Pack size | `synkkaData.unitConversions[]` net weight / volume per packaging level (82 %), else parse the name ("3,3 dl", "10 x", "5200g"), else the price ratio above | Unknown pack size means the line needs review |
-| Order step | `allowedLotSize` | 0.01 on 96 %, else 1 to 10 |
-| Variable weight | `synkkaData.variableUnit` | true on 632 |
-| Substitutions | `substitutions[]` | Only 189 products (1.1 %) |
-| Category | `category` code, 349 distinct, names not included | Used for grouping only |
-| Delivery reliability | CSV `productId,deliveryReliability` 0 to 1 | 4 425 products, median 1.0, p10 0.94. Missing means unknown, not bad |
-| Carbon footprint | CSV `productId,AVG kg CO2-eq/kg` | 11 033 products, median 2.1, p90 7.1 |
+| Name | `synkkaData.names[]` fi / en / sv | fi 100 %, en ~100 % |
+| Origin | `countryOfOrigin` (ISO alpha-2, lowercase) | 99.9 %, `fi` on 7 849. Can disagree with the name |
+| Finnish labels | `classifications[packagingMarkedLabel]`: `GOODS_FROM_FINLAND_BLUE_SWAN` 2 057, `MADE_IN_FINLAND_FLAG_WITH_KEY` 1 772, `FINNISH_HEART_SYMBOL` 826, `PUHTAASTI_KOTIMAINEN` 7 | |
+| Organic | same group: `EU_ORGANIC_FARMING` 456, `KRAV_MARK`, `OFFICIAL_ECO_LABEL_SUN`, `SOIL_ASSOCIATION_ORGANIC_SYMBOL` | "luomu" in 473 names. Name-only evidence is weaker and shown as such |
+| Allergens | `classifications[allergen]`: GS1 code + `CONTAINS`, `MAY_CONTAIN` or `UNDECLARED`. `classifications[nonAllergen]`: `FREE_FROM` | Fresh produce often has no allergen data. Missing data is never "safe" |
+| Allergen codes | AM milk, ML lactose, AW gluten cereals, UW wheat, GB barley, NR rye, GO oats, ST spelt, AE egg, AF fish, AC crustaceans, UM molluscs, AP peanut, AN tree nuts (SA almond, SH hazelnut, SW walnut, SC cashew, SP pecan, SR brazil, SM macadamia...), AY soy, AS sesame, BC celery, BM mustard, AU sulphites, NL lupin | Mapping in `gateway/catalog/allergens.py` |
+| Lactose, diet | `classifications[nutritionalClaim]`: `FREE_FROM_LACTOSE` 4 178, `LOW_LACTOSE` 321, `FREE_FROM_GLUTEN`, `VEGAN`, `VEGETARIAN` | `LOW_LACTOSE` is not lactose-free |
+| Ingredients text | `synkkaData.keyIngredients[]` (80 %) | Allergens in capitals. Secondary check only |
+| Units | `salesUnit` (KI 8 005, ST 5 607, KG 1 068...), `baseUnit`, `units[]` `sizeInBaseUnits`, `allowedLotSize` | Unit codes untranslated; we keep a label map |
+| Pack size | `synkkaData.unitConversions[]` net weight / volume (82 %), else the name, else the price ratio | Unknown pack size → approval |
+| Storage class | `packagingMarkedLabel` `warmTemperature` / `coolTemperature` / `freezeTemperature`, `temperatureCondition` code | For the storage add-on |
+| Substitutions | `substitutions[]` | 189 products, 250 rules. Valio-approved |
+| Category | `category` code | 349 codes, no names. Not used in rules |
+| Reliability | CSV, 0 to 1 | Median 1.0, p10 0.94. Missing = unknown, not bad |
+| Carbon | CSV, kg CO2e per kg (group average) | Median 2.1, p90 7.1 |
+
+No purchase history exists in the data, so no rule depends on one.
 
 ## 2. Architecture
 
-One Next.js (App Router) + TypeScript app.
-
 ```
-app/                  UI pages and components (Johannes + designer)
-app/api/              HTTP routes (Mikael)
-lib/                  agent and backend (Mikael)
-  catalog/            slim catalog loader, search, labels, allergens, pack size
-  valio/              Valio API client: price, availability, cache, retry
-  llm/                Gemini wrapper, model config, structured output, fake LLM
-  agent/              run orchestrator, recipe expansion, matching, exceptions
-  rules/              guardrails: policy, line and cart evaluation
-  ranking/            good / better / best scoring
-  orders/             order service interface + simulated implementation
-  store/              RunStore and AuditStore interfaces + memory / JSON file / Postgres
-  contract/           zod schemas mirroring types/contract.ts
-types/contract.ts     JSON shapes the UI consumes (shared)
-fixtures/contract/    mock JSON for each shape
-scripts/              build-catalog, probe-valio, list-models
-docs/                 PLAN, CONTRACT, ARCHITECTURE, POLICY, API
+Kitchen buyer (preset, event form or free text)      External agent (Claude Desktop, script)
+        |                                                     |  MCP / REST
+        v                                                     |
+[Limos web, Next.js]  (Johannes)                              |
+        | REST: /requests, /approvals, /audit                 |
+        v                                                     v
+[Limos backend, FastAPI]  (Mikael)
+   agent/      Gemini buyer agent: intent, event expansion, choice, explanation
+       | function calling over the gateway's HTTP tools (same as any outside agent)
+   gateway/    tools: search, offers, quotes, approvals, orders | policy | decision log
+       |                     |
+       v                     v
+[Valio Aimo mock API]   [Store: JSON file → Aiven PostgreSQL]
 ```
 
-Libraries (each with a reason): `next`, `react`, `typescript`; `@google/genai` (Gemini, function calling, structured output); `zod` (runtime validation of LLM output and API bodies, one source for JSON Schema and OpenAPI); `vitest` (fast unit tests); `@modelcontextprotocol/sdk` (Phase 5). `pg` only in the Aiven stretch phase. No UI library decisions here: that is Johannes's zone.
+- **Two parties.** The Gemini agent is a client of the gateway and calls it over HTTP, exactly like Claude Desktop or the plain script. The gateway trusts no client: it enforces mandates, price locks and approvals itself.
+- **Code, not AI:** search over the local catalogue, unit conversion, price lock, quote expiry, content hash, idempotency, policy outcome, decision log.
+- **AI (Gemini):** parse free text, expand an event into items, pick among candidates the code found, propose substitutes, write the explanation. The explanation may only use facts the code supplied (prices, dates, labels).
+- **Never**: an LLM approves, writes the decision log, or sees more than a short candidate list.
 
-### Run lifecycle
+### Stack
 
-`POST /api/runs` returns a `runId` at once. The pipeline runs in the background and writes audit entries as it goes. The UI polls `GET /api/runs/:id` (about 1 s) and shows the trail filling in. Status: `planning`, `sourcing`, `awaiting_approval`, `ordering`, `ordered`, `failed`.
+- Backend: Python 3.12, FastAPI, Pydantic v2, httpx, `google-genai`, `mcp` (official Python SDK), pytest, ruff, mypy, managed with `uv`. Storage: psycopg 3 for Aiven later.
+- Web: Next.js (App Router), TypeScript, Tailwind, in `web/`. TS types are generated from the backend's OpenAPI with `openapi-typescript`.
+- Gemini: `GEMINI_MODEL` (current Flash) for everything. `GEMINI_EXPANSION_MODEL` defaults to the same Flash model; Phase 3 tests Pro for event expansion and records the result.
 
-1. **Request**: structured form fields plus free text. Gemini Flash fills only blank fields from the text. Fields the buyer gave always win.
-2. **Recipe expansion** (Gemini Pro, structured JSON): each dish becomes ingredients with a **per-serving** quantity, a Finnish and an English search term, and a category hint. Code multiplies by guests, adds a waste factor (policy, default 5 %), and merges the same ingredient across dishes (butter in cake and sandwiches becomes one cart line). Sanity bounds per guest raise an assumption warning, never a silent fix.
-3. **Retrieval** (code): token search over fi and en names and key ingredients in the slim catalog. Hard filters (excluded allergens, `require` preferences, sales block) apply before the model sees anything.
-4. **Relevance check** (Gemini Flash): from the top 20 candidates, which ones actually are the ingredient ("kuohukerma", not "kermajuusto"). The model may only return ids from the list (validated).
-5. **Price and availability** (Valio API): one batched call each for the shortlist (at most about 5 per ingredient), for the delivery date.
-6. **Quantities** (code): needed amount → pack size → sales units, rounded up to `allowedLotSize`. Overbuy above policy (default 25 %) is flagged.
-7. **Ranking** (code): good / better / best, see section 4.
-8. **Exceptions** (code first, Gemini Flash with function calling only for finding substitutes), see section 5.
-9. **Rules** (code): every line and the whole cart get a decision with rule ids and a plain reason.
-10. **Order or approval**: if nothing needs approval, the agent places the order itself. Otherwise approval items are created. When all are resolved, the rules run again, availability is re-checked, and the order is placed.
+### Repo layout
 
-### Gemini use
+```
+gateway/            FastAPI app
+  api/              routes: buyer, approver, gateway tools, health
+  schemas.py        Pydantic models = the API contract
+  valio/            Valio client, models, cache, retry
+  catalog/          slim index, search, labels, allergens, pack size
+  offers.py         shortlist → comparable offers
+  quotes.py         price lock, expiry, content hash
+  orders.py         idempotent simulated orders
+  policy/           rules, mandates, outcome
+  store/            Store interface: memory, JSON file, Postgres
+  audit.py          decision log with hash chain
+agent/              Gemini buyer agent (intent, expansion, tool loop, explanation)
+mcp_server/         MCP server over the gateway tools
+clients/            plain script client (openness demo)
+presets/            the four demo presets as JSON
+scripts/            fetch_valio_data, build_catalog, ping_valio, list_models, export_openapi, find_demo_cases
+contract/openapi.json   exported OpenAPI snapshot (committed, web generates types from it)
+fixtures/api/       mock JSON for every contract shape
+tests/
+web/                Next.js UI (Johannes)
+docs/               PLAN, api_contract, POLICY, ARCHITECTURE
+data/valio/         Valio files (git-ignored, fetched by script)
+.runtime/           local store and recordings (git-ignored)
+```
 
-- Models come from env: `GEMINI_PRO_MODEL` (planning, recipe expansion) and `GEMINI_FLASH_MODEL` (parsing, relevance, substitute search). Phase 0 lists the available models with the key and pins current ids in `.env.example`.
-- Structured output: a zod schema → JSON Schema → `responseSchema`. Every response is validated, with one repair retry, then the run fails with a clear audit entry.
-- Function calling: the substitute finder gets the tools `search_products`, `get_availability`, `get_prices` and `propose_line`. **No tool can place an order.** `propose_line` hands a candidate to the rules engine, which can reject it.
-- Each LLM call is logged in the audit trail with the model id, purpose, a prompt hash and the parsed result.
-- A fake LLM (fixture-backed) lets tests and offline demos run without the API.
+Zones: Mikael owns everything outside `web/`. Johannes owns `web/`. `docs/api_contract.md`, `gateway/schemas.py` and `fixtures/api/` change only by agreement.
 
-## 3. Guardrails ("the AI proposes, the rules decide")
+## 3. Request flow
 
-Pure TypeScript in `lib/rules`, configured by `lib/rules/policy.default.json`, documented in `docs/POLICY.md`, unit-tested per rule. Each rule has an id, returns `pass`, `needs_approval` or `block`, and writes a plain reason.
+1. **Request** (`POST /requests`): a preset id, an event form, an item list or free text. Returns `202` with a `request_id`. The run is a background task. The UI polls `GET /requests/{id}`.
+2. **Intent** (Gemini Flash): free text becomes the structured intent. Fields the buyer set always win.
+3. **Event expansion** (Gemini, structured output): each dish becomes items with a per-serving quantity. Code multiplies by servings, adds waste (mandate, default 5 %) and merges the same item across dishes. Per-guest sanity bounds add assumption notes, never silent fixes.
+4. **Search** (gateway `search_products`, code): token search over fi / en names and key ingredients. Hard filters (allergen CONTAINS, dietary `violated`, sales block) run before Gemini sees anything.
+5. **Choice** (Gemini over tools): picks the relevant candidates (whipping cream, not cream cheese) from the list. Ids are validated against the list.
+6. **Offers** (gateway `check_offers`): one Valio price and one availability call for the shortlist, then unit conversion to sales units with `allowedLotSize`, `dietary_check`, flags, reliability and CO2.
+7. **Ranking** (code): good / better / best per item (section 5). The default pick follows the buyer's priority.
+8. **Exceptions** (code, plus Gemini for agent substitutes): section 6.
+9. **Quote** (gateway `request_quote`): locks prices, sets `expires_at`, computes `content_hash`, runs the policy engine. Outcome `AUTO`, `NEEDS_APPROVAL` or `BLOCK`.
+10. **Order or approval**: `AUTO` → the agent calls `place_order` with an idempotency key. `NEEDS_APPROVAL` → the agent calls `request_approval`; a human approves one option bound to its `content_hash`; the gateway re-checks availability and places the order. `BLOCK` → the request ends with the rule and reason.
+11. **One order per event.** A request produces at most one order.
 
-| Id | Rule | Default outcome |
+## 4. Guardrails ("the rules decide")
+
+Pure Python in `gateway/policy/`, with no LLM calls. Mandates per buyer live in `gateway/policy/mandates.json` (readable config, placeholders for now). Every rule has a pytest test for each outcome it can produce. Every quote gets one outcome and the list of rules that fired, each with a plain description.
+
+| Rule id | When | Outcome |
 |---|---|---|
-| A1 | Product CONTAINS an excluded allergen | block (never orderable) |
-| A2 | Product MAY_CONTAIN an excluded allergen | needs approval (policy: allow / approve / block) |
-| A3 | Buyer excludes allergens, product has no allergen data | needs approval |
-| A4 | Key ingredients text mentions an excluded allergen the codes don't (secondary check; Gemma in stretch) | needs approval. This check can only escalate, never clear |
-| P1 | `require` preference not met (lactose-free = `FREE_FROM_LACTOSE` claim or ML free-from; Finnish = origin `fi`; organic = organic label, or "luomu" in the name as weaker evidence) | needs approval with the best available option |
-| P2 | `prefer` preference not met | pass, shown as a missed preference |
-| S1 | Spend: line above line limit (default €250 net) | needs approval |
-| S2 | Spend: cart above auto-order limit (default €1 500 net) or above the buyer's budget | needs approval |
-| S3 | Cart above budget + 15 % | block until the buyer changes the plan |
-| Q1 | Ordered quantity exceeds need by more than 25 % (pack rounding) | needs approval |
-| Q2 | Pack size unknown | needs approval |
-| D1 | No delivery on or before the needed-by date | needs approval (shows the earliest date) |
-| D2 | Sales block, empty schedule, or no price | block for that product (the agent looks for another) |
-| D3 | Stock below need | needs approval for a split or substitute |
-| D4 | Closing time already passed | warning only (mock data, see findings) |
-| X1 | Substitute from Valio's substitution list that passes all rules, price within +15 % | pass, counted |
-| X2 | Substitute found by the agent's own search | needs approval |
-| X3 | More than 3 substitutions in one cart | the rest need approval |
+| `AGENT_NOT_PERMITTED` | Agent id not allowed by the buyer's mandate | BLOCK |
+| `SALES_BLOCK` | Product has a sales block | BLOCK (agent picks another) |
+| `NOT_DELIVERABLE` | Empty schedule or amount 0 | BLOCK (agent picks another) |
+| `PRICE_MISSING` | Price `error` | BLOCK (agent picks another) |
+| `ALLERGEN_CONTAINS` | Contains an excluded allergen | BLOCK |
+| `DIETARY_VIOLATED` | Data contradicts a required constraint (lactose-free asked, product contains lactose) | BLOCK |
+| `SPEND_HARD_CAP` | Total over the mandate's hard cap | BLOCK |
+| `BUDGET_HARD_STOP` | Total over the event budget + 15 % | BLOCK |
+| `ALLERGEN_MAY_CONTAIN` | May contain an excluded allergen | NEEDS_APPROVAL |
+| `ALLERGEN_DATA_MISSING` | Allergens excluded and the product has no allergen data | NEEDS_APPROVAL |
+| `DIETARY_UNKNOWN` | A required constraint can't be confirmed from data | NEEDS_APPROVAL |
+| `PREFERENCE_REQUIRED_UNMET` | No candidate meets a `require` preference (for example kotimainen); best available offered | NEEDS_APPROVAL |
+| `SPEND_SOFT_LIMIT` | Total over the mandate's auto limit | NEEDS_APPROVAL |
+| `LINE_SOFT_LIMIT` | One line over the line limit | NEEDS_APPROVAL |
+| `BUDGET_EXCEEDED` | Total over the event budget | NEEDS_APPROVAL |
+| `LATE_DELIVERY` | `available_date` after `deliver_by` | NEEDS_APPROVAL |
+| `PARTIAL_QUANTITY` | Quote covers less than needed | NEEDS_APPROVAL |
+| `SPLIT_DELIVERY` | One item split across products | NEEDS_APPROVAL |
+| `SUBSTITUTION` | Any substitute, Valio-approved or agent-proposed (shown separately) | NEEDS_APPROVAL |
+| `OVERBUY` | Ordered more than 25 % above need after pack rounding | NEEDS_APPROVAL |
+| `PACK_SIZE_UNKNOWN` | Can't convert need to sales units | NEEDS_APPROVAL |
+| `TERMINAL_LOW_RELIABILITY` | Terminal product with reliability under 0.90 | NEEDS_APPROVAL |
+| `PRICE_CHANGED` | A re-quote changed a locked price | NEEDS_APPROVAL |
+| `CUTOFF_PASSED` | `closingTime` in the past | flag only (see findings) |
 
-Ordering mode (confirmed 2026-11-13): one order per event. The cart is ordered as one order once every approval item is resolved. Rejected lines are left out and listed in the order result. Reason: one delivery per event, and the buyer sees one clear outcome.
+Placeholder mandate (per buyer, editable): auto limit €1 500 net, line limit €250, hard cap €5 000, max overbuy 25 %, waste 5 %, allowed agents.
 
-The limits in the table are placeholders (confirmed 2026-11-13) and live in the policy file, so they can change without code changes.
+**Quote rules (code):** `expires_at` = now + 30 min, never past a future `closingTime`. `content_hash` = SHA-256 over the canonical JSON of lines, totals, delivery date and expiry. An approval stores the hash it approved; `place_order` refuses a quote that is expired, changed, or `NEEDS_APPROVAL` without a matching approval. The same idempotency key returns the same order.
 
-## 4. Product matching and good / better / best
+Dropped (no purchase history in the data): price versus last purchase, new product, category allow-lists.
 
-Only candidates that pass the hard filters (A1, D2, `require` preferences where any candidate meets them) are ranked.
+## 5. Ranking: good, better, best
 
-Score per candidate, 0 to 100:
+Only candidates that passed the hard filters are ranked. Score 0 to 100:
 
-- Preference fit, 40: each `prefer` preference met. Label evidence scores higher than name-only evidence.
+- Preference fit, 40: each `prefer` met. Label evidence beats name-only evidence.
 - Price, 30: comparison price per kg or l against the cheapest candidate.
-- Pack fit, 15: low waste after rounding to whole sales units.
-- Delivery reliability, 10: from the CSV. Missing data is neutral, not penalised.
-- Carbon, 5: kg CO2e per kg against the other candidates. Missing data is neutral.
+- Pack fit, 15: low waste after rounding.
+- Delivery reliability, 10. Missing = neutral.
+- CO2, 5: kg CO2e per kg against the other candidates. Missing = neutral.
 
-Tiers:
+**Good** = cheapest that meets every `require`. **Best** = highest preference fit. **Better** = highest total score of the rest. Priority `price` / `balanced` / `quality` picks the default. The quote shows `co2e_total_kg` where data exists. Offer reasons are composed from code facts.
 
-- **Good**: the cheapest candidate that meets every `require`.
-- **Best**: the highest preference fit, ties broken by score.
-- **Better**: the highest total score that is neither of the others.
+## 6. Exceptions
 
-The default pick follows the buyer's priority (`price` → good, `balanced` → better, `quality` → best). If fewer than three candidates exist, fewer tiers are shown. Reasons are written by code from the score parts ("Finnish origin (Blue Swan label), lactose-free claim, €6.13/l, 99 % delivery reliability"), so they always match the data.
+| Exception | Agent action | Rule |
+|---|---|---|
+| Partial stock | Split across the next product, or a substitute, offered as options | `SPLIT_DELIVERY`, `PARTIAL_QUANTITY` |
+| Late delivery | Candidate available in time; else show the earliest date | `LATE_DELIVERY` |
+| Not deliverable, sales block, no price | Next candidate, then Valio's `substitutions[]`, then an agent-proposed substitute | `SUBSTITUTION` |
+| Required preference unmet | Best available plus what is missing | `PREFERENCE_REQUIRED_UNMET` |
+| Allergen risk | Prefer candidates with full data | `ALLERGEN_*` |
+| Over budget | A cheaper option (lower tier per line, biggest savings first) | `BUDGET_EXCEEDED` |
+| Quote expired before ordering | Re-quote; if any price moved, approval | `PRICE_CHANGED` |
+| Valio errors, 429, timeouts | Retry with backoff; orders are safe to retry by idempotency key | step `ERROR` if exhausted |
+| Gemini invalid output | One repair retry, then fail the step clearly | request `FAILED` |
 
-The cart total shows net, gross and an estimated CO2e (kg CO2e/kg × kg ordered, from Valio's file, only where the data exists).
+Approval `options` are alternative quotes (at most 3): the recommended one and a safer or cheaper one.
 
-## 5. Exception handling
+## 7. Decision log
 
-| Exception | Detection | Agent action | Rules |
-|---|---|---|---|
-| Partial stock | Stock amount below need | Split across the next-ranked product, or a substitute | D3 → approval with the split shown |
-| Late delivery | `availableDate` after the needed-by date | Look for a candidate available in time | If none, D1 → approval with the earliest date |
-| Unavailable | Empty schedule, amount 0, sales block | Next candidate, then Valio substitution list, then agent search | D2, X1 to X3 |
-| Unmet preference | No candidate meets a `require` | Best available option with what is missing | P1 → approval |
-| Allergen risk | MAY_CONTAIN or missing data | Prefer candidates with full data | A2, A3, A4 |
-| Price missing | `error: true` | Drop the candidate | D2 |
-| Over budget | Cart total | Propose a cheaper tier per line, biggest savings first | S2, S3 |
-| LLM failure | Invalid output after retry | Fail the step with a clear message | Run status `failed`, audit entry |
+- Append-only `Step` entries per request: seq, time, actor (`user`, `agent`, `gateway`, `policy`, `human`), type, a plain title, detail, the model for LLM steps.
+- Written only by the gateway and the agent runner, never by the LLM's text directly.
+- Tamper evidence: each step stores `prev_hash` and `hash` (SHA-256). `GET /audit/{request_id}` returns the chain and whether it verifies.
+- `Store` interface: memory (tests), JSON file in `.runtime/` (default), Aiven PostgreSQL (Phase 6). Chosen by `STORE=memory|file|postgres`.
 
-## 6. Audit log
+## 8. Presets (demo scenarios)
 
-- Append-only `AuditEntry` per event: sequence number, timestamp, actor (agent, rules, human, system), action, a **human-readable summary sentence**, optional line and product refs, rule ids, model id, structured details.
-- Tamper evidence: each entry stores `prevHash` and `hash` (SHA-256 over the entry). The UI can show "chain verified".
-- `AuditStore` and `RunStore` interfaces with three implementations: in-memory (tests), JSON file in `.runtime/` (default, git-ignored), Aiven PostgreSQL (stretch). Chosen by `STORE=memory|file|postgres`.
-- Export: `GET /api/runs/:id/audit?format=json|md` returns the whole trail as JSON or a readable Markdown report.
+| Preset | Guests | Must trigger |
+|---|---|---|
+| `restaurant_weekly` | item list | Every line AUTO, the agent orders alone, the log names the rule set that allowed it |
+| `wedding_120` | 120 | Partial stock with a split option and a Valio-approved substitute → approval → order |
+| `birthday_kids_25` | 25 | Nut-free; a may-contain-nuts product → `ALLERGEN_MAY_CONTAIN` approval with a safe option |
+| `company_lunch_60` | 60 | Kotimainen required; budget set so the total exceeds it → `BUDGET_EXCEEDED` approval with a cheaper option |
 
-## 7. Openness and path to production
+Plus free text. Presets are built from data, not luck: `scripts/find_demo_cases.py` finds products that trigger each case (for example courgette 460025, not deliverable, with Valio substitute 460150 in stock). A test per preset runs against recorded responses and fails unless the expected outcome and rules appear. `uv run python scripts/demo_check.py` re-runs all presets live before the demo.
 
-- **Our HTTP API** documented as OpenAPI 3.1, generated from the zod schemas, served at `/api/openapi.json`, with notes in `docs/API.md`.
-- **MCP server** at `/api/mcp` (Streamable HTTP) so an external purchasing agent can use Limos: `search_products`, `check_price_and_availability`, `plan_event`, `get_run`, `submit_cart` (rules-gated). Approval stays a human action and is not an MCP tool.
-- Standards used: OpenAPI, MCP, JSON Schema, GS1 allergen and label codes, ISO 3166 country codes, ISO 8601 dates.
-- To production (in `docs/ARCHITECTURE.md`): customer-specific prices and availability via a real customer id, a real order API behind `OrderService`, per-customer policy files, auth and approver roles, PostgreSQL, scheduled re-checks before the cut-off.
+## 9. Openness and path to production
 
-## 8. Phases
+- The backend's OpenAPI at `/openapi.json`, snapshot committed in `contract/openapi.json`.
+- **MCP server** (`mcp_server/`): the gateway tools `search_products`, `check_offers`, `request_quote`, `request_approval`, `place_order`, `get_order_status` for an external agent such as Claude Desktop (stdio entry point, plus Streamable HTTP). It calls the gateway's HTTP API, so the guardrails, approvals and decision log are exactly the same. There is no approve tool: approval stays human.
+- A plain script client (`clients/plain_client.py`) places the same order through REST.
+- Standards: OpenAPI 3.1, MCP, JSON Schema, GS1 allergen and label codes, ISO 3166, ISO 8601.
+- To production (`docs/ARCHITECTURE.md`): customer-specific prices via a real customer id, a real order API behind `orders.py`, mandates per customer in the database, real auth for agents (OAuth client credentials) and approvers, Aiven PostgreSQL, scheduled re-checks before cut-off.
 
-Gate for every phase: `npm run check` (typecheck + lint + vitest). Each phase is about 1 to 2 hours. The target is a thin end-to-end flow by Saturday morning.
+## 10. Phases
 
-UI track (Johannes + designer) runs in parallel from the start against `fixtures/contract/` and switches to the live API with `NEXT_PUBLIC_USE_FIXTURES=false` after Phase 1. Pages: event request, run progress with live audit, cart review with good / better / best, approvals, order result, audit trail.
+Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check . ; uv run mypy gateway agent mcp_server ; uv run pytest -q` (each must pass). Each phase is about 1 to 2 hours. The web track (Johannes) runs in parallel against `fixtures/api/` and switches to the backend when Phase 1 is done.
 
-### Phase 0: Scaffold and data layer
+### Phase 0: Backend scaffold and data
 
-1. STANDARD: Next.js + TypeScript app at the repo root (`app/`, `lib/`, `types/`), scripts `dev`, `build`, `typecheck`, `lint`, `test`, `check`. Vitest. MIT `LICENSE`. `.env.example` with `VALIO_API_KEY`, `VALIO_BASE_URL`, `GEMINI_API_KEY`, `GEMINI_PRO_MODEL`, `GEMINI_FLASH_MODEL`, `STORE`. `.runtime/` in `.gitignore`.
-2. ENGINE: `scripts/build-catalog.ts` reads `data/` and writes `data/catalog.slim.json` with normalised fields (names, origin, Finnish and organic evidence, allergens as contains / may contain / free from, claims, units, pack size, lot size, substitutes, reliability, CO2). `lib/catalog` loads it once and provides token search. Tests use small invented products, never real data.
-3. STANDARD: `lib/valio` server-only client for ping, price and availability. Batches of at most 1 000, 5-minute cache per (endpoint, date, id), retry with backoff on 429 and 5xx, sentinel normalisation (999 999 and above = unknown or ample). `scripts/probe-valio.ts` for a live check. Tests with mocked fetch.
-4. STANDARD: `lib/llm` Gemini wrapper: model ids from env, `generateStructured(schema, prompt)` with validation and one repair retry, function-calling loop helper, fake LLM. `scripts/list-models.ts` lists the models available to the key. Pin the newest stable Pro and Flash ids as the defaults in `.env.example` and in `lib/llm/config.ts`, and record them in the Decisions section.
-5. TEST: `lib/contract/schemas.ts` (zod mirror of `types/contract.ts`) and a test that every fixture in `fixtures/contract/` parses.
+1. STANDARD: `pyproject.toml` (uv, Python 3.12, FastAPI, Pydantic v2, httpx, google-genai, pytest, ruff, mypy), FastAPI app with `GET /health`, the error format from the contract, CORS for the web origin, MIT `LICENSE`, `.env.example` (`VALIO_API_KEY`, `VALIO_BASE_URL`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_EXPANSION_MODEL`, `STORE`, `DATABASE_URL`, `WEB_ORIGIN`), `.gitignore` covering `data/`, `.runtime/`, `.venv/`, `__pycache__/`.
+2. STANDARD: `scripts/fetch_valio_data.py` downloads the three data files and `openapi.json` via the download endpoints (following redirects) into `data/valio/`. `gateway/valio/`: async client for ping, price and availability with Pydantic models matching Valio's `openapi.json`, timeout, retry with backoff on 429 and 5xx, batches of at most 1 000, a 5-minute cache, sentinel normalisation. `scripts/ping_valio.py` prints a compact table for three products. Tests with mocked httpx.
+3. ENGINE: `scripts/build_catalog.py` writes `data/valio/catalog.slim.json`. `gateway/catalog/` loads it once: names, origin, Finnish label and organic evidence, allergens (contains, may contain, undeclared, free from) mapped to contract codes, claims, units, pack size resolver, lot size, storage class, substitutes, reliability, CO2, token search. Tests with invented records only.
+4. STANDARD: `agent/llm.py` Gemini wrapper: model ids from env, structured output from Pydantic models with one repair retry, a function-calling loop, a fake LLM for tests. `scripts/list_models.py` lists the models for the key; pin the current Flash id as the default in `.env.example` and record it in Decisions.
+5. TEST: `gateway/schemas.py` with Pydantic models for every shape in `docs/api_contract.md`. A test validates every file in `fixtures/api/`. `scripts/export_openapi.py` writes `contract/openapi.json`, and a test fails when the snapshot is stale.
 
-### Phase 1: Thin end-to-end (target: Saturday morning)
+### Phase 1: Thin end-to-end (target: Saturday midday)
 
-1. ENGINE: `lib/rules` v1 with the policy file and rules A1, A3, P1, P2, S1, S2, D1, D2, D3. Pure functions, one test per rule.
-2. ENGINE: `lib/agent/run.ts` pipeline with a fixed ingredient plan (no LLM yet): retrieval → simple top pick → price and availability → quantities → rules → approval items or simulated order. `lib/store` memory and JSON file stores with the hash chain. `lib/orders` simulated order service.
-3. STANDARD: routes `POST /api/runs`, `GET /api/runs/:id`, `POST /api/runs/:id/approvals/:approvalId`, `GET /api/runs/:id/audit`, all returning contract shapes validated by zod.
-4. TEST: end-to-end test with mocked Valio and the fake LLM, plus `npm run smoke` against the live API.
+1. ENGINE: `gateway/offers.py`: shortlist → `Offer` with unit conversion, lot size, `dietary_check`, flags, reliability, CO2.
+2. ENGINE: `gateway/policy/` with the mandate file and the rules in section 4 except `PRICE_CHANGED`. One test per rule and outcome.
+3. ENGINE: `gateway/quotes.py` and `gateway/orders.py`: price lock, expiry, content hash, approvals bound to the hash, idempotent simulated orders. `gateway/store/` memory and JSON file. `gateway/audit.py` with the hash chain.
+4. STANDARD: routes from the contract: gateway tools, `POST/GET /requests`, `GET /presets`, approvals, audit. A deterministic agent runner for the `restaurant_weekly` preset (item list, top candidate by code, no LLM yet) that runs search → offers → quote → AUTO → order.
+5. TEST: end-to-end test with mocked Valio for the AUTO path and for a NEEDS_APPROVAL → approve → order path, including a 409 on a changed hash and an idempotent retry. `scripts/smoke.py` runs it against the live API.
 
-### Phase 2: Gemini planning
+### Phase 2: MCP server
 
-1. ENGINE: request parsing with Flash (fills blanks only).
-2. ENGINE: recipe expansion with Pro: per-serving quantities, scaling, waste factor and merging in code, sanity bounds as assumption warnings.
-3. ENGINE: relevance check with Flash over the top 20 candidates, ids validated against the list.
+1. STANDARD: `mcp_server/` with the official `mcp` SDK. Tools from section 9, each calling the gateway's REST API with an agent id. Stdio entry point (`uv run limos-mcp`) and Streamable HTTP. No approve tool.
+2. TEST: tests with an MCP client session against a running test gateway: the AUTO order works, a NEEDS_APPROVAL quote can't be ordered until a human approves through REST.
+3. COPY: `docs/MCP.md` with the Claude Desktop config snippet and a short walkthrough. `clients/plain_client.py` for the REST openness demo.
 
-### Phase 3: Exceptions and approvals
+### Phase 3: Gemini agent
 
-1. ENGINE: exception detection and handling for partial stock (split), late delivery, unavailable, unmet `require` preference, allergen risk; rules A2, Q1, Q2, D4.
-2. ENGINE: substitutions: Valio list first, then the Flash function-calling substitute finder; rules X1 to X3; every proposal goes through the rules.
-3. STANDARD: approval resolution: re-evaluate, re-check availability before ordering, log any change, place the order when all items are resolved.
+1. ENGINE: intent parsing from free text (Flash, structured), buyer-set fields win.
+2. ENGINE: event expansion (structured, per serving): scaling, waste and merging in code, sanity notes. `scripts/eval_expansion.py` runs the four presets with Flash and Pro and writes a short comparison. Record the chosen model in Decisions.
+3. ENGINE: the tool loop: Gemini calls the gateway tools over HTTP to pick candidates and request a quote, and writes `agent_explanation` from the facts it was given. Ids and numbers it returns are validated against tool results.
 
-### Phase 4: Ranking
+### Phase 4: Exceptions and presets
 
-1. ENGINE: scoring and good / better / best tiers with reliability and carbon as secondary signals, code-written reasons, cart totals with CO2e, budget rules S3 and the "cheaper tier" proposal.
+1. ENGINE: partial stock with split options, late delivery, not deliverable, Valio substitutes then agent substitutes (Gemini proposes, rules decide), required preference unmet, budget exceeded with a cheaper option, quote expiry with re-quote and `PRICE_CHANGED`. Approval options as alternative quotes.
+2. TEST: `scripts/find_demo_cases.py`, the four preset files in `presets/`, recorded responses for each, and one test per preset that asserts its outcome and fired rules.
 
-### Phase 5: Openness and docs
+### Phase 5: Ranking
 
-1. STANDARD: OpenAPI 3.1 generated from zod at `/api/openapi.json`, `docs/API.md`.
-2. STANDARD: MCP server at `/api/mcp` with the tools in section 7.
-3. COPY: `README.md` (setup, demo script, standards), `docs/ARCHITECTURE.md`, `docs/POLICY.md`.
+1. ENGINE: good / better / best scoring with reliability and CO2 as secondary signals, priority-based default, `co2e_total_kg`, reasons composed from code facts.
 
-### Phase 6: Demo hardening
+### Phase 6: Aiven, docs and demo hardening
 
-1. TEST: two scripted scenarios from live data. A: small order within authority → agent orders on its own. B: wedding for 120 → approvals → order. **B must trigger at least one approval and at least one substitution** (confirmed requirement). Build it from data, not luck:
-   - `scripts/find-demo-cases.ts` scans the slim catalog and live availability for products that have a Valio substitute where the original can't be delivered and the substitute can. The probe already found one: courgette 460025 (empty schedule) with substitute 460150 (1 976 kg in stock), which fits a salad dish.
-   - The approval comes from a reliable trigger: a `require` preference with no matching product, a may-contain warning for an excluded allergen, or a low-stock product (D3).
-   - The wedding menu and preferences are chosen from these cases and saved as `scripts/demo/wedding.json`.
-   - A test runs scenario B against recorded responses and fails unless the result has at least one `ApprovalItem` and at least one line with `substitution` set.
-   - Before the demo, `npm run demo:check` re-runs the scenario live and reports if live data no longer triggers both.
-2. STANDARD: resilience: record and replay of Valio and Gemini responses in `.runtime/` for an offline demo, a clear message when a limit is hit, audit export as Markdown.
+1. DB_RLS: Postgres `Store` for requests, quotes, approvals, orders and the decision log, plus a migration SQL file. Mikael applies it to Aiven. File store stays the fallback.
+2. COPY: `README.md` (pitch, setup, fetch script, presets, MCP), `docs/ARCHITECTURE.md`, `docs/POLICY.md` (rule table and mandate fields).
+3. STANDARD: record and replay of Valio and Gemini responses in `.runtime/` for an offline demo, `scripts/demo_check.py`, a clear message when a rate limit is hit.
 
-### Stretch (only after Phase 6)
+### Phase 7 (add-on): Storage capacity rule
 
-- S1 STANDARD: menu photo upload, Gemini multimodal reads dishes into the request form.
-- S2 ENGINE: Gemma second-opinion allergen check over key ingredients text (rule A4). It can only escalate.
-- S3 DB_RLS: Aiven PostgreSQL `RunStore` and `AuditStore`. Agents write the migration file, Mikael applies it.
+1. ENGINE: the mandate gets cold, frozen and dry storage capacity (litres or kg). The rule `STORAGE_CAPACITY` sums the order by storage class (temperature labels, volume or weight from `unitConversions`) and needs approval above capacity. Unknown size counts as unknown, not zero.
+
+### Stretch
+
+- Menu or order-list photo: Gemini multimodal reads it into the request (`multipart` on `POST /requests`).
+- Gemma as a second, open-model client through MCP or REST.
 
 ## Rules for every phase
 
-- `data/`, `.env*` and `.runtime/` are never committed, printed or copied. Tests use invented product records only.
-- Keys stay server-side. No `NEXT_PUBLIC_*` secrets. Valio and Gemini calls happen only in `lib/` on the server.
-- The LLM never decides whether to order. Rules in `lib/rules` decide, and every decision has a rule id and a reason in the audit trail.
-- API responses match `types/contract.ts` and are validated by `lib/contract/schemas.ts`. Changing a shape means updating the contract doc, the types, the schemas and the fixtures in the same change.
-- Query Valio only for shortlisted products, never the whole catalog.
+- `data/`, `.env*` and `.runtime/` are never committed, printed or copied. Valio data is fetched by script. Tests and fixtures use invented products only.
+- Keys stay in the backend. The web never calls Valio or Gemini.
+- Policy, price lock, orders and the decision log are deterministic code with tests. No LLM calls inside them.
+- Only shortlists go to Valio and to Gemini, never the catalogue.
+- The contract (`docs/api_contract.md`, `gateway/schemas.py`, `fixtures/api/`, `contract/openapi.json`) changes together and only by agreement with Johannes. Bump the version.
 - All code is written during the event and licensed MIT.
 
 ## Decisions
 
-- 2026-11-13: One order per event, placed after every approval is resolved.
-- 2026-11-13: Policy limits stay as placeholders in `lib/rules/policy.default.json`.
-- 2026-11-13: Gemini Pro and Flash model ids are pinned in Phase 0 (step 4) from the live model list.
-- 2026-11-13: The wedding demo must trigger at least one approval and one substitution (Phase 6, step 1).
+- 2026-11-13: Scope: an event (or preset, item list, free text) is expanded into an item list. Four presets: wedding, children's birthday, company lunch, restaurant weekly order.
+- 2026-11-13: Stack: Python FastAPI backend and agent (Mikael), Next.js UI in `web/` (Johannes). TS types generated with `openapi-typescript`.
+- 2026-11-13: One shared contract, `docs/api_contract.md` v0.2, based on Johannes's v0.1 with additions.
+- 2026-11-13: Quote and price lock, with approval bound to the content hash, are in from Phase 1.
+- 2026-11-13: One order per event.
+- 2026-11-13: Rules needing purchase history are dropped. Limits are placeholders in the mandate file.
+- 2026-11-13: Substitutions always need approval, also Valio-approved ones. Reason: the buyer asked for something else, and the UI labels the source.
+- 2026-11-13: Passed `closingTime` is a flag, not a block (Terminal data shows past cut-offs with valid delivery dates).
+- 2026-11-13: Gemini Flash for everything; Pro is tested for event expansion in Phase 3.
+- 2026-11-13: MCP server is its own phase right after the thin end-to-end flow.
+- 2026-11-13: Storage capacity rule is an add-on phase. Menu photo is stretch.
+- 2026-11-13: Pitch is time saving, without speed promises.
 - 2026-11-13: Orders are simulated because the Valio mock API has no order endpoint.
 
 ## Open questions
 
-- Organisers: is a `closingTime` in the past for Terminal products intended? (Treated as a warning.)
-- Organisers: does availability change during the event? (We re-check before ordering.)
+- Organisers: is a past `closingTime` for Terminal products intended?
+- Organisers: does availability change during the event?

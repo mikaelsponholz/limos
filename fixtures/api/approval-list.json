@@ -1,0 +1,15 @@
+[
+  {
+    "approval_id": "a_wed01",
+    "request_id": "r_wed01",
+    "quote_id": "q_wed_a",
+    "buyer_id": "demo-catering",
+    "created_at": "2026-11-14T09:12:41+02:00",
+    "summary": "Wedding for 120, 93.15 EUR incl. VAT, delivery 20 Nov",
+    "reasons": [
+      "SPLIT_DELIVERY",
+      "SUBSTITUTION"
+    ],
+    "expires_at": "2026-11-14T09:42:41+02:00"
+  }
+]

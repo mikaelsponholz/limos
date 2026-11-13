@@ -1,0 +1,65 @@
+{
+  "product_id": "900201",
+  "item_id": "it_cream",
+  "name": "Example Dairy whipping cream 2 l lactose free",
+  "vendor": "Example Dairy Oy",
+  "sales_unit": "PRK",
+  "pack_description": "2 l carton",
+  "pack_size": {
+    "value": 2,
+    "unit": "L"
+  },
+  "quantity_sales_units": 2,
+  "quantity_requested": {
+    "value": 6.3,
+    "unit": "L"
+  },
+  "quantity_covered": {
+    "value": 4,
+    "unit": "L"
+  },
+  "unit_price": 7.9,
+  "list_price": 8.6,
+  "comparison_price": {
+    "value": 3.95,
+    "unit": "L"
+  },
+  "line_total": 15.8,
+  "line_total_with_tax": 17.93,
+  "tax_rate": 13.5,
+  "available_amount": 2,
+  "available_date": "2026-11-16",
+  "requested_date": "2026-11-20",
+  "closing_time": "2026-11-19T17:00:00+02:00",
+  "logistic_model": "Stock",
+  "delivery_reliability": 0.98,
+  "carbon_kg_co2e_per_kg": 4.5,
+  "country_of_origin": "fi",
+  "labels": [
+    "finnish_label",
+    "finnish_origin",
+    "lactose_free"
+  ],
+  "allergens": {
+    "contains": [
+      "milk"
+    ],
+    "may_contain": [],
+    "data_available": true
+  },
+  "dietary_check": {
+    "lactose_free": "confirmed",
+    "finnish_origin": "confirmed",
+    "organic": "violated"
+  },
+  "tier": "better",
+  "score": 88,
+  "reason": "Lactose-free claim, Finnish (Blue Swan label), 3.95 EUR/l. Only 2 cartons in stock.",
+  "is_split": false,
+  "is_substitute": false,
+  "substitute_for": null,
+  "substitute_source": null,
+  "flags": [
+    "PARTIAL"
+  ]
+}

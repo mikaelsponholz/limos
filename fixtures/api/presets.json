@@ -1,0 +1,183 @@
+[
+  {
+    "preset_id": "restaurant_weekly",
+    "title": "Restaurant weekly order",
+    "description": "Routine weekly order of staples for a lunch restaurant.",
+    "expected": "Every line passes the rules and the agent orders on its own.",
+    "request": {
+      "buyer_id": "demo-catering",
+      "preset_id": "restaurant_weekly",
+      "text": null,
+      "requested_date": "2026-11-17",
+      "event": null,
+      "items": [
+        {
+          "description": "lactose-free milk",
+          "quantity": 40,
+          "unit": "L",
+          "constraints": [
+            "lactose_free"
+          ]
+        },
+        {
+          "description": "butter",
+          "quantity": 5,
+          "unit": "kg",
+          "constraints": []
+        },
+        {
+          "description": "potatoes",
+          "quantity": 25,
+          "unit": "kg",
+          "constraints": [
+            "finnish_origin"
+          ]
+        },
+        {
+          "description": "eggs",
+          "quantity": 180,
+          "unit": "pcs",
+          "constraints": []
+        }
+      ],
+      "preferences": [
+        {
+          "key": "finnish_origin",
+          "level": "prefer"
+        }
+      ],
+      "exclude_allergens": [],
+      "budget": null,
+      "priority": "price"
+    }
+  },
+  {
+    "preset_id": "wedding_120",
+    "title": "Wedding for 120",
+    "description": "Cake, rye bread sandwiches and a cucumber salad. Lactose-free, Finnish where possible.",
+    "expected": "Short stock and a Valio-approved substitute go to approval.",
+    "request": {
+      "buyer_id": "demo-catering",
+      "preset_id": "wedding_120",
+      "text": "Wedding for 120 guests on Saturday 21 November. Wedding cake, rye bread sandwiches and a cucumber salad. Lactose-free please, Finnish where possible, organic is a bonus. Budget 900 euros.",
+      "requested_date": "2026-11-20",
+      "event": {
+        "type": "wedding",
+        "date": "2026-11-21",
+        "guests": 120,
+        "dishes": [
+          {
+            "name": "Wedding cake",
+            "servings": null
+          },
+          {
+            "name": "Rye bread sandwiches",
+            "servings": null
+          },
+          {
+            "name": "Cucumber salad",
+            "servings": null
+          }
+        ]
+      },
+      "items": [],
+      "preferences": [
+        {
+          "key": "lactose_free",
+          "level": "require"
+        },
+        {
+          "key": "finnish_origin",
+          "level": "prefer"
+        },
+        {
+          "key": "organic",
+          "level": "prefer"
+        }
+      ],
+      "exclude_allergens": [],
+      "budget": 900,
+      "priority": "balanced"
+    }
+  },
+  {
+    "preset_id": "birthday_kids_25",
+    "title": "Children's birthday for 25",
+    "description": "Cake, sandwiches and a fruit plate. Strictly nut-free.",
+    "expected": "A product that may contain nuts goes to approval with a safe option.",
+    "request": {
+      "buyer_id": "demo-catering",
+      "preset_id": "birthday_kids_25",
+      "text": "Children's birthday party for 25 on Sunday 22 November. Strawberry cake, ham sandwiches and a fruit plate. No nuts or peanuts at all.",
+      "requested_date": "2026-11-20",
+      "event": {
+        "type": "birthday",
+        "date": "2026-11-22",
+        "guests": 25,
+        "dishes": [
+          {
+            "name": "Strawberry cake",
+            "servings": null
+          },
+          {
+            "name": "Ham sandwiches",
+            "servings": null
+          },
+          {
+            "name": "Fruit plate",
+            "servings": null
+          }
+        ]
+      },
+      "items": [],
+      "preferences": [],
+      "exclude_allergens": [
+        "tree_nuts",
+        "peanuts"
+      ],
+      "budget": 250,
+      "priority": "balanced"
+    }
+  },
+  {
+    "preset_id": "company_lunch_60",
+    "title": "Company lunch for 60",
+    "description": "Salmon soup, rye bread and a green salad. Finnish ingredients only.",
+    "expected": "The total goes over the budget and a cheaper option goes to approval.",
+    "request": {
+      "buyer_id": "demo-catering",
+      "preset_id": "company_lunch_60",
+      "text": "Company lunch for 60 on Thursday 19 November. Salmon soup, rye bread with butter, green salad. Kotimainen only. Budget 300 euros.",
+      "requested_date": "2026-11-18",
+      "event": {
+        "type": "company_lunch",
+        "date": "2026-11-19",
+        "guests": 60,
+        "dishes": [
+          {
+            "name": "Salmon soup",
+            "servings": null
+          },
+          {
+            "name": "Rye bread with butter",
+            "servings": null
+          },
+          {
+            "name": "Green salad",
+            "servings": null
+          }
+        ]
+      },
+      "items": [],
+      "preferences": [
+        {
+          "key": "finnish_origin",
+          "level": "require"
+        }
+      ],
+      "exclude_allergens": [],
+      "budget": 300,
+      "priority": "balanced"
+    }
+  }
+]
