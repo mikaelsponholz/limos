@@ -3,12 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from gateway.api.health import router as health_router
 from gateway.errors import register_error_handlers
+from gateway.schemas import CONTRACT_VERSION
 from gateway.settings import Settings
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     config = settings if settings is not None else Settings()
-    application = FastAPI(title="Limos")
+    application = FastAPI(title="Limos", version=CONTRACT_VERSION)
     application.state.settings = config
     register_error_handlers(application)
     application.add_middleware(

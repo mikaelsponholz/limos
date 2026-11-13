@@ -5,6 +5,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
+from gateway.schemas import Error, ErrorEnvelope
+
 
 class GatewayError(Exception):
     def __init__(self, status_code: int, code: str, message: str) -> None:
@@ -17,7 +19,7 @@ class GatewayError(Exception):
 def error_response(status_code: int, code: str, message: str) -> JSONResponse:
     return JSONResponse(
         status_code=status_code,
-        content={"error": {"code": code, "message": message}},
+        content=ErrorEnvelope(error=Error(code=code, message=message)).model_dump(mode="json"),
     )
 
 
