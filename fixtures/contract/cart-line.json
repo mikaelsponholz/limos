@@ -1,0 +1,167 @@
+{
+  "id": "line_cream",
+  "ingredientId": "agg_cream",
+  "ingredientName": "Whipping cream",
+  "needed": {
+    "value": 6.3,
+    "unit": "l"
+  },
+  "chosen": {
+    "tier": "better",
+    "product": {
+      "brand": "Example Dairy",
+      "countryOfOrigin": "fi",
+      "labels": [
+        "finnish_label",
+        "finnish_origin",
+        "lactose_free"
+      ],
+      "allergens": {
+        "contains": [
+          "milk"
+        ],
+        "mayContain": [],
+        "dataAvailable": true
+      },
+      "vatRate": 13.5,
+      "deliveryReliability": 0.98,
+      "co2PerKg": 4.5,
+      "logisticModel": "stock",
+      "comparisonPrice": {
+        "price": {
+          "amount": 3.95,
+          "currency": "EUR"
+        },
+        "per": "l"
+      },
+      "id": "900201",
+      "name": "Example Dairy whipping cream 2 l lactose free",
+      "nameFi": "Example Dairy kuohukerma 2 l laktoositon",
+      "vendor": "Example Dairy Oy",
+      "packSize": {
+        "value": 2,
+        "unit": "l"
+      },
+      "salesUnit": {
+        "code": "PRK",
+        "label": "carton"
+      },
+      "unitPrice": {
+        "amount": 7.9,
+        "currency": "EUR"
+      },
+      "unitPriceGross": {
+        "amount": 8.97,
+        "currency": "EUR"
+      }
+    },
+    "salesUnits": 2,
+    "covers": {
+      "value": 4,
+      "unit": "l"
+    },
+    "lineTotal": {
+      "amount": 15.8,
+      "currency": "EUR"
+    },
+    "score": 88,
+    "matched": [
+      "lactose_free",
+      "finnish_origin"
+    ],
+    "missed": [
+      "organic"
+    ],
+    "reason": "Lactose-free claim, Finnish (Blue Swan label), €3.95/l."
+  },
+  "alternatives": [],
+  "split": {
+    "tier": null,
+    "product": {
+      "brand": "Example Dairy",
+      "countryOfOrigin": "fi",
+      "labels": [
+        "finnish_label",
+        "finnish_origin",
+        "lactose_free"
+      ],
+      "allergens": {
+        "contains": [
+          "milk"
+        ],
+        "mayContain": [],
+        "dataAvailable": true
+      },
+      "vatRate": 13.5,
+      "deliveryReliability": 0.98,
+      "co2PerKg": 4.5,
+      "logisticModel": "terminal",
+      "comparisonPrice": {
+        "price": {
+          "amount": 4.3,
+          "currency": "EUR"
+        },
+        "per": "l"
+      },
+      "id": "900202",
+      "name": "Example Dairy whipping cream 1 l lactose free",
+      "nameFi": "Example Dairy kuohukerma 1 l laktoositon",
+      "vendor": "Example Dairy Oy",
+      "packSize": {
+        "value": 1,
+        "unit": "l"
+      },
+      "salesUnit": {
+        "code": "PRK",
+        "label": "carton"
+      },
+      "unitPrice": {
+        "amount": 4.3,
+        "currency": "EUR"
+      },
+      "unitPriceGross": {
+        "amount": 4.88,
+        "currency": "EUR"
+      }
+    },
+    "salesUnits": 3,
+    "covers": {
+      "value": 3,
+      "unit": "l"
+    },
+    "lineTotal": {
+      "amount": 12.9,
+      "currency": "EUR"
+    },
+    "score": 82,
+    "matched": [
+      "lactose_free",
+      "finnish_origin"
+    ],
+    "missed": [
+      "organic"
+    ],
+    "reason": "Same brand in 1 l cartons to cover the missing 2.3 l."
+  },
+  "availability": {
+    "status": "partial",
+    "availableAmount": 2,
+    "availableDate": "2026-11-16",
+    "closingTime": "2026-11-19T17:00:00+02:00"
+  },
+  "exceptions": [
+    {
+      "kind": "partial_stock",
+      "severity": "warning",
+      "message": "Only 2 cartons (4 l) of the 2 l cream are in stock. 6.3 l is needed."
+    }
+  ],
+  "substitution": null,
+  "decision": {
+    "status": "needs_approval",
+    "ruleIds": [
+      "D3"
+    ],
+    "reason": "Stock is short, so the line is split across two products."
+  }
+}

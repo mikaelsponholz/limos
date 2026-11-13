@@ -1,0 +1,15 @@
+{
+  "autoOrderLimit": {
+    "amount": 1500,
+    "currency": "EUR"
+  },
+  "lineAutoLimit": {
+    "amount": 250,
+    "currency": "EUR"
+  },
+  "budgetHardStopPercent": 15,
+  "maxAutoSubstitutions": 3,
+  "substitutePriceTolerancePercent": 15,
+  "maxOverbuyPercent": 25,
+  "mayContainPolicy": "needs_approval"
+}

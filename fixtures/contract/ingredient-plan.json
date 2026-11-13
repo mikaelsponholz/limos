@@ -1,0 +1,174 @@
+{
+  "runId": "run_7f3a2c",
+  "wasteFactor": 0.05,
+  "model": "gemini-pro (fixture)",
+  "dishes": [
+    {
+      "id": "dish_cake",
+      "name": "Wedding cake",
+      "servings": 120,
+      "ingredients": [
+        {
+          "id": "ing_cake_butter",
+          "name": "Butter",
+          "nameFi": "Voi",
+          "perServing": {
+            "value": 4,
+            "unit": "g"
+          },
+          "total": {
+            "value": 0.504,
+            "unit": "kg"
+          },
+          "appliesPreferences": [
+            "lactose_free",
+            "finnish_origin"
+          ],
+          "optional": false
+        },
+        {
+          "id": "ing_cake_cream",
+          "name": "Whipping cream",
+          "nameFi": "Kuohukerma",
+          "perServing": {
+            "value": 50,
+            "unit": "ml"
+          },
+          "total": {
+            "value": 6.3,
+            "unit": "l"
+          },
+          "appliesPreferences": [
+            "lactose_free",
+            "finnish_origin"
+          ],
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "dish_sandwich",
+      "name": "Rye bread sandwiches",
+      "servings": 120,
+      "ingredients": [
+        {
+          "id": "ing_sw_bread",
+          "name": "Rye bread, sliced",
+          "nameFi": "Ruisleipä, viipaloitu",
+          "perServing": {
+            "value": 60,
+            "unit": "g"
+          },
+          "total": {
+            "value": 7.56,
+            "unit": "kg"
+          },
+          "appliesPreferences": [
+            "finnish_origin"
+          ],
+          "optional": false
+        },
+        {
+          "id": "ing_sw_butter",
+          "name": "Butter",
+          "nameFi": "Voi",
+          "perServing": {
+            "value": 10,
+            "unit": "g"
+          },
+          "total": {
+            "value": 1.26,
+            "unit": "kg"
+          },
+          "appliesPreferences": [
+            "lactose_free",
+            "finnish_origin"
+          ],
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "dish_salad",
+      "name": "Cucumber salad",
+      "servings": 120,
+      "ingredients": [
+        {
+          "id": "ing_salad_cucumber",
+          "name": "Cucumber",
+          "nameFi": "Kurkku",
+          "perServing": {
+            "value": 40,
+            "unit": "g"
+          },
+          "total": {
+            "value": 5.04,
+            "unit": "kg"
+          },
+          "appliesPreferences": [
+            "finnish_origin",
+            "organic"
+          ],
+          "optional": false
+        }
+      ]
+    }
+  ],
+  "aggregated": [
+    {
+      "id": "agg_butter",
+      "name": "Butter",
+      "nameFi": "Voi",
+      "total": {
+        "value": 1.764,
+        "unit": "kg"
+      },
+      "usedIn": [
+        "dish_cake",
+        "dish_sandwich"
+      ]
+    },
+    {
+      "id": "agg_cream",
+      "name": "Whipping cream",
+      "nameFi": "Kuohukerma",
+      "total": {
+        "value": 6.3,
+        "unit": "l"
+      },
+      "usedIn": [
+        "dish_cake"
+      ]
+    },
+    {
+      "id": "agg_bread",
+      "name": "Rye bread, sliced",
+      "nameFi": "Ruisleipä, viipaloitu",
+      "total": {
+        "value": 7.56,
+        "unit": "kg"
+      },
+      "usedIn": [
+        "dish_sandwich"
+      ]
+    },
+    {
+      "id": "agg_cucumber",
+      "name": "Cucumber",
+      "nameFi": "Kurkku",
+      "total": {
+        "value": 5.04,
+        "unit": "kg"
+      },
+      "usedIn": [
+        "dish_salad"
+      ]
+    }
+  ],
+  "assumptions": [
+    "One slice of cake per guest, about 110 g.",
+    "Two open rye sandwiches per guest.",
+    "Cream quantity includes filling and decoration.",
+    "5 % waste added to every ingredient."
+  ]
+}
