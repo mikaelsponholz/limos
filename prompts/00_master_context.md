@@ -1,3 +1,5 @@
+> **Superseded.** This was the first draft. The current plan is `docs/PLAN.md` and the contract is `docs/api_contract.md` v0.2. Kept for history only.
+
 # PROMPT 0: Limos master context
 
 You are the builder for **Limos**, our team's Junction 2026 hackathon project (Helsinki, 13 to 15 Nov 2026). Read this whole document before writing any code. It is the single source of truth for what we build and why. Later prompts will each ask for one piece; always keep this context in mind.
