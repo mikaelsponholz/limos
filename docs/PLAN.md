@@ -117,7 +117,9 @@ Pure TypeScript in `lib/rules`, configured by `lib/rules/policy.default.json`, d
 | X2 | Substitute found by the agent's own search | needs approval |
 | X3 | More than 3 substitutions in one cart | the rest need approval |
 
-Ordering mode: the cart is ordered as one order once every approval item is resolved. Rejected lines are left out and listed in the order result. Reason: one delivery per event, and the buyer sees one clear outcome.
+Ordering mode (confirmed 2026-11-13): one order per event. The cart is ordered as one order once every approval item is resolved. Rejected lines are left out and listed in the order result. Reason: one delivery per event, and the buyer sees one clear outcome.
+
+The limits in the table are placeholders (confirmed 2026-11-13) and live in the policy file, so they can change without code changes.
 
 ## 4. Product matching and good / better / best
 
@@ -179,7 +181,7 @@ UI track (Johannes + designer) runs in parallel from the start against `fixtures
 1. STANDARD: Next.js + TypeScript app at the repo root (`app/`, `lib/`, `types/`), scripts `dev`, `build`, `typecheck`, `lint`, `test`, `check`. Vitest. MIT `LICENSE`. `.env.example` with `VALIO_API_KEY`, `VALIO_BASE_URL`, `GEMINI_API_KEY`, `GEMINI_PRO_MODEL`, `GEMINI_FLASH_MODEL`, `STORE`. `.runtime/` in `.gitignore`.
 2. ENGINE: `scripts/build-catalog.ts` reads `data/` and writes `data/catalog.slim.json` with normalised fields (names, origin, Finnish and organic evidence, allergens as contains / may contain / free from, claims, units, pack size, lot size, substitutes, reliability, CO2). `lib/catalog` loads it once and provides token search. Tests use small invented products, never real data.
 3. STANDARD: `lib/valio` server-only client for ping, price and availability. Batches of at most 1 000, 5-minute cache per (endpoint, date, id), retry with backoff on 429 and 5xx, sentinel normalisation (999 999 and above = unknown or ample). `scripts/probe-valio.ts` for a live check. Tests with mocked fetch.
-4. STANDARD: `lib/llm` Gemini wrapper: model ids from env, `generateStructured(schema, prompt)` with validation and one repair retry, function-calling loop helper, fake LLM. `scripts/list-models.ts` pins the current Pro and Flash ids.
+4. STANDARD: `lib/llm` Gemini wrapper: model ids from env, `generateStructured(schema, prompt)` with validation and one repair retry, function-calling loop helper, fake LLM. `scripts/list-models.ts` lists the models available to the key. Pin the newest stable Pro and Flash ids as the defaults in `.env.example` and in `lib/llm/config.ts`, and record them in the Decisions section.
 5. TEST: `lib/contract/schemas.ts` (zod mirror of `types/contract.ts`) and a test that every fixture in `fixtures/contract/` parses.
 
 ### Phase 1: Thin end-to-end (target: Saturday morning)
@@ -213,7 +215,12 @@ UI track (Johannes + designer) runs in parallel from the start against `fixtures
 
 ### Phase 6: Demo hardening
 
-1. TEST: two scripted scenarios from live data. A: small order within authority → agent orders on its own. B: wedding for 120 with partial stock, a late item, an unmet preference and a substitution → approvals → order.
+1. TEST: two scripted scenarios from live data. A: small order within authority → agent orders on its own. B: wedding for 120 → approvals → order. **B must trigger at least one approval and at least one substitution** (confirmed requirement). Build it from data, not luck:
+   - `scripts/find-demo-cases.ts` scans the slim catalog and live availability for products that have a Valio substitute where the original can't be delivered and the substitute can. The probe already found one: courgette 460025 (empty schedule) with substitute 460150 (1 976 kg in stock), which fits a salad dish.
+   - The approval comes from a reliable trigger: a `require` preference with no matching product, a may-contain warning for an excluded allergen, or a low-stock product (D3).
+   - The wedding menu and preferences are chosen from these cases and saved as `scripts/demo/wedding.json`.
+   - A test runs scenario B against recorded responses and fails unless the result has at least one `ApprovalItem` and at least one line with `substitution` set.
+   - Before the demo, `npm run demo:check` re-runs the scenario live and reports if live data no longer triggers both.
 2. STANDARD: resilience: record and replay of Valio and Gemini responses in `.runtime/` for an offline demo, a clear message when a limit is hit, audit export as Markdown.
 
 ### Stretch (only after Phase 6)
@@ -230,6 +237,14 @@ UI track (Johannes + designer) runs in parallel from the start against `fixtures
 - API responses match `types/contract.ts` and are validated by `lib/contract/schemas.ts`. Changing a shape means updating the contract doc, the types, the schemas and the fixtures in the same change.
 - Query Valio only for shortlisted products, never the whole catalog.
 - All code is written during the event and licensed MIT.
+
+## Decisions
+
+- 2026-11-13: One order per event, placed after every approval is resolved.
+- 2026-11-13: Policy limits stay as placeholders in `lib/rules/policy.default.json`.
+- 2026-11-13: Gemini Pro and Flash model ids are pinned in Phase 0 (step 4) from the live model list.
+- 2026-11-13: The wedding demo must trigger at least one approval and one substitution (Phase 6, step 1).
+- 2026-11-13: Orders are simulated because the Valio mock API has no order endpoint.
 
 ## Open questions
 
