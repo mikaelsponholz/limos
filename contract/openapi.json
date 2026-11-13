@@ -1,0 +1,2696 @@
+{
+  "components": {
+    "schemas": {
+      "AgentIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "buyer_id": {
+            "title": "Buyer Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "buyer_id",
+          "agent_id"
+        ],
+        "title": "AgentIdentity",
+        "type": "object"
+      },
+      "Allergens": {
+        "additionalProperties": false,
+        "properties": {
+          "contains": {
+            "items": {
+              "enum": [
+                "milk",
+                "lactose",
+                "gluten",
+                "wheat",
+                "egg",
+                "fish",
+                "crustaceans",
+                "molluscs",
+                "peanuts",
+                "tree_nuts",
+                "soy",
+                "sesame",
+                "celery",
+                "mustard",
+                "sulphites",
+                "lupin"
+              ],
+              "type": "string"
+            },
+            "title": "Contains",
+            "type": "array"
+          },
+          "data_available": {
+            "title": "Data Available",
+            "type": "boolean"
+          },
+          "may_contain": {
+            "items": {
+              "enum": [
+                "milk",
+                "lactose",
+                "gluten",
+                "wheat",
+                "egg",
+                "fish",
+                "crustaceans",
+                "molluscs",
+                "peanuts",
+                "tree_nuts",
+                "soy",
+                "sesame",
+                "celery",
+                "mustard",
+                "sulphites",
+                "lupin"
+              ],
+              "type": "string"
+            },
+            "title": "May Contain",
+            "type": "array"
+          }
+        },
+        "required": [
+          "contains",
+          "may_contain",
+          "data_available"
+        ],
+        "title": "Allergens",
+        "type": "object"
+      },
+      "ApprovalDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_id": {
+            "title": "Approval Id",
+            "type": "string"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "decided_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided By"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/Quote"
+            },
+            "maxItems": 3,
+            "title": "Options",
+            "type": "array"
+          },
+          "quote": {
+            "$ref": "#/components/schemas/Quote"
+          },
+          "request": {
+            "$ref": "#/components/schemas/ApprovalRequestSummary"
+          },
+          "status": {
+            "enum": [
+              "PENDING",
+              "APPROVED",
+              "REJECTED",
+              "EXPIRED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "approval_id",
+          "status",
+          "quote",
+          "request",
+          "options",
+          "decided_by",
+          "decided_at",
+          "comment"
+        ],
+        "title": "ApprovalDetail",
+        "type": "object"
+      },
+      "ApprovalList": {
+        "items": {
+          "$ref": "#/components/schemas/ApprovalListEntry"
+        },
+        "title": "ApprovalList",
+        "type": "array"
+      },
+      "ApprovalListEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_id": {
+            "title": "Approval Id",
+            "type": "string"
+          },
+          "buyer_id": {
+            "title": "Buyer Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "quote_id": {
+            "title": "Quote Id",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "enum": [
+                "AGENT_NOT_PERMITTED",
+                "SALES_BLOCK",
+                "NOT_DELIVERABLE",
+                "PRICE_MISSING",
+                "ALLERGEN_CONTAINS",
+                "DIETARY_VIOLATED",
+                "SPEND_HARD_CAP",
+                "BUDGET_HARD_STOP",
+                "ALLERGEN_MAY_CONTAIN",
+                "ALLERGEN_DATA_MISSING",
+                "DIETARY_UNKNOWN",
+                "PREFERENCE_REQUIRED_UNMET",
+                "SPEND_SOFT_LIMIT",
+                "LINE_SOFT_LIMIT",
+                "BUDGET_EXCEEDED",
+                "LATE_DELIVERY",
+                "PARTIAL_QUANTITY",
+                "SPLIT_DELIVERY",
+                "SUBSTITUTION",
+                "OVERBUY",
+                "PACK_SIZE_UNKNOWN",
+                "TERMINAL_LOW_RELIABILITY",
+                "PRICE_CHANGED",
+                "CUTOFF_PASSED"
+              ],
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "approval_id",
+          "request_id",
+          "quote_id",
+          "buyer_id",
+          "created_at",
+          "summary",
+          "reasons",
+          "expires_at"
+        ],
+        "title": "ApprovalListEntry",
+        "type": "object"
+      },
+      "ApprovalRequestSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "intent": {
+            "$ref": "#/components/schemas/Intent"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "title",
+          "intent"
+        ],
+        "title": "ApprovalRequestSummary",
+        "type": "object"
+      },
+      "ApproveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "approver": {
+            "title": "Approver",
+            "type": "string"
+          },
+          "comment": {
+            "title": "Comment",
+            "type": "string"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "quote_id": {
+            "title": "Quote Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "approver",
+          "quote_id",
+          "content_hash",
+          "comment"
+        ],
+        "title": "ApproveBody",
+        "type": "object"
+      },
+      "ApproveResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "order": {
+            "$ref": "#/components/schemas/Order"
+          },
+          "status": {
+            "const": "APPROVED",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "order"
+        ],
+        "title": "ApproveResponse",
+        "type": "object"
+      },
+      "Audit": {
+        "additionalProperties": false,
+        "properties": {
+          "chain_valid": {
+            "title": "Chain Valid",
+            "type": "boolean"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/Step"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "request_id",
+          "chain_valid",
+          "steps"
+        ],
+        "title": "Audit",
+        "type": "object"
+      },
+      "Budget": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "title": "Limit",
+            "type": "number"
+          },
+          "status": {
+            "enum": [
+              "within",
+              "over",
+              "hard_stop"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "limit",
+          "status"
+        ],
+        "title": "Budget",
+        "type": "object"
+      },
+      "ComparisonPrice": {
+        "additionalProperties": false,
+        "properties": {
+          "unit": {
+            "enum": [
+              "KG",
+              "L"
+            ],
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "value",
+          "unit"
+        ],
+        "title": "ComparisonPrice",
+        "type": "object"
+      },
+      "Dish": {
+        "additionalProperties": false,
+        "properties": {
+          "dish_id": {
+            "title": "Dish Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "servings": {
+            "title": "Servings",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "dish_id",
+          "name",
+          "servings"
+        ],
+        "title": "Dish",
+        "type": "object"
+      },
+      "Error": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "Error",
+        "type": "object"
+      },
+      "ErrorEnvelope": {
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/Error"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "ErrorEnvelope",
+        "type": "object"
+      },
+      "Event": {
+        "additionalProperties": false,
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "guests": {
+            "title": "Guests",
+            "type": "integer"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "date",
+          "guests"
+        ],
+        "title": "Event",
+        "type": "object"
+      },
+      "EventDish": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "servings": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Servings"
+          }
+        },
+        "required": [
+          "name",
+          "servings"
+        ],
+        "title": "EventDish",
+        "type": "object"
+      },
+      "FiredRule": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "item_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Item Id"
+          },
+          "outcome": {
+            "enum": [
+              "AUTO",
+              "NEEDS_APPROVAL",
+              "BLOCK"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "product_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Product Id"
+          },
+          "rule_id": {
+            "enum": [
+              "AGENT_NOT_PERMITTED",
+              "SALES_BLOCK",
+              "NOT_DELIVERABLE",
+              "PRICE_MISSING",
+              "ALLERGEN_CONTAINS",
+              "DIETARY_VIOLATED",
+              "SPEND_HARD_CAP",
+              "BUDGET_HARD_STOP",
+              "ALLERGEN_MAY_CONTAIN",
+              "ALLERGEN_DATA_MISSING",
+              "DIETARY_UNKNOWN",
+              "PREFERENCE_REQUIRED_UNMET",
+              "SPEND_SOFT_LIMIT",
+              "LINE_SOFT_LIMIT",
+              "BUDGET_EXCEEDED",
+              "LATE_DELIVERY",
+              "PARTIAL_QUANTITY",
+              "SPLIT_DELIVERY",
+              "SUBSTITUTION",
+              "OVERBUY",
+              "PACK_SIZE_UNKNOWN",
+              "TERMINAL_LOW_RELIABILITY",
+              "PRICE_CHANGED",
+              "CUTOFF_PASSED"
+            ],
+            "title": "Rule Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule_id",
+          "description",
+          "outcome"
+        ],
+        "title": "FiredRule",
+        "type": "object"
+      },
+      "Health": {
+        "additionalProperties": false,
+        "properties": {
+          "database": {
+            "enum": [
+              "ok",
+              "unconfigured"
+            ],
+            "title": "Database",
+            "type": "string"
+          },
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "valio_api": {
+            "enum": [
+              "ok",
+              "unconfigured"
+            ],
+            "title": "Valio Api",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "valio_api",
+          "database"
+        ],
+        "title": "Health",
+        "type": "object"
+      },
+      "Intent": {
+        "additionalProperties": false,
+        "properties": {
+          "assumptions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Assumptions",
+            "type": "array"
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget"
+          },
+          "deliver_by": {
+            "format": "date",
+            "title": "Deliver By",
+            "type": "string"
+          },
+          "dishes": {
+            "items": {
+              "$ref": "#/components/schemas/Dish"
+            },
+            "title": "Dishes",
+            "type": "array"
+          },
+          "event": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Event"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "exclude_allergens": {
+            "items": {
+              "enum": [
+                "milk",
+                "lactose",
+                "gluten",
+                "wheat",
+                "egg",
+                "fish",
+                "crustaceans",
+                "molluscs",
+                "peanuts",
+                "tree_nuts",
+                "soy",
+                "sesame",
+                "celery",
+                "mustard",
+                "sulphites",
+                "lupin"
+              ],
+              "type": "string"
+            },
+            "title": "Exclude Allergens",
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/IntentItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "preferences": {
+            "items": {
+              "$ref": "#/components/schemas/Preference"
+            },
+            "title": "Preferences",
+            "type": "array"
+          },
+          "priority": {
+            "enum": [
+              "price",
+              "balanced",
+              "quality"
+            ],
+            "title": "Priority",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event",
+          "dishes",
+          "items",
+          "deliver_by",
+          "preferences",
+          "exclude_allergens",
+          "budget",
+          "priority",
+          "assumptions"
+        ],
+        "title": "Intent",
+        "type": "object"
+      },
+      "IntentItem": {
+        "additionalProperties": false,
+        "properties": {
+          "constraints": {
+            "items": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "lactose_free",
+                    "gluten_free",
+                    "finnish_origin",
+                    "organic",
+                    "vegetarian",
+                    "vegan",
+                    "low_carbon"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "enum": [
+                    "no_milk",
+                    "no_lactose",
+                    "no_gluten",
+                    "no_wheat",
+                    "no_egg",
+                    "no_fish",
+                    "no_crustaceans",
+                    "no_molluscs",
+                    "no_peanuts",
+                    "no_tree_nuts",
+                    "no_soy",
+                    "no_sesame",
+                    "no_celery",
+                    "no_mustard",
+                    "no_sulphites",
+                    "no_lupin"
+                  ],
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Constraints",
+            "type": "array"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "description_fi": {
+            "title": "Description Fi",
+            "type": "string"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "number"
+          },
+          "unit": {
+            "enum": [
+              "g",
+              "kg",
+              "ml",
+              "L",
+              "pcs"
+            ],
+            "title": "Unit",
+            "type": "string"
+          },
+          "used_in": {
+            "items": {
+              "$ref": "#/components/schemas/ItemUse"
+            },
+            "title": "Used In",
+            "type": "array"
+          }
+        },
+        "required": [
+          "description",
+          "quantity",
+          "unit",
+          "constraints",
+          "item_id",
+          "description_fi",
+          "used_in"
+        ],
+        "title": "IntentItem",
+        "type": "object"
+      },
+      "ItemUse": {
+        "additionalProperties": false,
+        "properties": {
+          "dish_id": {
+            "title": "Dish Id",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "number"
+          }
+        },
+        "required": [
+          "dish_id",
+          "quantity"
+        ],
+        "title": "ItemUse",
+        "type": "object"
+      },
+      "JsonValue": {},
+      "Mandate": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_limit": {
+            "title": "Auto Limit",
+            "type": "number"
+          },
+          "buyer_id": {
+            "title": "Buyer Id",
+            "type": "string"
+          },
+          "hard_cap": {
+            "title": "Hard Cap",
+            "type": "number"
+          },
+          "line_limit": {
+            "title": "Line Limit",
+            "type": "number"
+          },
+          "max_overbuy_percent": {
+            "title": "Max Overbuy Percent",
+            "type": "number"
+          },
+          "waste_percent": {
+            "title": "Waste Percent",
+            "type": "number"
+          }
+        },
+        "required": [
+          "buyer_id",
+          "auto_limit",
+          "line_limit",
+          "hard_cap",
+          "max_overbuy_percent",
+          "waste_percent"
+        ],
+        "title": "Mandate",
+        "type": "object"
+      },
+      "Offer": {
+        "additionalProperties": false,
+        "properties": {
+          "allergens": {
+            "$ref": "#/components/schemas/Allergens"
+          },
+          "available_amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available Amount"
+          },
+          "available_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available Date"
+          },
+          "carbon_kg_co2e_per_kg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Carbon Kg Co2E Per Kg"
+          },
+          "closing_time": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closing Time"
+          },
+          "comparison_price": {
+            "$ref": "#/components/schemas/ComparisonPrice"
+          },
+          "country_of_origin": {
+            "title": "Country Of Origin",
+            "type": "string"
+          },
+          "delivery_reliability": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Reliability"
+          },
+          "dietary_check": {
+            "additionalProperties": {
+              "enum": [
+                "confirmed",
+                "violated",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            "title": "Dietary Check",
+            "type": "object"
+          },
+          "flags": {
+            "items": {
+              "enum": [
+                "LATE_DELIVERY",
+                "PARTIAL",
+                "NOT_DELIVERABLE",
+                "SALES_BLOCK",
+                "PRICE_MISSING",
+                "CUTOFF_PASSED",
+                "TERMINAL_LOW_RELIABILITY",
+                "MAY_CONTAIN_EXCLUDED",
+                "ALLERGEN_DATA_MISSING",
+                "PACK_SIZE_UNKNOWN",
+                "OVERBUY"
+              ],
+              "type": "string"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "is_split": {
+            "title": "Is Split",
+            "type": "boolean"
+          },
+          "is_substitute": {
+            "title": "Is Substitute",
+            "type": "boolean"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "labels": {
+            "items": {
+              "enum": [
+                "finnish_label",
+                "finnish_origin",
+                "organic_label",
+                "organic_name",
+                "lactose_free",
+                "low_lactose",
+                "gluten_free",
+                "vegetarian",
+                "vegan",
+                "msc",
+                "fair_trade",
+                "rainforest_alliance",
+                "nordic_swan"
+              ],
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "array"
+          },
+          "line_total": {
+            "title": "Line Total",
+            "type": "number"
+          },
+          "line_total_with_tax": {
+            "title": "Line Total With Tax",
+            "type": "number"
+          },
+          "list_price": {
+            "title": "List Price",
+            "type": "number"
+          },
+          "logistic_model": {
+            "enum": [
+              "Stock",
+              "Terminal"
+            ],
+            "title": "Logistic Model",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pack_description": {
+            "title": "Pack Description",
+            "type": "string"
+          },
+          "pack_size": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Quantity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "product_id": {
+            "title": "Product Id",
+            "type": "string"
+          },
+          "quantity_covered": {
+            "$ref": "#/components/schemas/Quantity"
+          },
+          "quantity_requested": {
+            "$ref": "#/components/schemas/Quantity"
+          },
+          "quantity_sales_units": {
+            "title": "Quantity Sales Units",
+            "type": "number"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "requested_date": {
+            "format": "date",
+            "title": "Requested Date",
+            "type": "string"
+          },
+          "sales_unit": {
+            "title": "Sales Unit",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "substitute_for": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Substitute For"
+          },
+          "substitute_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "valio",
+                  "agent"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Substitute Source"
+          },
+          "tax_rate": {
+            "title": "Tax Rate",
+            "type": "number"
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "enum": [
+                  "good",
+                  "better",
+                  "best"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tier"
+          },
+          "unit_price": {
+            "title": "Unit Price",
+            "type": "number"
+          },
+          "vendor": {
+            "title": "Vendor",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "item_id",
+          "name",
+          "vendor",
+          "sales_unit",
+          "pack_description",
+          "pack_size",
+          "quantity_sales_units",
+          "quantity_requested",
+          "quantity_covered",
+          "unit_price",
+          "list_price",
+          "comparison_price",
+          "line_total",
+          "line_total_with_tax",
+          "tax_rate",
+          "available_amount",
+          "available_date",
+          "requested_date",
+          "closing_time",
+          "logistic_model",
+          "delivery_reliability",
+          "carbon_kg_co2e_per_kg",
+          "country_of_origin",
+          "labels",
+          "allergens",
+          "dietary_check",
+          "tier",
+          "score",
+          "reason",
+          "is_split",
+          "is_substitute",
+          "substitute_for",
+          "substitute_source",
+          "flags"
+        ],
+        "title": "Offer",
+        "type": "object"
+      },
+      "OffersBody": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "buyer_id": {
+            "title": "Buyer Id",
+            "type": "string"
+          },
+          "constraints": {
+            "items": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "lactose_free",
+                    "gluten_free",
+                    "finnish_origin",
+                    "organic",
+                    "vegetarian",
+                    "vegan",
+                    "low_carbon"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "enum": [
+                    "no_milk",
+                    "no_lactose",
+                    "no_gluten",
+                    "no_wheat",
+                    "no_egg",
+                    "no_fish",
+                    "no_crustaceans",
+                    "no_molluscs",
+                    "no_peanuts",
+                    "no_tree_nuts",
+                    "no_soy",
+                    "no_sesame",
+                    "no_celery",
+                    "no_mustard",
+                    "no_sulphites",
+                    "no_lupin"
+                  ],
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Constraints",
+            "type": "array"
+          },
+          "exclude_allergens": {
+            "items": {
+              "enum": [
+                "milk",
+                "lactose",
+                "gluten",
+                "wheat",
+                "egg",
+                "fish",
+                "crustaceans",
+                "molluscs",
+                "peanuts",
+                "tree_nuts",
+                "soy",
+                "sesame",
+                "celery",
+                "mustard",
+                "sulphites",
+                "lupin"
+              ],
+              "type": "string"
+            },
+            "title": "Exclude Allergens",
+            "type": "array"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "product_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Product Ids",
+            "type": "array"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "number"
+          },
+          "requested_date": {
+            "format": "date",
+            "title": "Requested Date",
+            "type": "string"
+          },
+          "unit": {
+            "enum": [
+              "g",
+              "kg",
+              "ml",
+              "L",
+              "pcs"
+            ],
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "buyer_id",
+          "agent_id",
+          "product_ids",
+          "item_id",
+          "quantity",
+          "unit",
+          "requested_date",
+          "constraints",
+          "exclude_allergens"
+        ],
+        "title": "OffersBody",
+        "type": "object"
+      },
+      "OffersResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "offers": {
+            "items": {
+              "$ref": "#/components/schemas/Offer"
+            },
+            "title": "Offers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "offers"
+        ],
+        "title": "OffersResponse",
+        "type": "object"
+      },
+      "Order": {
+        "additionalProperties": false,
+        "properties": {
+          "approved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved By"
+          },
+          "authority": {
+            "title": "Authority",
+            "type": "string"
+          },
+          "delivery_date": {
+            "format": "date",
+            "title": "Delivery Date",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/Offer"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "order_id": {
+            "title": "Order Id",
+            "type": "string"
+          },
+          "placed_at": {
+            "format": "date-time",
+            "title": "Placed At",
+            "type": "string"
+          },
+          "placed_by": {
+            "$ref": "#/components/schemas/PlacedBy"
+          },
+          "quote_id": {
+            "title": "Quote Id",
+            "type": "string"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "simulated": {
+            "title": "Simulated",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "CONFIRMED",
+              "FAILED"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "number"
+          },
+          "total_with_tax": {
+            "title": "Total With Tax",
+            "type": "number"
+          }
+        },
+        "required": [
+          "order_id",
+          "quote_id",
+          "request_id",
+          "status",
+          "placed_at",
+          "placed_by",
+          "approved_by",
+          "simulated",
+          "authority",
+          "idempotency_key",
+          "delivery_date",
+          "lines",
+          "total",
+          "total_with_tax"
+        ],
+        "title": "Order",
+        "type": "object"
+      },
+      "OrderBody": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "buyer_id": {
+            "title": "Buyer Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "quote_id": {
+            "title": "Quote Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "buyer_id",
+          "agent_id",
+          "quote_id",
+          "idempotency_key"
+        ],
+        "title": "OrderBody",
+        "type": "object"
+      },
+      "PlacedBy": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "user",
+              "agent",
+              "gateway",
+              "policy",
+              "human"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name"
+        ],
+        "title": "PlacedBy",
+        "type": "object"
+      },
+      "PolicyDecision": {
+        "additionalProperties": false,
+        "properties": {
+          "mandate": {
+            "$ref": "#/components/schemas/Mandate"
+          },
+          "outcome": {
+            "enum": [
+              "AUTO",
+              "NEEDS_APPROVAL",
+              "BLOCK"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "rules_fired": {
+            "items": {
+              "$ref": "#/components/schemas/FiredRule"
+            },
+            "title": "Rules Fired",
+            "type": "array"
+          }
+        },
+        "required": [
+          "outcome",
+          "rules_fired",
+          "mandate"
+        ],
+        "title": "PolicyDecision",
+        "type": "object"
+      },
+      "Preference": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "enum": [
+              "lactose_free",
+              "gluten_free",
+              "finnish_origin",
+              "organic",
+              "vegetarian",
+              "vegan",
+              "low_carbon"
+            ],
+            "title": "Key",
+            "type": "string"
+          },
+          "level": {
+            "enum": [
+              "require",
+              "prefer"
+            ],
+            "title": "Level",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "level"
+        ],
+        "title": "Preference",
+        "type": "object"
+      },
+      "Preset": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "expected": {
+            "title": "Expected",
+            "type": "string"
+          },
+          "preset_id": {
+            "enum": [
+              "restaurant_weekly",
+              "wedding_120",
+              "birthday_kids_25",
+              "company_lunch_60"
+            ],
+            "title": "Preset Id",
+            "type": "string"
+          },
+          "request": {
+            "$ref": "#/components/schemas/RequestCreate"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "preset_id",
+          "title",
+          "description",
+          "expected",
+          "request"
+        ],
+        "title": "Preset",
+        "type": "object"
+      },
+      "Presets": {
+        "items": {
+          "$ref": "#/components/schemas/Preset"
+        },
+        "title": "Presets",
+        "type": "array"
+      },
+      "Quantity": {
+        "additionalProperties": false,
+        "properties": {
+          "unit": {
+            "enum": [
+              "g",
+              "kg",
+              "ml",
+              "L",
+              "pcs"
+            ],
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "value",
+          "unit"
+        ],
+        "title": "Quantity",
+        "type": "object"
+      },
+      "Quote": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_explanation": {
+            "title": "Agent Explanation",
+            "type": "string"
+          },
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Budget"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "buyer_id": {
+            "title": "Buyer Id",
+            "type": "string"
+          },
+          "co2e_total_kg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Co2E Total Kg"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "delivery_date": {
+            "format": "date",
+            "title": "Delivery Date",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/Offer"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "option_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Option Label"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/PolicyDecision"
+          },
+          "quote_id": {
+            "title": "Quote Id",
+            "type": "string"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "DRAFT",
+              "AUTO_APPROVED",
+              "PENDING_APPROVAL",
+              "APPROVED",
+              "REJECTED",
+              "BLOCKED",
+              "EXPIRED",
+              "ORDERED"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "number"
+          },
+          "total_with_tax": {
+            "title": "Total With Tax",
+            "type": "number"
+          }
+        },
+        "required": [
+          "quote_id",
+          "request_id",
+          "buyer_id",
+          "agent_id",
+          "status",
+          "option_label",
+          "delivery_date",
+          "lines",
+          "total",
+          "total_with_tax",
+          "co2e_total_kg",
+          "budget",
+          "created_at",
+          "expires_at",
+          "content_hash",
+          "policy",
+          "agent_explanation"
+        ],
+        "title": "Quote",
+        "type": "object"
+      },
+      "QuoteBody": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "budget": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Budget"
+          },
+          "buyer_id": {
+            "title": "Buyer Id",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/QuoteLine"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "option_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Option Label"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Request Id"
+          },
+          "requested_date": {
+            "format": "date",
+            "title": "Requested Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "buyer_id",
+          "agent_id",
+          "requested_date",
+          "lines"
+        ],
+        "title": "QuoteBody",
+        "type": "object"
+      },
+      "QuoteLine": {
+        "additionalProperties": false,
+        "properties": {
+          "item_id": {
+            "title": "Item Id",
+            "type": "string"
+          },
+          "product_id": {
+            "title": "Product Id",
+            "type": "string"
+          },
+          "quantity_sales_units": {
+            "title": "Quantity Sales Units",
+            "type": "number"
+          }
+        },
+        "required": [
+          "item_id",
+          "product_id",
+          "quantity_sales_units"
+        ],
+        "title": "QuoteLine",
+        "type": "object"
+      },
+      "RejectBody": {
+        "additionalProperties": false,
+        "properties": {
+          "approver": {
+            "title": "Approver",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "approver",
+          "reason"
+        ],
+        "title": "RejectBody",
+        "type": "object"
+      },
+      "RejectResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "const": "REJECTED",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "RejectResponse",
+        "type": "object"
+      },
+      "RequestApprovalBody": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "alternative_quote_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Alternative Quote Ids"
+          },
+          "buyer_id": {
+            "title": "Buyer Id",
+            "type": "string"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "buyer_id",
+          "agent_id",
+          "explanation"
+        ],
+        "title": "RequestApprovalBody",
+        "type": "object"
+      },
+      "RequestApprovalResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_id": {
+            "title": "Approval Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "PENDING",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "approval_id",
+          "status"
+        ],
+        "title": "RequestApprovalResponse",
+        "type": "object"
+      },
+      "RequestCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "budget": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Budget"
+          },
+          "buyer_id": {
+            "title": "Buyer Id",
+            "type": "string"
+          },
+          "event": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RequestEvent"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "exclude_allergens": {
+            "items": {
+              "enum": [
+                "milk",
+                "lactose",
+                "gluten",
+                "wheat",
+                "egg",
+                "fish",
+                "crustaceans",
+                "molluscs",
+                "peanuts",
+                "tree_nuts",
+                "soy",
+                "sesame",
+                "celery",
+                "mustard",
+                "sulphites",
+                "lupin"
+              ],
+              "type": "string"
+            },
+            "title": "Exclude Allergens",
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RequestItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "preferences": {
+            "items": {
+              "$ref": "#/components/schemas/Preference"
+            },
+            "title": "Preferences",
+            "type": "array"
+          },
+          "preset_id": {
+            "anyOf": [
+              {
+                "enum": [
+                  "restaurant_weekly",
+                  "wedding_120",
+                  "birthday_kids_25",
+                  "company_lunch_60"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Preset Id"
+          },
+          "priority": {
+            "default": "balanced",
+            "enum": [
+              "price",
+              "balanced",
+              "quality"
+            ],
+            "title": "Priority",
+            "type": "string"
+          },
+          "requested_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Requested Date"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "buyer_id"
+        ],
+        "title": "RequestCreate",
+        "type": "object"
+      },
+      "RequestCreated": {
+        "additionalProperties": false,
+        "properties": {
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "RUNNING",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "status"
+        ],
+        "title": "RequestCreated",
+        "type": "object"
+      },
+      "RequestDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Id"
+          },
+          "buyer_id": {
+            "title": "Buyer Id",
+            "type": "string"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/Offer"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Error"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "input": {
+            "$ref": "#/components/schemas/RequestInput"
+          },
+          "intent": {
+            "$ref": "#/components/schemas/Intent"
+          },
+          "order": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Order"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "preset_id": {
+            "anyOf": [
+              {
+                "enum": [
+                  "restaurant_weekly",
+                  "wedding_120",
+                  "birthday_kids_25",
+                  "company_lunch_60"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preset Id"
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Quote"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "RUNNING",
+              "WAITING_APPROVAL",
+              "ORDERED",
+              "BLOCKED",
+              "REJECTED",
+              "FAILED"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/Step"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "request_id",
+          "buyer_id",
+          "preset_id",
+          "status",
+          "created_at",
+          "input",
+          "intent",
+          "steps",
+          "candidates",
+          "quote",
+          "approval_id",
+          "order",
+          "error"
+        ],
+        "title": "RequestDetail",
+        "type": "object"
+      },
+      "RequestEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "dishes": {
+            "items": {
+              "$ref": "#/components/schemas/EventDish"
+            },
+            "title": "Dishes",
+            "type": "array"
+          },
+          "guests": {
+            "title": "Guests",
+            "type": "integer"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "date",
+          "guests",
+          "dishes"
+        ],
+        "title": "RequestEvent",
+        "type": "object"
+      },
+      "RequestInput": {
+        "additionalProperties": false,
+        "properties": {
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "required": [
+          "text",
+          "image_url"
+        ],
+        "title": "RequestInput",
+        "type": "object"
+      },
+      "RequestItem": {
+        "additionalProperties": false,
+        "properties": {
+          "constraints": {
+            "items": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "lactose_free",
+                    "gluten_free",
+                    "finnish_origin",
+                    "organic",
+                    "vegetarian",
+                    "vegan",
+                    "low_carbon"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "enum": [
+                    "no_milk",
+                    "no_lactose",
+                    "no_gluten",
+                    "no_wheat",
+                    "no_egg",
+                    "no_fish",
+                    "no_crustaceans",
+                    "no_molluscs",
+                    "no_peanuts",
+                    "no_tree_nuts",
+                    "no_soy",
+                    "no_sesame",
+                    "no_celery",
+                    "no_mustard",
+                    "no_sulphites",
+                    "no_lupin"
+                  ],
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Constraints",
+            "type": "array"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "number"
+          },
+          "unit": {
+            "enum": [
+              "g",
+              "kg",
+              "ml",
+              "L",
+              "pcs"
+            ],
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "description",
+          "quantity",
+          "unit",
+          "constraints"
+        ],
+        "title": "RequestItem",
+        "type": "object"
+      },
+      "RequestList": {
+        "items": {
+          "$ref": "#/components/schemas/RequestListEntry"
+        },
+        "title": "RequestList",
+        "type": "array"
+      },
+      "RequestListEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "RUNNING",
+              "WAITING_APPROVAL",
+              "ORDERED",
+              "BLOCKED",
+              "REJECTED",
+              "FAILED"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "number"
+          }
+        },
+        "required": [
+          "request_id",
+          "created_at",
+          "title",
+          "status",
+          "total"
+        ],
+        "title": "RequestListEntry",
+        "type": "object"
+      },
+      "SearchBody": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "buyer_id": {
+            "title": "Buyer Id",
+            "type": "string"
+          },
+          "constraints": {
+            "items": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "lactose_free",
+                    "gluten_free",
+                    "finnish_origin",
+                    "organic",
+                    "vegetarian",
+                    "vegan",
+                    "low_carbon"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "enum": [
+                    "no_milk",
+                    "no_lactose",
+                    "no_gluten",
+                    "no_wheat",
+                    "no_egg",
+                    "no_fish",
+                    "no_crustaceans",
+                    "no_molluscs",
+                    "no_peanuts",
+                    "no_tree_nuts",
+                    "no_soy",
+                    "no_sesame",
+                    "no_celery",
+                    "no_mustard",
+                    "no_sulphites",
+                    "no_lupin"
+                  ],
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Constraints",
+            "type": "array"
+          },
+          "exclude_allergens": {
+            "items": {
+              "enum": [
+                "milk",
+                "lactose",
+                "gluten",
+                "wheat",
+                "egg",
+                "fish",
+                "crustaceans",
+                "molluscs",
+                "peanuts",
+                "tree_nuts",
+                "soy",
+                "sesame",
+                "celery",
+                "mustard",
+                "sulphites",
+                "lupin"
+              ],
+              "type": "string"
+            },
+            "title": "Exclude Allergens",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "buyer_id",
+          "agent_id",
+          "query",
+          "constraints",
+          "exclude_allergens",
+          "limit"
+        ],
+        "title": "SearchBody",
+        "type": "object"
+      },
+      "SearchProduct": {
+        "additionalProperties": false,
+        "properties": {
+          "allergens": {
+            "$ref": "#/components/schemas/Allergens"
+          },
+          "country_of_origin": {
+            "title": "Country Of Origin",
+            "type": "string"
+          },
+          "labels": {
+            "items": {
+              "enum": [
+                "finnish_label",
+                "finnish_origin",
+                "organic_label",
+                "organic_name",
+                "lactose_free",
+                "low_lactose",
+                "gluten_free",
+                "vegetarian",
+                "vegan",
+                "msc",
+                "fair_trade",
+                "rainforest_alliance",
+                "nordic_swan"
+              ],
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pack_size": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Quantity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "product_id": {
+            "title": "Product Id",
+            "type": "string"
+          },
+          "sales_unit": {
+            "title": "Sales Unit",
+            "type": "string"
+          },
+          "vendor": {
+            "title": "Vendor",
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "name",
+          "vendor",
+          "sales_unit",
+          "pack_size",
+          "country_of_origin",
+          "labels",
+          "allergens"
+        ],
+        "title": "SearchProduct",
+        "type": "object"
+      },
+      "SearchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "products": {
+            "items": {
+              "$ref": "#/components/schemas/SearchProduct"
+            },
+            "title": "Products",
+            "type": "array"
+          }
+        },
+        "required": [
+          "products"
+        ],
+        "title": "SearchResponse",
+        "type": "object"
+      },
+      "Step": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "enum": [
+              "user",
+              "agent",
+              "gateway",
+              "policy",
+              "human"
+            ],
+            "title": "Actor",
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "detail": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Detail",
+            "type": "object"
+          },
+          "hash": {
+            "title": "Hash",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "prev_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prev Hash"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "REQUEST_RECEIVED",
+              "INTENT_PARSED",
+              "EVENT_EXPANDED",
+              "TOOL_CALL",
+              "CANDIDATES",
+              "CHOICE",
+              "EXCEPTION",
+              "SUBSTITUTE_PROPOSED",
+              "QUOTE_CREATED",
+              "POLICY_DECISION",
+              "APPROVAL_REQUESTED",
+              "APPROVED",
+              "REJECTED",
+              "QUOTE_EXPIRED",
+              "REQUOTED",
+              "AVAILABILITY_RECHECKED",
+              "ORDER_PLACED",
+              "ERROR"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "seq",
+          "at",
+          "actor",
+          "type",
+          "title",
+          "detail",
+          "model",
+          "prev_hash",
+          "hash"
+        ],
+        "title": "Step",
+        "type": "object"
+      },
+      "Steps": {
+        "items": {
+          "$ref": "#/components/schemas/Step"
+        },
+        "title": "Steps",
+        "type": "array"
+      }
+    }
+  },
+  "info": {
+    "title": "Limos",
+    "version": "0.2"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    }
+  }
+}

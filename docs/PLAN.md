@@ -287,6 +287,8 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 - 2026-11-13: Substitutions always need approval, also Valio-approved ones. Reason: the buyer asked for something else, and the UI labels the source.
 - 2026-11-13: Passed `closingTime` is a flag, not a block (Terminal data shows past cut-offs with valid delivery dates).
 - 2026-11-13: Gemini Flash for everything; Pro is tested for event expansion in Phase 3.
+- 2026-11-14: `GEMINI_MODEL` pinned to `gemini-3.8-flash`, the current Flash on our key (`scripts/list_models.py`). The key has no `gemini-3.1-pro`; Phase 3 chooses the Pro-class model to test for dish expansion from the key's list (`gemini-2.5-pro` or a `gemini-4-*` model) and records it here. `GEMINI_EXPANSION_MODEL` stays empty (Flash) until then.
+- 2026-11-14: pytest uses `--basetemp=.pytest-tmp` (in `pyproject.toml`) because a sandbox-created temp folder under `%TEMP%` can be unreadable.
 - 2026-11-13: MCP server is its own phase right after the thin end-to-end flow.
 - 2026-11-13: Storage capacity rule is an add-on phase. Menu photo is stretch.
 - 2026-11-13: Pitch is time saving, without speed promises.
