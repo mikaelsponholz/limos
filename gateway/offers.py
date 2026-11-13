@@ -1,6 +1,6 @@
 """Deterministic shortlist pricing and pack conversion, without ranking or policy."""
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import date, datetime
 from decimal import ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP, Decimal
 from math import isfinite
@@ -10,6 +10,7 @@ from gateway.catalog.index import Catalog
 from gateway.catalog.models import PackSize, SlimRecord
 from gateway.catalog.packsize import resolve_pack_size
 from gateway.errors import GatewayError
+from gateway.policy import ItemContext
 from gateway.schemas import (
     AllergenCheck,
     Allergens,
@@ -19,6 +20,7 @@ from gateway.schemas import (
     OfferFlag,
     OffersBody,
     Quantity,
+    QuoteLine,
 )
 from gateway.valio.models import (
     AvailabilityResponse,
@@ -218,6 +220,7 @@ def _build_offer(
     availability: ProductAvailability,
     now: datetime,
     max_overbuy_percent: float,
+    fixed_units: Decimal | None = None,
 ) -> Offer:
     flags: set[OfferFlag] = set()
     need_unit, factor = _NEED_UNITS[body.unit]
@@ -230,6 +233,9 @@ def _build_offer(
     else:
         whole_packs = (need / Decimal(str(pack.value))).to_integral_value(rounding=ROUND_CEILING)
         units = (whole_packs / lot).to_integral_value(rounding=ROUND_CEILING) * lot
+
+    if fixed_units is not None:
+        units = fixed_units
 
     logistic_model = availability.logistic_model
     if logistic_model not in {"Stock", "Terminal"}:
@@ -251,13 +257,17 @@ def _build_offer(
             available_amount = float(normalized.amount)
     if not availability.deliverable or record.sales_block or line is None:
         flags.add("NOT_DELIVERABLE")
-        units = Decimal(0)
+        if fixed_units is None:
+            units = Decimal(0)
     else:
         normalized = normalize_amount(logistic_model, line.available_amount)
         if logistic_model == "Stock" and normalized.amount is not None:
             available_amount = float(normalized.amount)
             if normalized.amount < units:
-                units = (normalized.amount / lot).to_integral_value(rounding=ROUND_FLOOR) * lot
+                if fixed_units is None:
+                    units = (normalized.amount / lot).to_integral_value(rounding=ROUND_FLOOR) * lot
+                else:
+                    flags.add("NOT_DELIVERABLE")
                 flags.add("PARTIAL")
         available_date = _available_date(line)
         if units == 0:
@@ -387,3 +397,86 @@ async def build_offers(
             )
         )
     return offers
+
+
+async def price_fixed_lines(
+    lines: Sequence[QuoteLine],
+    *,
+    buyer_id: str,
+    agent_id: str,
+    requested_date: date,
+    catalog: Catalog,
+    valio: OfferValio,
+    now: datetime,
+    needs: Mapping[str, Quantity] | None = None,
+    item_context: Mapping[str, "ItemContext"] | None = None,
+    max_overbuy_percent: float = 25,
+) -> list[Offer]:
+    """Price the caller's exact sales units; shortage is evidence, never a quantity edit.
+
+    Shared item needs are required when split lines cover one original need.
+    Without a need, each line's requested quantity equals its covered quantity.
+    """
+    if now.utcoffset() is None:
+        raise ValueError("now must include a timezone.")
+    if not isfinite(max_overbuy_percent) or max_overbuy_percent < 0:
+        raise ValueError("Maximum overbuy percent must be finite and nonnegative.")
+    records = []
+    for line in lines:
+        record = catalog.lookup(line.product_id)
+        if record is None:
+            raise UnknownProductError(line.product_id)
+        units = Decimal(str(line.quantity_sales_units))
+        if not units.is_finite() or units <= 0 or units % _lot(record):
+            raise ValueError("Sales units must be positive, finite and a whole lot multiple.")
+        records.append(record)
+    if not lines:
+        return []
+    codes = list(dict.fromkeys(line.product_id for line in lines))
+    prices = await valio.price(codes, requested_date)
+    availability = await valio.availability(codes, requested_date)
+    prices_by_id = {entry.product_id: entry for entry in prices.products}
+    stock_by_id = {entry.product_id: entry for entry in availability.products}
+    result = []
+    for line, record in zip(lines, records, strict=True):
+        stock = stock_by_id.get(line.product_id)
+        if stock is None:
+            raise OfferDataError(f"Missing availability for {line.product_id}.")
+        need = (needs or {}).get(line.item_id)
+        if need is None:
+            pack = next(
+                (pack for unit in ("kg", "L", "pcs") if (pack := _pack(record, unit))),
+                None,
+            )
+            need = Quantity(
+                value=float(Decimal(str(pack.value)) * Decimal(str(line.quantity_sales_units)))
+                if pack
+                else 0.0,
+                unit=pack.unit if pack else "pcs",
+            )
+        if not isfinite(need.value) or need.value < 0:
+            raise ValueError("Item need must be finite and nonnegative.")
+        context = (item_context or {}).get(line.item_id, ItemContext())
+        body = OffersBody(
+            buyer_id=buyer_id,
+            agent_id=agent_id,
+            product_ids=[line.product_id],
+            item_id=line.item_id,
+            quantity=need.value,
+            unit=need.unit,
+            requested_date=requested_date,
+            constraints=list(dict.fromkeys([*context.constraints, *context.required_preferences])),
+            exclude_allergens=list(context.exclude_allergens),
+        )
+        result.append(
+            _build_offer(
+                body,
+                record,
+                prices_by_id.get(line.product_id),
+                stock,
+                now,
+                max_overbuy_percent,
+                Decimal(str(line.quantity_sales_units)),
+            )
+        )
+    return result
