@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  background: #f6f4ef;
+}
+
+body {
+  background: #f6f4ef;
+  color: #1f2a30;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+textarea:focus {
+  outline: none;
+  border-color: #005670;
+  box-shadow: 0 0 0 4px #d3e6eb;
+}
+
+button:focus-visible,
+a:focus-visible,
+select:focus-visible {
+  outline: 3px solid #005670;
+  outline-offset: 2px;
+}
