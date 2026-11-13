@@ -261,10 +261,16 @@ function ListView({
         <ul className="flex flex-col gap-1 text-[17px] text-soft">
           {gaps.map((g, i) => (
             <li key={i}>
-              We assumed: {g.note}{" "}
-              <button onClick={onChange} className="text-petrol underline font-semibold">
-                Change
-              </button>
+              {g.source === "form" ? g.note : `We assumed: ${g.note}`}{" "}
+              {g.source === "form" ? (
+                <Link href="/settings" className="text-petrol underline font-semibold">
+                  Change
+                </Link>
+              ) : (
+                <button onClick={onChange} className="text-petrol underline font-semibold">
+                  Change
+                </button>
+              )}
             </li>
           ))}
         </ul>

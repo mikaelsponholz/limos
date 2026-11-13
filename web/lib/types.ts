@@ -34,6 +34,9 @@ export interface Offer {
   order_deadline: string | null;
   country_of_origin: string | null;
   labels: string[];
+  tier?: "good" | "better" | "best" | null;
+  allergens?: { contains: string[]; may_contain: string[]; data_available: boolean };
+  dietary_check?: Record<string, "confirmed" | "violated" | "unknown">;
   is_split: boolean;
   is_substitute: boolean;
   substitute_source: "valio" | "agent" | null;
@@ -135,6 +138,7 @@ export interface LimosRequest {
   } | null;
   question: Question | null;
   steps: Step[];
+  candidates?: Offer[];
   quote: Quote | null;
   suggestions: Suggestion[];
   approval_id: string | null;

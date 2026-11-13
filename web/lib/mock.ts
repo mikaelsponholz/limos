@@ -9,6 +9,7 @@ import requestChef from "./fixtures/request-chef.json";
 import requestNeedsInput from "./fixtures/request-needs-input.json";
 import requestWedding from "./fixtures/request.json";
 import { day } from "./format";
+import { ALLERGENS, PREFERENCES } from "./settings";
 import {
   ApiError,
   type ApprovalDetail,
@@ -20,6 +21,9 @@ import {
   type LimosRequest,
   type Offer,
   type Order,
+  type Preference,
+  type Priority,
+  type RuleFired,
 } from "./types";
 
 type Run = {
@@ -28,6 +32,7 @@ type Run = {
   options?: Quote[];
   title?: string;
   decision?: { status: "APPROVED" | "REJECTED"; by: string; at: string };
+  overrides?: Overrides;
 };
 const runs = new Map<string, Run>();
 let counter = 0;
@@ -76,6 +81,125 @@ function guestsFrom(text: string): number | null {
   return m ? Number(m[1]) : null;
 }
 
+// ---- Settings: the mock runs the same rules the gateway runs (docs/PLAN.md section 4) ----
+type Overrides = { preferences?: Preference[]; exclude_allergens?: string[]; priority?: Priority; budget?: number | null };
+
+const allergenLabel = (k: string) => (ALLERGENS.find((a) => a.key === k)?.label ?? k.replace(/_/g, " ")).toLowerCase();
+const prefLabel = (k: string) => {
+  const label = PREFERENCES.find((p) => p.key === k)?.label ?? k.replace(/_/g, " ");
+  return label === "Finnish" ? label : label.toLowerCase();
+};
+const listWords = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
+const TIER: Record<Priority, "good" | "better" | "best"> = { price: "good", balanced: "better", quality: "best" };
+const PRIORITY_WORDS: Record<Priority, string> = { price: "lowest price", balanced: "balanced", quality: "best quality" };
+
+function overridesFrom(body: Record<string, unknown>): Overrides {
+  const o: Overrides = {};
+  if (Array.isArray(body.preferences)) o.preferences = body.preferences as Preference[];
+  if (Array.isArray(body.exclude_allergens)) o.exclude_allergens = body.exclude_allergens as string[];
+  if (typeof body.priority === "string") o.priority = body.priority as Priority;
+  if (typeof body.budget === "number") o.budget = body.budget;
+  return o;
+}
+
+/** Applies the customer's settings to a finished request: picks the tier, re-runs the
+ * allergen, diet and budget rules, and lists the settings used as a "We assumed" line. */
+function applySettings(req: LimosRequest, o: Overrides = {}): LimosRequest {
+  const q = req.quote;
+  if (!q) return req;
+
+  if (o.priority) {
+    const want = TIER[o.priority];
+    const swapped = new Set<string>();
+    q.lines = q.lines.map((l) => {
+      if (l.is_split || l.is_substitute || !l.tier) return l;
+      const pool = (req.candidates ?? []).filter((x) => x.item_id === l.item_id && !x.is_split && x.tier);
+      // "Lowest price" means the cheapest line, not the tier label (fixture tiers are not always cheapest).
+      const c =
+        o.priority === "price"
+          ? pool.reduce<Offer | null>((best, x) => (!best || x.line_total < best.line_total ? x : best), null)
+          : pool.find((x) => x.tier === want);
+      if (!c || c.product_id === l.product_id || (o.priority === "price" && c.line_total >= l.line_total)) return l;
+      swapped.add(l.item_id);
+      return clone<Offer>(c);
+    });
+    // A swapped product covers the whole item, so the split line that topped up the old one goes.
+    q.lines = q.lines.filter((l) => !(l.is_split && swapped.has(l.item_id)));
+    q.policy = { ...q.policy, rules_fired: q.policy.rules_fired.filter((r) => !(r.rule_id === "SPLIT_DELIVERY" && r.item_id && swapped.has(r.item_id))) };
+  }
+  retotal(req);
+
+  const rules: RuleFired[] = q.policy.rules_fired.filter(
+    (r) =>
+      !r.rule_id.startsWith("BUDGET_") &&
+      !(o.exclude_allergens && r.rule_id.startsWith("ALLERGEN_")) &&
+      !(o.preferences && r.rule_id.startsWith("DIETARY_")),
+  );
+  const add = (rule_id: string, outcome: RuleFired["outcome"], description: string, l?: Offer) =>
+    rules.push({ rule_id, outcome, description, item_id: l?.item_id ?? null, product_id: l?.product_id ?? null });
+
+  const excluded = o.exclude_allergens ?? [];
+  if (excluded.length) {
+    for (const l of q.lines) {
+      const a = l.allergens ?? { contains: [], may_contain: [], data_available: false };
+      const hit = excluded.filter((x) => a.contains.includes(x));
+      const maybe = excluded.filter((x) => a.may_contain.includes(x) && !hit.includes(x));
+      if (hit.length) add("ALLERGEN_CONTAINS", "BLOCK", `${l.name} contains ${listWords(hit.map(allergenLabel))}, which you never want.`, l);
+      else if (maybe.length) add("ALLERGEN_MAY_CONTAIN", "NEEDS_APPROVAL", `${l.name} may contain ${listWords(maybe.map(allergenLabel))}.`, l);
+      else if (!a.data_available)
+        add(
+          "ALLERGEN_DATA_MISSING",
+          "NEEDS_APPROVAL",
+          `${l.name} has no allergen information, so we can't confirm it is free of ${listWords(excluded.map(allergenLabel))}.`,
+          l,
+        );
+    }
+  }
+
+  for (const p of (o.preferences ?? []).filter((x) => x.level === "require")) {
+    for (const l of q.lines) {
+      const v = l.dietary_check?.[p.key] ?? "unknown";
+      if (v === "violated") add("DIETARY_VIOLATED", "BLOCK", `${l.name} is not ${prefLabel(p.key)}, which you always want.`, l);
+      else if (v === "unknown") add("DIETARY_UNKNOWN", "NEEDS_APPROVAL", `We can't confirm that ${l.name} is ${prefLabel(p.key)}.`, l);
+    }
+  }
+
+  // Budget rules are recomputed only when the settings set a budget. Otherwise the fixture's
+  // rules stay (request-chef.json says BUDGET_EXCEEDED at 24 EUR on a 20 EUR budget, although
+  // PLAN section 4 would make that BUDGET_HARD_STOP), and BUDGET_EXCEEDED clears once the total fits.
+  const budget = o.budget !== undefined ? o.budget : null;
+  const fixtureBudget = (req.intent as { budget?: number | null } | null)?.budget ?? null;
+  if (budget === null) {
+    const kept = q.policy.rules_fired.filter((r) => r.rule_id.startsWith("BUDGET_"));
+    for (const r of kept) if (!(r.rule_id === "BUDGET_EXCEEDED" && fixtureBudget !== null && q.total <= fixtureBudget)) rules.push(r);
+  }
+  if (budget !== null) {
+    if (q.total > budget * 1.15) add("BUDGET_HARD_STOP", "BLOCK", `The ${q.total.toFixed(2)} EUR total is far over the ${budget} EUR budget.`);
+    else if (q.total > budget) add("BUDGET_EXCEEDED", "NEEDS_APPROVAL", `The ${q.total.toFixed(2)} EUR total exceeds the ${budget} EUR budget.`);
+  }
+
+  const blocked = rules.some((r) => r.outcome === "BLOCK");
+  // Mock assumption kept from before: a customer always confirms with one tap, so no AUTO here.
+  q.policy = { ...q.policy, outcome: blocked ? "BLOCK" : "NEEDS_APPROVAL", rules_fired: rules };
+  q.status = blocked ? "BLOCKED" : "PENDING_APPROVAL";
+  req.status = blocked ? "BLOCKED" : "WAITING_APPROVAL";
+  req.approval_id = blocked ? null : (req.approval_id ?? `a_${req.request_id}`);
+
+  const notes: string[] = [];
+  if (o.priority) notes.push(PRIORITY_WORDS[o.priority]);
+  const always = (o.preferences ?? []).filter((p) => p.level === "require").map((p) => prefLabel(p.key));
+  const ifPossible = (o.preferences ?? []).filter((p) => p.level === "prefer").map((p) => prefLabel(p.key));
+  if (always.length) notes.push(`always ${listWords(always)}`);
+  if (ifPossible.length) notes.push(`${listWords(ifPossible)} if possible`);
+  if (excluded.length) notes.push(`never ${listWords(excluded.map(allergenLabel))}`);
+  if (o.budget !== undefined && o.budget !== null) notes.push(`budget ${o.budget} €`);
+  if (notes.length && req.intent) {
+    const gaps = (req.intent.filled_gaps ?? []).filter((g) => g.source !== "form");
+    req.intent.filled_gaps = [...gaps, { field: "settings", value: o, source: "form", note: `Your settings: ${notes.join("; ")}.` }];
+  }
+  return req;
+}
+
 /** Pena's request after the gaps are filled. The fixtures stop at NEEDS_INPUT, so this
  * mock builds the quote from his last past order, scaled to the guest count. */
 function penaQuoted(id: string, text: string, guests: number | null, answered: boolean, orderRef?: string): LimosRequest {
@@ -106,6 +230,9 @@ function penaQuoted(id: string, text: string, guests: number | null, answered: b
     is_substitute: false,
     substitute_source: null,
     flags: [],
+    tier: null,
+    allergens: { contains: ["milk", "gluten", "egg"], may_contain: ["tree_nuts"], data_available: true },
+    dietary_check: { lactose_free: "violated", gluten_free: "violated", finnish_origin: "confirmed", vegan: "violated" },
     reason: "Same cake as last time.",
   };
   const req: LimosRequest = {
@@ -157,13 +284,14 @@ export const mock = {
     return { ...clone<CustomerSummary>(s), buyer_id: "demo-catering", order_history: s.last_order ? [{ ...s.last_order, guests: null, total: 0 }] : [] };
   },
 
-  async createRequest(body: { customer_id: string; text?: string; reorder_of?: string }) {
+  async createRequest(body: { customer_id: string; text?: string; reorder_of?: string } & Record<string, unknown>) {
     const id = newId("r");
     const text = body.text ?? "";
     let final: LimosRequest;
     if (/wedding/i.test(text)) {
-      final = { ...clone<LimosRequest>(requestWedding), request_id: id, customer_id: body.customer_id };
+      final = { ...clone<LimosRequest>(requestWedding), request_id: id, customer_id: body.customer_id, approval_id: `a_${id}` };
       final.input.text = text;
+      if (final.quote) final.quote.quote_id = `q_${id}`;
     } else if (body.customer_id === "c_pena") {
       const guests = guestsFrom(text);
       if (guests || body.reorder_of) {
@@ -178,7 +306,8 @@ export const mock = {
       final.approval_id = `a_${id}`;
     }
     if (final.quote) final.quote.request_id = id;
-    runs.set(id, { final, readyAt: later(1800) });
+    const overrides = overridesFrom(body);
+    runs.set(id, { final: applySettings(final, overrides), readyAt: later(1800), overrides });
     return { request_id: id, status: "RUNNING" as const };
   },
 
@@ -194,7 +323,7 @@ export const mock = {
     if (!run || run.final.status !== "NEEDS_INPUT" || run.final.question?.question_id !== question_id)
       throw new ApiError(409, "NO_OPEN_QUESTION", "There is no open question.");
     const guests = Number(answer ?? run.final.question.default ?? 30) || 30;
-    runs.set(id, { final: penaQuoted(id, run.final.input.text ?? "", guests, true), readyAt: later(1500) });
+    runs.set(id, { ...run, final: applySettings(penaQuoted(id, run.final.input.text ?? "", guests, true), run.overrides), readyAt: later(1500) });
     return { request_id: id, status: "RUNNING" as const };
   },
 
@@ -209,10 +338,8 @@ export const mock = {
     }
     req.suggestions = req.suggestions.map((x) => (x.suggestion_id === suggestion_id ? { ...x, status: "ACCEPTED" } : x));
     q.quote_id = `${q.quote_id}_s`;
-    retotal(req);
-    // The rules run again on the new quote. The fixture budget rule no longer fires if under budget.
-    if (q.policy.rules_fired.some((r) => r.rule_id === "BUDGET_EXCEEDED") && q.total <= 20) q.policy.rules_fired = q.policy.rules_fired.filter((r) => r.rule_id !== "BUDGET_EXCEEDED");
-    runs.set(id, { final: req, readyAt: later(1200) });
+    // The rules run again on the new quote (applySettings re-totals and re-checks the budget).
+    runs.set(id, { ...run, final: applySettings(req, run.overrides), readyAt: later(1200) });
     return { request_id: id, status: "RUNNING" as const };
   },
 
