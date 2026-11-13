@@ -19,3 +19,7 @@ __pycache__/
 .ruff_cache/
 !.env.example
 .pytest-tmp/
+
+# Local file store (STORE=file)
+.limos-store.json
+.limos-store.json.tmp
