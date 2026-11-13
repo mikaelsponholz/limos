@@ -8,6 +8,7 @@ import customers from "./fixtures/customers.json";
 import requestChef from "./fixtures/request-chef.json";
 import requestNeedsInput from "./fixtures/request-needs-input.json";
 import requestWedding from "./fixtures/request.json";
+import { day } from "./format";
 import {
   ApiError,
   type ApprovalDetail,
@@ -77,12 +78,16 @@ function guestsFrom(text: string): number | null {
 
 /** Pena's request after the gaps are filled. The fixtures stop at NEEDS_INPUT, so this
  * mock builds the quote from his last past order, scaled to the guest count. */
-function penaQuoted(id: string, text: string, guests: number, answered: boolean): LimosRequest {
+function penaQuoted(id: string, text: string, guests: number | null, answered: boolean, orderRef?: string): LimosRequest {
   const base = clone<LimosRequest>(requestWedding);
   const ni = clone<LimosRequest>(requestNeedsInput);
-  const past = (customer as unknown as Customer & { order_history: { lines: { product_id: string; name: string; unit_price: number }[] }[] }).order_history[0];
+  type Past = Customer["order_history"][number] & { lines: { product_id: string; name: string; unit_price: number; quantity_text: string }[] };
+  const history = (customer as unknown as { order_history: Past[] }).order_history;
+  const past = history.find((h) => h.order_ref === orderRef) ?? history[0];
   const pl = past.lines[0];
-  const qty = Math.max(1, Math.ceil(guests / 24));
+  const portions = Number(pl.name.match(/(\d+) portions/)?.[1] ?? 24);
+  guests = guests ?? past.guests ?? 30;
+  const qty = Math.max(1, Math.ceil(guests / portions));
   const template = base.quote!.lines[0];
   const line: Offer = {
     ...template,
@@ -91,9 +96,9 @@ function penaQuoted(id: string, text: string, guests: number, answered: boolean)
     name: pl.name,
     vendor: "Example Bakery Oy",
     sales_unit: "ST",
-    pack_description: "24 portions",
+    pack_description: `${portions} portions`,
     quantity_sales_units: qty,
-    quantity_text: `${qty} x 24 portions`,
+    quantity_text: `${qty} x ${portions} portions`,
     unit_price: pl.unit_price,
     line_total: round2(qty * pl.unit_price),
     line_total_with_tax: round2(qty * pl.unit_price * 1.135),
@@ -101,7 +106,7 @@ function penaQuoted(id: string, text: string, guests: number, answered: boolean)
     is_substitute: false,
     substitute_source: null,
     flags: [],
-    reason: "Same cake as your last order.",
+    reason: "Same cake as last time.",
   };
   const req: LimosRequest = {
     ...base,
@@ -115,7 +120,9 @@ function penaQuoted(id: string, text: string, guests: number, answered: boolean)
       ...base.intent,
       based_on: { order_ref: past.order_ref, title: past.title, date: past.date, guests_before: past.guests, guests_now: guests, scale: past.guests ? guests / past.guests : 1 },
       filled_gaps: [
-        ...(ni.intent?.filled_gaps ?? []).filter((g) => g.field !== "guests"),
+        ...(ni.intent?.filled_gaps ?? [])
+          .filter((g) => g.field !== "guests")
+          .map((g) => (g.source === "history" ? { ...g, note: `Same as "${past.title}" on ${day(past.date)}.` } : g)),
         { field: "guests", value: guests, source: answered ? "answer" : "text", note: `For ${guests} people.` },
       ],
     },
@@ -160,7 +167,7 @@ export const mock = {
     } else if (body.customer_id === "c_pena") {
       const guests = guestsFrom(text);
       if (guests || body.reorder_of) {
-        final = penaQuoted(id, text || "Same as last time", guests ?? 30, false);
+        final = penaQuoted(id, text || "Same as last time", guests, false, body.reorder_of);
       } else {
         final = { ...clone<LimosRequest>(requestNeedsInput), request_id: id };
         final.input.text = text;
