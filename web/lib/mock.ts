@@ -1,5 +1,6 @@
 // Mock backend built from the shared contract fixtures (copied to lib/fixtures).
 // Used when NEXT_PUBLIC_USE_MOCK=true. State lives in the browser tab only.
+import approvalDetail from "./fixtures/approval-detail.json";
 import approveResponse from "./fixtures/approve-response.json";
 import audit from "./fixtures/audit.json";
 import customer from "./fixtures/customer.json";
@@ -9,6 +10,9 @@ import requestNeedsInput from "./fixtures/request-needs-input.json";
 import requestWedding from "./fixtures/request.json";
 import {
   ApiError,
+  type ApprovalDetail,
+  type ApprovalSummary,
+  type Quote,
   type Audit,
   type Customer,
   type CustomerSummary,
@@ -17,11 +21,38 @@ import {
   type Order,
 } from "./types";
 
-type Run = { final: LimosRequest; readyAt: number };
+type Run = {
+  final: LimosRequest;
+  readyAt: number;
+  options?: Quote[];
+  title?: string;
+  decision?: { status: "APPROVED" | "REJECTED"; by: string; at: string };
+};
 const runs = new Map<string, Run>();
 let counter = 0;
 
 const clone = <T>(x: unknown): T => structuredClone(x) as T;
+
+// Seed: the wedding request from the fixtures waits for someone else's approval,
+// with two options. Its expiry is moved to 30 minutes from now so the demo works any time.
+{
+  const final = clone<LimosRequest>(requestWedding);
+  const detail = clone<ApprovalDetail>(approvalDetail);
+  const expires = new Date(Date.now() + 30 * 60_000).toISOString();
+  const options = detail.options.map((o) => ({ ...o, expires_at: expires }));
+  final.quote = options[0];
+  runs.set(final.request_id, { final, readyAt: 0, options, title: detail.request.title });
+}
+
+function runFor(approval_id: string): Run {
+  const run = [...runs.values()].find((r) => r.final.approval_id === approval_id);
+  if (!run) throw new ApiError(404, "NOT_FOUND", "Approval not found");
+  return run;
+}
+
+function titleOf(run: Run): string {
+  return run.title ?? run.final.intent?.based_on?.title ?? run.final.input.text ?? "Order";
+}
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const later = (ms: number) => Date.now() + ms;
 const fakeHash = () => "sha256:" + Math.random().toString(16).slice(2).padEnd(16, "0");
@@ -178,12 +209,67 @@ export const mock = {
     return { request_id: id, status: "RUNNING" as const };
   },
 
-  async approve(approval_id: string, body: { quote_id: string; content_hash: string; approver: string }) {
-    const run = [...runs.values()].find((r) => r.final.approval_id === approval_id);
-    if (!run || run.final.status !== "WAITING_APPROVAL") throw new ApiError(404, "NOT_FOUND", "Approval not found");
+  async approvals(): Promise<ApprovalSummary[]> {
+    return [...runs.values()]
+      .filter((r) => r.final.status === "WAITING_APPROVAL" && r.final.approval_id && Date.now() >= r.readyAt)
+      .map((r) => {
+        const q = r.final.quote!;
+        return {
+          approval_id: r.final.approval_id!,
+          request_id: r.final.request_id,
+          quote_id: q.quote_id,
+          buyer_id: r.final.buyer_id,
+          created_at: q.created_at,
+          summary: `${titleOf(r)} · ${q.total_with_tax.toFixed(2)} € incl. VAT`,
+          reasons: q.policy.rules_fired.map((x) => x.rule_id),
+          expires_at: q.expires_at,
+          order_deadline: q.order_deadline,
+        };
+      })
+      .reverse();
+  },
+
+  async approval(approval_id: string): Promise<ApprovalDetail> {
+    const run = runFor(approval_id);
     const q = run.final.quote!;
-    if (q.quote_id !== body.quote_id || q.content_hash !== body.content_hash)
+    const options = run.options ?? [q];
+    return clone({
+      approval_id,
+      status: run.decision?.status ?? "PENDING",
+      quote: q,
+      request: { request_id: run.final.request_id, title: titleOf(run), intent: run.final.intent },
+      options: options.length > 1 ? options : [],
+      decided_by: run.decision?.by ?? null,
+      decided_at: run.decision?.at ?? null,
+      comment: null,
+    });
+  },
+
+  async reject(approval_id: string, body: { approver: string; reason?: string }) {
+    const run = runFor(approval_id);
+    if (run.decision) throw new ApiError(409, "ALREADY_DECIDED", "This order was already decided.");
+    run.decision = { status: "REJECTED", by: body.approver, at: new Date().toISOString() };
+    run.final = { ...run.final, status: "REJECTED" };
+    return { status: "REJECTED" as const };
+  },
+
+  /** Demo helper: the prices change after the approver opened the card, so approving gives 409. */
+  async simulatePriceChange(approval_id: string) {
+    const run = runFor(approval_id);
+    const q = run.final.quote!;
+    const fresh = { ...q, content_hash: fakeHash() };
+    run.final = { ...run.final, quote: fresh };
+    if (run.options) run.options = run.options.map((o) => (o.quote_id === q.quote_id ? fresh : o));
+  },
+
+  async approve(approval_id: string, body: { quote_id: string; content_hash: string; approver: string }) {
+    const run = runFor(approval_id);
+    if (run.decision || run.final.status !== "WAITING_APPROVAL") throw new ApiError(409, "ALREADY_DECIDED", "This order was already decided.");
+    const q = (run.options ?? [run.final.quote!]).find((o) => o.quote_id === body.quote_id);
+    if (!q || q.content_hash !== body.content_hash)
       throw new ApiError(409, "QUOTE_CHANGED", "The prices changed after you opened the list.");
+    run.decision = { status: "APPROVED", by: body.approver, at: new Date().toISOString() };
+    run.final = { ...run.final, quote: q };
     const order: Order = {
       ...clone<Order>(approveResponse.order),
       order_id: `o_${run.final.request_id}`,
@@ -197,7 +283,7 @@ export const mock = {
       total_with_tax: q.total_with_tax,
       authority: `${body.approver} approved this exact list and its prices.`,
     };
-    run.final = { ...run.final, status: "ORDERED", order, approval_id: null };
+    run.final = { ...run.final, status: "ORDERED", order };
     return { status: "APPROVED" as const, order };
   },
 

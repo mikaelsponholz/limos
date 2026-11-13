@@ -166,6 +166,29 @@ export interface Customer extends Omit<CustomerSummary, "last_order"> {
   order_history: PastOrder[];
 }
 
+export interface ApprovalSummary {
+  approval_id: string;
+  request_id: string | null;
+  quote_id: string;
+  buyer_id: string;
+  created_at: string;
+  summary: string;
+  reasons: string[];
+  expires_at: string;
+  order_deadline: string | null;
+}
+
+export interface ApprovalDetail {
+  approval_id: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED";
+  quote: Quote;
+  request: { request_id: string; title: string; intent: LimosRequest["intent"] };
+  options: Quote[];
+  decided_by: string | null;
+  decided_at: string | null;
+  comment: string | null;
+}
+
 export interface Audit {
   request_id: string;
   chain_valid: boolean;

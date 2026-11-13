@@ -3,8 +3,9 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useCustomer } from "@/lib/customer";
-import { ICONS, categoryOf, day, dayTime, eur, isPast } from "@/lib/format";
-import { ApiError, type LimosRequest, type Offer, type Suggestion } from "@/lib/types";
+import OrderLine from "@/components/OrderLine";
+import { ICONS, day, dayTime, eur } from "@/lib/format";
+import { ApiError, type LimosRequest, type Suggestion } from "@/lib/types";
 
 const POLL_MS = 1500;
 
@@ -246,7 +247,7 @@ function ListView({
               Your list <span className="font-medium text-muted text-base">· {q.lines.length} {q.lines.length === 1 ? "product" : "products"}</span>
             </h2>
             {q.lines.map((l) => (
-              <Line key={l.product_id} l={l} />
+              <OrderLine key={l.product_id} l={l} />
             ))}
           </div>
 
@@ -343,44 +344,6 @@ function Row({ k, v, strong }: { k: string; v: string; strong?: boolean }) {
     <div className="flex justify-between gap-3 text-base text-soft">
       <span>{k}</span>
       <span className={`tabular-nums text-right ${strong ? "font-semibold text-ink" : ""}`}>{v}</span>
-    </div>
-  );
-}
-
-function Line({ l }: { l: Offer }) {
-  const c = categoryOf(l.name);
-  const note = l.is_substitute
-    ? l.substitute_source === "valio"
-      ? "Valio's suggested replacement"
-      : "Suggested replacement"
-    : l.is_split
-      ? "Second size, to cover the full amount"
-      : l.flags.includes("PARTIAL")
-        ? "Not enough in stock for all of it"
-        : null;
-  const deadline = !l.order_deadline
-    ? "no order deadline from Valio"
-    : isPast(l.order_deadline)
-      ? "order deadline has passed"
-      : `order by ${dayTime(l.order_deadline)}`;
-  return (
-    <div className="flex items-center gap-3 sm:gap-3.5 py-3.5 border-t border-hair">
-      <span className="flex-none w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center" style={{ background: c.tile }}>
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={c.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d={c.icon} />
-        </svg>
-      </span>
-      <span className="flex-1 min-w-0 flex flex-col">
-        <span className="font-semibold leading-snug">{l.name}</span>
-        <span className="text-[15px] text-soft">
-          {l.quantity_text} · {eur(l.unit_price)} each
-        </span>
-        {note && <span className="text-[15px] text-warn">{note}</span>}
-        <span className="text-[14px] text-muted">
-          Arrives {day(l.delivery_date)}, {deadline}
-        </span>
-      </span>
-      <span className="flex-none text-right font-bold tabular-nums whitespace-nowrap">{eur(l.line_total)}</span>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 // One function per backend endpoint (docs/api_contract.md v0.3).
 // NEXT_PUBLIC_USE_MOCK=true serves fixtures instead of calling the backend.
 import { mock } from "./mock";
-import { ApiError, type Audit, type Customer, type CustomerSummary, type LimosRequest, type Order } from "./types";
+import { ApiError, type ApprovalDetail, type ApprovalSummary, type Audit, type Customer, type CustomerSummary, type LimosRequest, type Order } from "./types";
 
 export const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK !== "false";
 export const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
@@ -48,6 +48,13 @@ export const api = {
     body: { quote_id: string; content_hash: string; approver: string },
   ): Promise<{ status: "APPROVED"; order: Order }> =>
     USE_MOCK ? mock.approve(approval_id, body) : post(`/approvals/${approval_id}/approve`, body),
+
+  approvals: (): Promise<ApprovalSummary[]> => (USE_MOCK ? mock.approvals() : call("/approvals?status=PENDING")),
+  approval: (id: string): Promise<ApprovalDetail> => (USE_MOCK ? mock.approval(id) : call(`/approvals/${id}`)),
+  reject: (id: string, body: { approver: string; reason?: string }): Promise<{ status: "REJECTED" }> =>
+    USE_MOCK ? mock.reject(id, body) : post(`/approvals/${id}/reject`, body),
+  /** Mock only: makes the shown prices stale so Approve returns 409. */
+  simulatePriceChange: (id: string): Promise<void> => (USE_MOCK ? mock.simulatePriceChange(id) : Promise.resolve()),
 
   audit: (id: string): Promise<Audit> => (USE_MOCK ? mock.audit(id) : call(`/audit/${id}`)),
 };
