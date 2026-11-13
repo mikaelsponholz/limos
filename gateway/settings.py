@@ -9,6 +9,9 @@ from starlette.requests import Request
 class Settings:
     valio_api_key: str = field(default_factory=lambda: os.getenv("VALIO_API_KEY", ""), repr=False)
     valio_base_url: str = field(default_factory=lambda: os.getenv("VALIO_BASE_URL", ""))
+    valio_timeout_seconds: float = field(
+        default_factory=lambda: float(os.getenv("VALIO_TIMEOUT_SECONDS", "5"))
+    )
     gemini_api_key: str = field(default_factory=lambda: os.getenv("GEMINI_API_KEY", ""), repr=False)
     gemini_model: str = field(default_factory=lambda: os.getenv("GEMINI_MODEL", ""))
     gemini_expansion_model: str = field(
