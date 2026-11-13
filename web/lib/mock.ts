@@ -90,6 +90,7 @@ const prefLabel = (k: string) => {
   return label === "Finnish" ? label : label.toLowerCase();
 };
 const listWords = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
+const HARD_DIET = new Set(["lactose_free", "gluten_free", "vegetarian", "vegan"]);
 const TIER: Record<Priority, "good" | "better" | "best"> = { price: "good", balanced: "better", quality: "best" };
 const PRIORITY_WORDS: Record<Priority, string> = { price: "lowest price", balanced: "balanced", quality: "best quality" };
 
@@ -133,7 +134,7 @@ function applySettings(req: LimosRequest, o: Overrides = {}): LimosRequest {
     (r) =>
       !r.rule_id.startsWith("BUDGET_") &&
       !(o.exclude_allergens && r.rule_id.startsWith("ALLERGEN_")) &&
-      !(o.preferences && r.rule_id.startsWith("DIETARY_")),
+      !(o.preferences && (r.rule_id.startsWith("DIETARY_") || r.rule_id === "PREFERENCE_REQUIRED_UNMET")),
   );
   const add = (rule_id: string, outcome: RuleFired["outcome"], description: string, l?: Offer) =>
     rules.push({ rule_id, outcome, description, item_id: l?.item_id ?? null, product_id: l?.product_id ?? null });
@@ -159,7 +160,10 @@ function applySettings(req: LimosRequest, o: Overrides = {}): LimosRequest {
   for (const p of (o.preferences ?? []).filter((x) => x.level === "require")) {
     for (const l of q.lines) {
       const v = l.dietary_check?.[p.key] ?? "unknown";
-      if (v === "violated") add("DIETARY_VIOLATED", "BLOCK", `${l.name} is not ${prefLabel(p.key)}, which you always want.`, l);
+      // Same split as gateway/policy/engine.py: diet keys are hard, sourcing keys (finnish_origin...) need approval.
+      if (!HARD_DIET.has(p.key)) {
+        if (v !== "confirmed") add("PREFERENCE_REQUIRED_UNMET", "NEEDS_APPROVAL", `We can't confirm that ${l.name} is ${prefLabel(p.key)}.`, l);
+      } else if (v === "violated") add("DIETARY_VIOLATED", "BLOCK", `${l.name} is not ${prefLabel(p.key)}, which you always want.`, l);
       else if (v === "unknown") add("DIETARY_UNKNOWN", "NEEDS_APPROVAL", `We can't confirm that ${l.name} is ${prefLabel(p.key)}.`, l);
     }
   }
@@ -174,8 +178,9 @@ function applySettings(req: LimosRequest, o: Overrides = {}): LimosRequest {
     for (const r of kept) if (!(r.rule_id === "BUDGET_EXCEEDED" && fixtureBudget !== null && q.total <= fixtureBudget)) rules.push(r);
   }
   if (budget !== null) {
+    // The engine fires BUDGET_EXCEEDED on every overrun and adds BUDGET_HARD_STOP past 115 %.
+    if (q.total > budget) add("BUDGET_EXCEEDED", "NEEDS_APPROVAL", `The ${q.total.toFixed(2)} EUR total exceeds the ${budget} EUR budget.`);
     if (q.total > budget * 1.15) add("BUDGET_HARD_STOP", "BLOCK", `The ${q.total.toFixed(2)} EUR total is far over the ${budget} EUR budget.`);
-    else if (q.total > budget) add("BUDGET_EXCEEDED", "NEEDS_APPROVAL", `The ${q.total.toFixed(2)} EUR total exceeds the ${budget} EUR budget.`);
   }
 
   const blocked = rules.some((r) => r.outcome === "BLOCK");

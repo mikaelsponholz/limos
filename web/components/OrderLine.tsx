@@ -40,13 +40,32 @@ export default function OrderLine({ l }: { l: Offer }) {
   );
 }
 
+// Every RuleId in gateway/schemas.py, in words Pena understands.
 const REASONS: Record<string, string> = {
+  AGENT_NOT_PERMITTED: "Not allowed to order for you",
+  SALES_BLOCK: "Not on sale right now",
+  NOT_DELIVERABLE: "Can't be delivered",
+  PRICE_MISSING: "No price from Valio",
+  ALLERGEN_CONTAINS: "Contains an allergen",
+  DIETARY_VIOLATED: "Doesn't fit your diet",
+  SPEND_HARD_CAP: "Over your spending cap",
+  BUDGET_HARD_STOP: "Far over budget",
+  ALLERGEN_MAY_CONTAIN: "May contain an allergen",
+  ALLERGEN_DATA_MISSING: "No allergen information",
+  DIETARY_UNKNOWN: "Diet not confirmed",
+  PREFERENCE_REQUIRED_UNMET: "Your wish not confirmed",
+  SPEND_SOFT_LIMIT: "Bigger order than usual",
+  LINE_SOFT_LIMIT: "One product costs a lot",
+  BUDGET_EXCEEDED: "Over budget",
+  LATE_DELIVERY: "Arrives later than asked",
+  PARTIAL_QUANTITY: "Not enough in stock",
   SPLIT_DELIVERY: "Split into two sizes",
   SUBSTITUTION: "Replacement product",
-  BUDGET_EXCEEDED: "Over budget",
-  OVER_AUTO_LIMIT: "Over your auto limit",
-  DIETARY_UNKNOWN: "Diet not confirmed",
-  ALLERGEN_RISK: "Allergen risk",
+  OVERBUY: "More than you asked for",
+  PACK_SIZE_UNKNOWN: "Pack size not known",
+  TERMINAL_LOW_RELIABILITY: "Delivery may be late",
+  PRICE_CHANGED: "Price changed",
+  CUTOFF_PASSED: "Order deadline passed",
 };
 
 /** Short plain label for a rule id (the full sentence is in the quote's policy). */
