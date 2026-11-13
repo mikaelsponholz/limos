@@ -1,0 +1,113 @@
+{
+  "request_id": "r_pena01",
+  "buyer_id": "ab-oy",
+  "customer_id": "c_pena",
+  "preset_id": null,
+  "status": "NEEDS_INPUT",
+  "created_at": "2026-11-14T10:00:00+02:00",
+  "input": {
+    "text": "Cakes for Friday's meeting",
+    "image_url": null
+  },
+  "intent": {
+    "event": null,
+    "dishes": [],
+    "items": [
+      {
+        "item_id": "it_cake",
+        "description": "layer cake",
+        "description_fi": "taytekakku",
+        "quantity": 2,
+        "unit": "pcs",
+        "constraints": [
+          "finnish_origin"
+        ],
+        "used_in": []
+      }
+    ],
+    "deliver_by": "2026-11-20",
+    "preferences": [
+      {
+        "key": "finnish_origin",
+        "level": "prefer"
+      }
+    ],
+    "exclude_allergens": [],
+    "budget": null,
+    "priority": "quality",
+    "assumptions": [
+      "Cake quantities will be confirmed after the guest count is answered."
+    ],
+    "based_on": null,
+    "filled_gaps": [
+      {
+        "field": "items",
+        "value": "Layer cakes",
+        "source": "history",
+        "note": "Your latest board meeting order included layer cakes."
+      },
+      {
+        "field": "priority",
+        "value": "quality",
+        "source": "profile",
+        "note": "Your profile prefers quality."
+      }
+    ]
+  },
+  "question": {
+    "question_id": "qn_r_pena01",
+    "field": "guests",
+    "text": "How many people will attend Friday's meeting?",
+    "choices": [
+      "30",
+      "20"
+    ],
+    "default": "30",
+    "asked_at": "2026-11-14T10:00:11+02:00"
+  },
+  "steps": [
+    {
+      "seq": 1,
+      "at": "2026-11-14T10:00:00+02:00",
+      "actor": "user",
+      "type": "REQUEST_RECEIVED",
+      "title": "Received a request for cakes for Friday's meeting",
+      "detail": {},
+      "model": null,
+      "prev_hash": null,
+      "hash": "sha256:07c84b4fd08fcba0385bcbf97075795fb41af142897204b08a97a35bf537008e"
+    },
+    {
+      "seq": 2,
+      "at": "2026-11-14T10:00:01+02:00",
+      "actor": "gateway",
+      "type": "CUSTOMER_LOADED",
+      "title": "Loaded Pena at Ab Oy and two past orders",
+      "detail": {
+        "customer_id": "c_pena"
+      },
+      "model": null,
+      "prev_hash": "sha256:07c84b4fd08fcba0385bcbf97075795fb41af142897204b08a97a35bf537008e",
+      "hash": "sha256:34f69fa61a399e36eb944a21a52c8fec7984fd1d568b160cbc2cf749dd2af1f2"
+    },
+    {
+      "seq": 3,
+      "at": "2026-11-14T10:00:11+02:00",
+      "actor": "agent",
+      "type": "CLARIFICATION_REQUESTED",
+      "title": "Asked for the guest count with choices from past orders",
+      "detail": {
+        "question_id": "qn_r_pena01"
+      },
+      "model": null,
+      "prev_hash": "sha256:34f69fa61a399e36eb944a21a52c8fec7984fd1d568b160cbc2cf749dd2af1f2",
+      "hash": "sha256:3562aecd94ed6c9e690f5acb0aa67be22710254459236864540c6043d774ec5e"
+    }
+  ],
+  "candidates": [],
+  "quote": null,
+  "suggestions": [],
+  "approval_id": null,
+  "order": null,
+  "error": null
+}

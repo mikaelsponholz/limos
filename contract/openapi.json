@@ -86,6 +86,32 @@
         "title": "Allergens",
         "type": "object"
       },
+      "AnswerBody": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer"
+          },
+          "question_id": {
+            "title": "Question Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question_id",
+          "answer"
+        ],
+        "title": "AnswerBody",
+        "type": "object"
+      },
       "ApprovalDetail": {
         "additionalProperties": false,
         "properties": {
@@ -193,6 +219,18 @@
             "title": "Expires At",
             "type": "string"
           },
+          "order_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Deadline"
+          },
           "quote_id": {
             "title": "Quote Id",
             "type": "string"
@@ -247,6 +285,7 @@
           "created_at",
           "summary",
           "reasons",
+          "order_deadline",
           "expires_at"
         ],
         "title": "ApprovalListEntry",
@@ -350,6 +389,60 @@
         "title": "Audit",
         "type": "object"
       },
+      "BasedOn": {
+        "additionalProperties": false,
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "guests_before": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guests Before"
+          },
+          "guests_now": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guests Now"
+          },
+          "order_ref": {
+            "title": "Order Ref",
+            "type": "string"
+          },
+          "scale": {
+            "title": "Scale",
+            "type": "number"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_ref",
+          "title",
+          "date",
+          "guests_before",
+          "guests_now",
+          "scale"
+        ],
+        "title": "BasedOn",
+        "type": "object"
+      },
       "Budget": {
         "additionalProperties": false,
         "properties": {
@@ -396,6 +489,218 @@
         ],
         "title": "ComparisonPrice",
         "type": "object"
+      },
+      "Customer": {
+        "additionalProperties": false,
+        "properties": {
+          "age_group": {
+            "enum": [
+              "under_35",
+              "35_to_54",
+              "55_plus"
+            ],
+            "title": "Age Group",
+            "type": "string"
+          },
+          "buyer_id": {
+            "title": "Buyer Id",
+            "type": "string"
+          },
+          "company": {
+            "title": "Company",
+            "type": "string"
+          },
+          "customer_id": {
+            "title": "Customer Id",
+            "type": "string"
+          },
+          "defaults": {
+            "$ref": "#/components/schemas/CustomerDefaults"
+          },
+          "exclude_allergens": {
+            "items": {
+              "enum": [
+                "milk",
+                "lactose",
+                "gluten",
+                "wheat",
+                "egg",
+                "fish",
+                "crustaceans",
+                "molluscs",
+                "peanuts",
+                "tree_nuts",
+                "soy",
+                "sesame",
+                "celery",
+                "mustard",
+                "sulphites",
+                "lupin"
+              ],
+              "type": "string"
+            },
+            "title": "Exclude Allergens",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "order_history": {
+            "items": {
+              "$ref": "#/components/schemas/PastOrder"
+            },
+            "title": "Order History",
+            "type": "array"
+          },
+          "playful": {
+            "title": "Playful",
+            "type": "boolean"
+          },
+          "preferences": {
+            "items": {
+              "$ref": "#/components/schemas/Preference"
+            },
+            "title": "Preferences",
+            "type": "array"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "simulated": {
+            "const": true,
+            "title": "Simulated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "name",
+          "company",
+          "role",
+          "buyer_id",
+          "age_group",
+          "playful",
+          "preferences",
+          "exclude_allergens",
+          "defaults",
+          "order_history",
+          "simulated"
+        ],
+        "title": "Customer",
+        "type": "object"
+      },
+      "CustomerDefaults": {
+        "additionalProperties": false,
+        "properties": {
+          "budget": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget"
+          },
+          "priority": {
+            "enum": [
+              "price",
+              "balanced",
+              "quality"
+            ],
+            "title": "Priority",
+            "type": "string"
+          },
+          "typical_guests": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Typical Guests"
+          }
+        },
+        "required": [
+          "priority",
+          "typical_guests",
+          "budget"
+        ],
+        "title": "CustomerDefaults",
+        "type": "object"
+      },
+      "CustomerSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "age_group": {
+            "enum": [
+              "under_35",
+              "35_to_54",
+              "55_plus"
+            ],
+            "title": "Age Group",
+            "type": "string"
+          },
+          "company": {
+            "title": "Company",
+            "type": "string"
+          },
+          "customer_id": {
+            "title": "Customer Id",
+            "type": "string"
+          },
+          "last_order": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LastOrder"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "playful": {
+            "title": "Playful",
+            "type": "boolean"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "simulated": {
+            "const": true,
+            "title": "Simulated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "customer_id",
+          "name",
+          "company",
+          "role",
+          "age_group",
+          "playful",
+          "last_order",
+          "simulated"
+        ],
+        "title": "CustomerSummary",
+        "type": "object"
+      },
+      "Customers": {
+        "items": {
+          "$ref": "#/components/schemas/CustomerSummary"
+        },
+        "title": "Customers",
+        "type": "array"
       },
       "Dish": {
         "additionalProperties": false,
@@ -502,6 +807,42 @@
           "servings"
         ],
         "title": "EventDish",
+        "type": "object"
+      },
+      "FilledGap": {
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "text",
+              "form",
+              "history",
+              "profile",
+              "default",
+              "answer"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "required": [
+          "field",
+          "value",
+          "source",
+          "note"
+        ],
+        "title": "FilledGap",
         "type": "object"
       },
       "FiredRule": {
@@ -626,6 +967,16 @@
             "title": "Assumptions",
             "type": "array"
           },
+          "based_on": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BasedOn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "budget": {
             "anyOf": [
               {
@@ -684,6 +1035,13 @@
             "title": "Exclude Allergens",
             "type": "array"
           },
+          "filled_gaps": {
+            "items": {
+              "$ref": "#/components/schemas/FilledGap"
+            },
+            "title": "Filled Gaps",
+            "type": "array"
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/IntentItem"
@@ -717,7 +1075,9 @@
           "exclude_allergens",
           "budget",
           "priority",
-          "assumptions"
+          "assumptions",
+          "based_on",
+          "filled_gaps"
         ],
         "title": "Intent",
         "type": "object"
@@ -833,6 +1193,31 @@
         "type": "object"
       },
       "JsonValue": {},
+      "LastOrder": {
+        "additionalProperties": false,
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "order_ref": {
+            "title": "Order Ref",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_ref",
+          "date",
+          "title"
+        ],
+        "title": "LastOrder",
+        "type": "object"
+      },
       "Mandate": {
         "additionalProperties": false,
         "properties": {
@@ -930,6 +1315,18 @@
           "country_of_origin": {
             "title": "Country Of Origin",
             "type": "string"
+          },
+          "delivery_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Date"
           },
           "delivery_reliability": {
             "anyOf": [
@@ -1032,6 +1429,18 @@
             "title": "Name",
             "type": "string"
           },
+          "order_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Deadline"
+          },
           "pack_description": {
             "title": "Pack Description",
             "type": "string"
@@ -1059,6 +1468,10 @@
           "quantity_sales_units": {
             "title": "Quantity Sales Units",
             "type": "number"
+          },
+          "quantity_text": {
+            "title": "Quantity Text",
+            "type": "string"
           },
           "reason": {
             "title": "Reason",
@@ -1150,9 +1563,12 @@
           "line_total_with_tax",
           "tax_rate",
           "available_amount",
+          "quantity_text",
           "available_date",
           "requested_date",
+          "delivery_date",
           "closing_time",
+          "order_deadline",
           "logistic_model",
           "delivery_reliability",
           "carbon_kg_co2e_per_kg",
@@ -1346,6 +1762,18 @@
             "title": "Lines",
             "type": "array"
           },
+          "order_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Deadline"
+          },
           "order_id": {
             "title": "Order Id",
             "type": "string"
@@ -1399,6 +1827,7 @@
           "authority",
           "idempotency_key",
           "delivery_date",
+          "order_deadline",
           "lines",
           "total",
           "total_with_tax"
@@ -1433,6 +1862,120 @@
           "idempotency_key"
         ],
         "title": "OrderBody",
+        "type": "object"
+      },
+      "PastOrder": {
+        "additionalProperties": false,
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "event_type": {
+            "title": "Event Type",
+            "type": "string"
+          },
+          "guests": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guests"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/PastOrderLine"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "order_ref": {
+            "title": "Order Ref",
+            "type": "string"
+          },
+          "simulated": {
+            "const": true,
+            "title": "Simulated",
+            "type": "boolean"
+          },
+          "source": {
+            "enum": [
+              "seeded",
+              "limos"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "number"
+          }
+        },
+        "required": [
+          "order_ref",
+          "date",
+          "title",
+          "event_type",
+          "guests",
+          "lines",
+          "total",
+          "source",
+          "simulated"
+        ],
+        "title": "PastOrder",
+        "type": "object"
+      },
+      "PastOrderLine": {
+        "additionalProperties": false,
+        "properties": {
+          "line_total": {
+            "title": "Line Total",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "product_id": {
+            "title": "Product Id",
+            "type": "string"
+          },
+          "quantity_sales_units": {
+            "title": "Quantity Sales Units",
+            "type": "number"
+          },
+          "quantity_text": {
+            "title": "Quantity Text",
+            "type": "string"
+          },
+          "sales_unit": {
+            "title": "Sales Unit",
+            "type": "string"
+          },
+          "unit_price": {
+            "title": "Unit Price",
+            "type": "number"
+          }
+        },
+        "required": [
+          "product_id",
+          "name",
+          "quantity_sales_units",
+          "sales_unit",
+          "quantity_text",
+          "unit_price",
+          "line_total"
+        ],
+        "title": "PastOrderLine",
         "type": "object"
       },
       "PlacedBy": {
@@ -1527,6 +2070,17 @@
       "Preset": {
         "additionalProperties": false,
         "properties": {
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Id"
+          },
           "description": {
             "title": "Description",
             "type": "string"
@@ -1555,6 +2109,7 @@
         },
         "required": [
           "preset_id",
+          "customer_id",
           "title",
           "description",
           "expected",
@@ -1594,6 +2149,63 @@
           "unit"
         ],
         "title": "Quantity",
+        "type": "object"
+      },
+      "Question": {
+        "additionalProperties": false,
+        "properties": {
+          "asked_at": {
+            "format": "date-time",
+            "title": "Asked At",
+            "type": "string"
+          },
+          "choices": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "default": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default"
+          },
+          "field": {
+            "enum": [
+              "guests",
+              "deliver_by",
+              "items",
+              "event_type",
+              "other"
+            ],
+            "title": "Field",
+            "type": "string"
+          },
+          "question_id": {
+            "title": "Question Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question_id",
+          "field",
+          "text",
+          "choices",
+          "default",
+          "asked_at"
+        ],
+        "title": "Question",
         "type": "object"
       },
       "Quote": {
@@ -1669,6 +2281,18 @@
             ],
             "title": "Option Label"
           },
+          "order_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Deadline"
+          },
           "policy": {
             "$ref": "#/components/schemas/PolicyDecision"
           },
@@ -1711,6 +2335,7 @@
           "status",
           "option_label",
           "delivery_date",
+          "order_deadline",
           "lines",
           "total",
           "total_with_tax",
@@ -1927,8 +2552,28 @@
             "title": "Budget"
           },
           "buyer_id": {
-            "title": "Buyer Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Buyer Id"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Customer Id"
           },
           "event": {
             "anyOf": [
@@ -2008,6 +2653,18 @@
             "title": "Priority",
             "type": "string"
           },
+          "reorder_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reorder Of"
+          },
           "requested_date": {
             "anyOf": [
               {
@@ -2034,9 +2691,6 @@
             "title": "Text"
           }
         },
-        "required": [
-          "buyer_id"
-        ],
         "title": "RequestCreate",
         "type": "object"
       },
@@ -2090,6 +2744,17 @@
             "title": "Created At",
             "type": "string"
           },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Id"
+          },
           "error": {
             "anyOf": [
               {
@@ -2133,6 +2798,16 @@
             ],
             "title": "Preset Id"
           },
+          "question": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Question"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "quote": {
             "anyOf": [
               {
@@ -2150,6 +2825,7 @@
           "status": {
             "enum": [
               "RUNNING",
+              "NEEDS_INPUT",
               "WAITING_APPROVAL",
               "ORDERED",
               "BLOCKED",
@@ -2165,19 +2841,29 @@
             },
             "title": "Steps",
             "type": "array"
+          },
+          "suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/Suggestion"
+            },
+            "title": "Suggestions",
+            "type": "array"
           }
         },
         "required": [
           "request_id",
           "buyer_id",
+          "customer_id",
           "preset_id",
           "status",
           "created_at",
           "input",
           "intent",
+          "question",
           "steps",
           "candidates",
           "quote",
+          "suggestions",
           "approval_id",
           "order",
           "error"
@@ -2339,6 +3025,41 @@
             "title": "Created At",
             "type": "string"
           },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Id"
+          },
+          "delivery_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Date"
+          },
+          "order_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Deadline"
+          },
           "request_id": {
             "title": "Request Id",
             "type": "string"
@@ -2346,6 +3067,7 @@
           "status": {
             "enum": [
               "RUNNING",
+              "NEEDS_INPUT",
               "WAITING_APPROVAL",
               "ORDERED",
               "BLOCKED",
@@ -2366,10 +3088,13 @@
         },
         "required": [
           "request_id",
+          "customer_id",
           "created_at",
           "title",
           "status",
-          "total"
+          "total",
+          "delivery_date",
+          "order_deadline"
         ],
         "title": "RequestListEntry",
         "type": "object"
@@ -2623,7 +3348,12 @@
           "type": {
             "enum": [
               "REQUEST_RECEIVED",
+              "CUSTOMER_LOADED",
               "INTENT_PARSED",
+              "CLARIFICATION_REQUESTED",
+              "CLARIFICATION_ANSWERED",
+              "SUGGESTIONS_PROPOSED",
+              "SUGGESTION_ACCEPTED",
               "EVENT_EXPANDED",
               "TOOL_CALL",
               "CANDIDATES",
@@ -2665,12 +3395,79 @@
         },
         "title": "Steps",
         "type": "array"
+      },
+      "Suggestion": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "seasonal",
+              "holiday",
+              "trend"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "offer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Offer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "replaces_item_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaces Item Id"
+          },
+          "status": {
+            "enum": [
+              "OFFERED",
+              "ACCEPTED",
+              "DECLINED"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "suggestion_id": {
+            "title": "Suggestion Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "suggestion_id",
+          "kind",
+          "title",
+          "reason",
+          "replaces_item_id",
+          "offer",
+          "status"
+        ],
+        "title": "Suggestion",
+        "type": "object"
       }
     }
   },
   "info": {
     "title": "Limos",
-    "version": "0.2"
+    "version": "0.3"
   },
   "openapi": "3.1.0",
   "paths": {
