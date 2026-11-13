@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useCustomer } from "@/lib/customer";
+import { readSettings, requestOverrides } from "@/lib/settings";
 import OrderLine from "@/components/OrderLine";
 import { ICONS, day, dayTime, eur } from "@/lib/format";
 import { ApiError, type LimosRequest, type Suggestion } from "@/lib/types";
@@ -56,7 +57,11 @@ export default function OrderPage() {
     setError(null);
     setBusy(true);
     try {
-      const { request_id } = await api.createRequest({ customer_id: customer.customer_id, ...body });
+      const { request_id } = await api.createRequest({
+        customer_id: customer.customer_id,
+        ...requestOverrides(readSettings(customer.customer_id)),
+        ...body,
+      });
       poll(request_id);
     } catch {
       setBusy(false);

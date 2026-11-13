@@ -161,8 +161,18 @@ export interface CustomerSummary {
   last_order: { order_ref: string; date: string; title: string } | null;
 }
 
+export type PreferenceLevel = "require" | "prefer";
+export interface Preference {
+  key: string;
+  level: PreferenceLevel;
+}
+export type Priority = "price" | "balanced" | "quality";
+
 export interface Customer extends Omit<CustomerSummary, "last_order"> {
   buyer_id: string;
+  preferences?: Preference[];
+  exclude_allergens?: string[];
+  defaults?: { priority: Priority; typical_guests: number | null; budget: number | null };
   order_history: PastOrder[];
 }
 

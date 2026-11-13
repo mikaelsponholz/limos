@@ -35,7 +35,15 @@ export const api = {
   customers: (): Promise<CustomerSummary[]> => (USE_MOCK ? mock.customers() : call("/customers")),
   customer: (id: string): Promise<Customer> => (USE_MOCK ? mock.customer(id) : call(`/customers/${id}`)),
 
-  createRequest: (body: { customer_id: string; text?: string; reorder_of?: string }): Promise<Started> =>
+  createRequest: (body: {
+    customer_id: string;
+    text?: string;
+    reorder_of?: string;
+    preferences?: unknown;
+    exclude_allergens?: unknown;
+    priority?: unknown;
+    budget?: unknown;
+  }): Promise<Started> =>
     USE_MOCK ? mock.createRequest(body) : post("/requests", body),
   getRequest: (id: string): Promise<LimosRequest> => (USE_MOCK ? mock.getRequest(id) : call(`/requests/${id}`)),
   answer: (id: string, question_id: string, answer: string | null): Promise<Started> =>

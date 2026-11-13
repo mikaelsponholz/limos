@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { initials, useCustomer } from "@/lib/customer";
 
 export default function Header() {
-  const { customers, customer, choose } = useCustomer();
+  const { customer } = useCustomer();
   const path = usePathname();
   const [pending, setPending] = useState(0);
 
@@ -41,26 +41,23 @@ export default function Header() {
           </Link>
         </div>
         {customer && (
-          <label className="flex items-center gap-2.5 text-base text-soft min-w-0">
+          <Link
+            href="/settings"
+            className={`flex items-center gap-2.5 no-underline rounded-full pr-2 min-w-0 ${path === "/settings" ? "text-petrol" : "text-soft"}`}
+          >
             <span
               aria-hidden
               className="flex-none w-9 h-9 rounded-full bg-petrol-tint text-petrol font-bold text-[15px] flex items-center justify-center"
             >
               {initials(customer)}
             </span>
-            <span className="sr-only">Ordering as</span>
-            <select
-              value={customer.customer_id}
-              onChange={(e) => choose(e.target.value)}
-              className="bg-transparent border-0 text-base text-soft cursor-pointer pr-1 max-w-[200px]"
-            >
-              {customers.map((c) => (
-                <option key={c.customer_id} value={c.customer_id}>
-                  {c.name} · {c.company}
-                </option>
-              ))}
-            </select>
-          </label>
+            <span className="flex flex-col leading-tight min-w-0">
+              <span className="text-base text-ink font-semibold truncate">
+                {customer.name} · {customer.company}
+              </span>
+              <span className="text-[14px] underline">Settings</span>
+            </span>
+          </Link>
         )}
       </div>
     </header>

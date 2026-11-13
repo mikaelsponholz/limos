@@ -2,6 +2,7 @@
 // "Who is ordering": no sign-in, the customer picker is how the user is recognised.
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { api } from "./api";
+import { applyTextSize, readSettings } from "./settings";
 import type { Customer, CustomerSummary } from "./types";
 
 const KEY = "limos.customer";
@@ -40,6 +41,10 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
     if (id) api.customer(id).then(setCustomer);
   }, [id]);
   useEffect(load, [load]);
+  // Each customer keeps their own text size.
+  useEffect(() => {
+    if (id) applyTextSize(readSettings(id).textSize);
+  }, [id]);
 
   const choose = (next: string) => {
     try {
