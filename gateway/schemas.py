@@ -1,4 +1,4 @@
-"""Public API contract v0.2. Money and quantities serialize as JSON numbers."""
+"""Public API contract v0.3. Money and quantities serialize as JSON numbers."""
 
 from datetime import date
 from typing import Literal, Self
@@ -17,7 +17,7 @@ from gateway.catalog.models import AllergenCode as AllergenCode
 from gateway.catalog.models import ClaimCode as ClaimCode
 from gateway.catalog.models import LabelCode as LabelCode
 
-CONTRACT_VERSION = "0.2"
+CONTRACT_VERSION = "0.3"
 
 PreferenceKey = Literal[
     "lactose_free", "gluten_free", "finnish_origin", "organic", "vegetarian", "vegan", "low_carbon"
@@ -43,6 +43,7 @@ AllergenCheck = Literal[
 Constraint = PreferenceKey | AllergenCheck
 Unit = Literal["g", "kg", "ml", "L", "pcs"]
 Priority = Literal["price", "balanced", "quality"]
+AgeGroup = Literal["under_35", "35_to_54", "55_plus"]
 PresetId = Literal["restaurant_weekly", "wedding_120", "birthday_kids_25", "company_lunch_60"]
 Actor = Literal["user", "agent", "gateway", "policy", "human"]
 Outcome = Literal["AUTO", "NEEDS_APPROVAL", "BLOCK"]
@@ -72,7 +73,9 @@ RuleId = Literal[
     "PRICE_CHANGED",
     "CUTOFF_PASSED",
 ]
-RequestStatus = Literal["RUNNING", "WAITING_APPROVAL", "ORDERED", "BLOCKED", "REJECTED", "FAILED"]
+RequestStatus = Literal[
+    "RUNNING", "NEEDS_INPUT", "WAITING_APPROVAL", "ORDERED", "BLOCKED", "REJECTED", "FAILED"
+]
 QuoteStatus = Literal[
     "DRAFT",
     "AUTO_APPROVED",
@@ -86,7 +89,12 @@ QuoteStatus = Literal[
 ApprovalStatus = Literal["PENDING", "APPROVED", "REJECTED", "EXPIRED"]
 StepType = Literal[
     "REQUEST_RECEIVED",
+    "CUSTOMER_LOADED",
     "INTENT_PARSED",
+    "CLARIFICATION_REQUESTED",
+    "CLARIFICATION_ANSWERED",
+    "SUGGESTIONS_PROPOSED",
+    "SUGGESTION_ACCEPTED",
     "EVENT_EXPANDED",
     "TOOL_CALL",
     "CANDIDATES",
@@ -161,6 +169,70 @@ class Preference(ContractModel):
     level: Literal["require", "prefer"]
 
 
+class CustomerDefaults(ContractModel):
+    priority: Priority
+    typical_guests: int | None
+    budget: float | None
+
+
+class PastOrderLine(ContractModel):
+    product_id: str
+    name: str
+    quantity_sales_units: float
+    sales_unit: str
+    quantity_text: str
+    unit_price: float
+    line_total: float
+
+
+class PastOrder(ContractModel):
+    order_ref: str
+    date: date
+    title: str
+    event_type: str
+    guests: int | None
+    lines: list[PastOrderLine]
+    total: float
+    source: Literal["seeded", "limos"]
+    simulated: Literal[True]
+
+
+class Customer(ContractModel):
+    customer_id: str
+    name: str
+    company: str
+    role: str
+    buyer_id: str
+    age_group: AgeGroup
+    playful: bool
+    preferences: list[Preference]
+    exclude_allergens: list[AllergenCode]
+    defaults: CustomerDefaults
+    order_history: list[PastOrder]
+    simulated: Literal[True]
+
+
+class LastOrder(ContractModel):
+    order_ref: str
+    date: date
+    title: str
+
+
+class CustomerSummary(ContractModel):
+    customer_id: str
+    name: str
+    company: str
+    role: str
+    age_group: AgeGroup
+    playful: bool
+    last_order: LastOrder | None
+    simulated: Literal[True]
+
+
+class Customers(RootModel[list[CustomerSummary]]):
+    model_config = ConfigDict(strict=True)
+
+
 class RequestItem(ContractModel):
     description: str
     quantity: float
@@ -185,8 +257,10 @@ class RequestEvent(Event):
 
 
 class RequestCreate(ContractModel):
-    buyer_id: str
-    # Create-field defaults are unspecified; omissions enable each of the four input forms.
+    buyer_id: str | None = None
+    customer_id: str | None = None
+    reorder_of: str | None = None
+    # Create-field defaults are unspecified; omissions enable each of the five input forms.
     preset_id: PresetId | None = None
     text: str | None = None
     requested_date: date | None = None
@@ -199,8 +273,12 @@ class RequestCreate(ContractModel):
 
     @model_validator(mode="after")
     def require_input(self) -> Self:
-        if not (self.preset_id or self.text or self.event or self.items):
-            raise ValueError("At least one of preset_id, text, event or items must be set.")
+        if not (self.buyer_id or self.customer_id):
+            raise ValueError("At least one of buyer_id or customer_id must be set.")
+        if not (self.preset_id or self.text or self.event or self.items or self.reorder_of):
+            raise ValueError(
+                "At least one of preset_id, text, event, items or reorder_of must be set."
+            )
         return self
 
 
@@ -226,6 +304,22 @@ class IntentItem(RequestItem):
     used_in: list[ItemUse]
 
 
+class BasedOn(ContractModel):
+    order_ref: str
+    title: str
+    date: date
+    guests_before: int | None
+    guests_now: int | None
+    scale: float
+
+
+class FilledGap(ContractModel):
+    field: str
+    value: JsonValue
+    source: Literal["text", "form", "history", "profile", "default", "answer"]
+    note: str
+
+
 class Intent(ContractModel):
     event: Event | None
     dishes: list[Dish]
@@ -236,6 +330,22 @@ class Intent(ContractModel):
     budget: float | None
     priority: Priority
     assumptions: list[str]
+    based_on: BasedOn | None
+    filled_gaps: list[FilledGap]
+
+
+class Question(ContractModel):
+    question_id: str
+    field: Literal["guests", "deliver_by", "items", "event_type", "other"]
+    text: str
+    choices: list[str]
+    default: str | None
+    asked_at: AwareDatetime
+
+
+class AnswerBody(ContractModel):
+    question_id: str
+    answer: str | None
 
 
 class Step(ContractModel):
@@ -275,10 +385,13 @@ class Offer(ContractModel):
     line_total_with_tax: float
     tax_rate: float
     available_amount: float | None
+    quantity_text: str
     available_date: date | None
     requested_date: date
+    delivery_date: date | None
     # Closing-time nullability is unspecified; the undeliverable fixture uses null.
     closing_time: AwareDatetime | None
+    order_deadline: AwareDatetime | None
     logistic_model: Literal["Stock", "Terminal"]
     delivery_reliability: float | None
     carbon_kg_co2e_per_kg: float | None
@@ -294,6 +407,16 @@ class Offer(ContractModel):
     substitute_for: str | None
     substitute_source: Literal["valio", "agent"] | None
     flags: list[OfferFlag]
+
+
+class Suggestion(ContractModel):
+    suggestion_id: str
+    kind: Literal["seasonal", "holiday", "trend"]
+    title: str
+    reason: str
+    replaces_item_id: str | None
+    offer: Offer | None
+    status: Literal["OFFERED", "ACCEPTED", "DECLINED"]
 
 
 class FiredRule(ContractModel):
@@ -332,6 +455,7 @@ class Quote(ContractModel):
     status: QuoteStatus
     option_label: str | None
     delivery_date: date
+    order_deadline: AwareDatetime | None
     lines: list[Offer]
     total: float
     total_with_tax: float
@@ -362,6 +486,7 @@ class Order(ContractModel):
     authority: str
     idempotency_key: str
     delivery_date: date
+    order_deadline: AwareDatetime | None
     lines: list[Offer]
     total: float
     total_with_tax: float
@@ -375,15 +500,18 @@ class RequestInput(ContractModel):
 class RequestDetail(ContractModel):
     request_id: str
     buyer_id: str
+    customer_id: str | None
     preset_id: PresetId | None
     status: RequestStatus
     created_at: AwareDatetime
     input: RequestInput
     # Pre-intent running responses are unspecified; the fixture supplies a complete intent.
     intent: Intent
+    question: Question | None
     steps: list[Step]
     candidates: list[Offer]
     quote: Quote | None
+    suggestions: list[Suggestion]
     approval_id: str | None
     order: Order | None
     error: Error | None
@@ -391,11 +519,14 @@ class RequestDetail(ContractModel):
 
 class RequestListEntry(ContractModel):
     request_id: str
+    customer_id: str | None
     created_at: AwareDatetime
     title: str
     status: RequestStatus
     # Pre-quote totals are unspecified; request-list fixtures supply numeric totals.
     total: float
+    delivery_date: date | None
+    order_deadline: AwareDatetime | None
 
 
 class RequestList(RootModel[list[RequestListEntry]]):
@@ -404,6 +535,7 @@ class RequestList(RootModel[list[RequestListEntry]]):
 
 class Preset(ContractModel):
     preset_id: PresetId
+    customer_id: str | None
     title: str
     description: str
     expected: str
@@ -422,6 +554,7 @@ class ApprovalListEntry(ContractModel):
     created_at: AwareDatetime
     summary: str
     reasons: list[RuleId]
+    order_deadline: AwareDatetime | None
     expires_at: AwareDatetime
 
 

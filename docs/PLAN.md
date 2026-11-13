@@ -2,7 +2,7 @@
 
 Limos is a purchasing agent for professional kitchens, built at Junction 2026 for the Valio Aimo "Trusted Trade Agents" challenge, with side entries for the Gemini API, Codex and Aiven challenges.
 
-A kitchen describes an event or picks a preset. Gemini expands it into an item list, searches the catalogue, checks price and availability and chooses products. The Limos gateway locks the price in a quote, deterministic rules decide whether it can be ordered alone or needs a human, and every step lands in an append-only decision log. Any outside agent (for example Claude Desktop over MCP) buys through the same gateway under the same guardrails.
+A customer picks their profile, so Limos knows their history and preferences. They describe an event in a few words or in detail, ask for "same as last time", or pick a preset. Gemini expands it into an item list, searches the catalogue, checks price and availability and chooses products. The Limos gateway locks the price in a quote, deterministic rules decide whether it can be ordered alone or needs a human, and every step lands in an append-only decision log. Any outside agent (for example Claude Desktop over MCP) buys through the same gateway under the same guardrails.
 
 Pitch: **the AI proposes, the rules decide, the human signs.** The value for the kitchen is time saved on routine search, comparison and ordering. Copy never makes speed promises or numbers we haven't measured.
 
@@ -45,7 +45,7 @@ Source files are fetched by `scripts/fetch_valio_data.py` into `data/valio/` and
 | Reliability | CSV, 0 to 1 | Median 1.0, p10 0.94. Missing = unknown, not bad |
 | Carbon | CSV, kg CO2e per kg (group average) | Median 2.1, p90 7.1 |
 
-No purchase history exists in the data, so no rule depends on one.
+No purchase history exists in the data. Limos seeds a short, simulated history for its demo customers only (section 8a). No policy rule depends on history.
 
 ## 2. Architecture
 
@@ -94,6 +94,7 @@ agent/              Gemini buyer agent (intent, expansion, tool loop, explanatio
 mcp_server/         MCP server over the gateway tools
 clients/            plain script client (openness demo)
 presets/            the four demo presets as JSON
+customers/          seeded demo customer profiles and history (simulated)
 scripts/            fetch_valio_data, build_catalog, ping_valio, list_models, export_openapi, find_demo_cases
 contract/openapi.json   exported OpenAPI snapshot (committed, web generates types from it)
 fixtures/api/       mock JSON for every contract shape
@@ -108,17 +109,22 @@ Zones: Mikael owns everything outside `web/`. Johannes owns `web/`. `docs/api_co
 
 ## 3. Request flow
 
-1. **Request** (`POST /requests`): a preset id, an event form, an item list or free text. Returns `202` with a `request_id`. The run is a background task. The UI polls `GET /requests/{id}`.
-2. **Intent** (Gemini Flash): free text becomes the structured intent. Fields the buyer set always win.
+0. **Customer** (code): the user picks a seeded customer. Their profile (preferences, allergens, defaults, playful flag) and order history load with the request (`CUSTOMER_LOADED` step).
+1. **Request** (`POST /requests`): a preset id, an event form, an item list, free text or a reorder of a past order. Returns `202` with a `request_id`. The run is a background task. The UI polls `GET /requests/{id}`.
+2. **Intent** (Gemini Flash): free text, short and vague or long and clear, becomes the structured intent. Precedence: form fields, then the text, then history, then profile defaults, then system defaults. Every filled gap is recorded in `intent.filled_gaps` with its source. "Same as last time but for 80 people" resolves to a past order; code scales its quantities by the guest ratio.
+2a. **One clarifying question** (code decides, Gemini words it): only when a needed value (guests, delivery date, or what to order) has no source at all. At most one per request. The request goes `NEEDS_INPUT`, the answer (or "Use default") resumes it, and remaining gaps get defaults.
 3. **Event expansion** (Gemini, structured output): each dish becomes items with a per-serving quantity. Code multiplies by servings, adds waste (mandate, default 5 %) and merges the same item across dishes. Per-guest sanity bounds add assumption notes, never silent fixes.
 4. **Search** (gateway `search_products`, code): token search over fi / en names and key ingredients. Hard filters (allergen CONTAINS, dietary `violated`, sales block) run before Gemini sees anything.
 5. **Choice** (Gemini over tools): picks the relevant candidates (whipping cream, not cream cheese) from the list. Ids are validated against the list.
 6. **Offers** (gateway `check_offers`): one Valio price and one availability call for the shortlist, then unit conversion to sales units with `allowedLotSize`, `dietary_check`, flags, reliability and CO2.
 7. **Ranking** (code): good / better / best per item (section 5). The default pick follows the buyer's priority.
+7a. **Suggestions** (Gemini proposes, code prices): for playful customers only, up to three "if you want" lines (seasonal swap, holiday, trend). They are never in the quote. Accepting one triggers a new quote, so the rules run again.
 8. **Exceptions** (code, plus Gemini for agent substitutes): section 6.
 9. **Quote** (gateway `request_quote`): locks prices, sets `expires_at`, computes `content_hash`, runs the policy engine. Outcome `AUTO`, `NEEDS_APPROVAL` or `BLOCK`.
 10. **Order or approval**: `AUTO` → the agent calls `place_order` with an idempotency key. `NEEDS_APPROVAL` → the agent calls `request_approval`; a human approves one option bound to its `content_hash`; the gateway re-checks availability and places the order. `BLOCK` → the request ends with the rule and reason.
-11. **One order per event.** A request produces at most one order.
+11. **One order per event.** A request produces at most one order. A placed order for a seeded customer is appended to their history (`source: limos`), so a later reorder finds it.
+
+The result the user sees is a **shopping list**: product, quantity in plain words, unit price, line total, delivery date and order deadline on every line, the total, and one "Approve order" button (section 8b).
 
 ## 4. Guardrails ("the rules decide")
 
@@ -155,7 +161,7 @@ Placeholder mandate (per buyer, editable): auto limit €1 500 net, line limit �
 
 **Quote rules (code):** `expires_at` = now + 30 min, never past a future `closingTime`. `content_hash` = SHA-256 over the canonical JSON of lines, totals, delivery date and expiry. An approval stores the hash it approved; `place_order` refuses a quote that is expired, changed, or `NEEDS_APPROVAL` without a matching approval. The same idempotency key returns the same order.
 
-Dropped (no purchase history in the data): price versus last purchase, new product, category allow-lists.
+Dropped (no purchase history in the data): price versus last purchase, new product, category allow-lists. They stay dropped now that seeded customers have history: guardrails are unchanged.
 
 ## 5. Ranking: good, better, best
 
@@ -201,7 +207,35 @@ Approval `options` are alternative quotes (at most 3): the recommended one and a
 | `birthday_kids_25` | 25 | Nut-free; a may-contain-nuts product → `ALLERGEN_MAY_CONTAIN` approval with a safe option |
 | `company_lunch_60` | 60 | Kotimainen required; budget set so the total exceeds it → `BUDGET_EXCEEDED` approval with a cheaper option |
 
-Plus free text. Presets are built from data, not luck: `scripts/find_demo_cases.py` finds products that trigger each case (for example courgette 460025, not deliverable, with Valio substitute 460150 in stock). A test per preset runs against recorded responses and fails unless the expected outcome and rules appear. `uv run python scripts/demo_check.py` re-runs all presets live before the demo.
+Plus free text. Each preset may name a seeded customer (`company_lunch_60` → Pena, `restaurant_weekly` → the chef). Presets are built from data, not luck: `scripts/find_demo_cases.py` finds products that trigger each case (for example courgette 460025, not deliverable, with Valio substitute 460150 in stock). A test per preset runs against recorded responses and fails unless the expected outcome and rules appear. `uv run python scripts/demo_check.py` re-runs all presets live before the demo.
+
+## 8a. Customers, history and reorder
+
+Requirements from the Valio mentors (2026-11-14). Seeded in `customers/` as JSON, loaded by the gateway, every profile and past order marked `simulated: true`.
+
+| Customer | Who | Profile | History |
+|---|---|---|---|
+| `c_pena` | Pena, executive at Ab Oy, `55_plus` | Not playful. Prefers Finnish, priority quality, typical 30 guests | Layer cakes for board meetings, a staff coffee table |
+| `c_chef` | A younger chef at an invented bistro, `under_35` | Playful. Prefers organic and low carbon, priority balanced | Weekly staples, a tasting menu evening |
+
+- Recognition is picking the customer in the UI; there is no sign-in. The profile and history load with every request for that customer.
+- Reorder: `reorder_of` or free text ("same as last time but for 80 people"). Code picks the newest matching past order, scales quantities by `guests_now / guests_before`, re-searches each product (it may no longer be deliverable), and runs the normal offers, quote and rules. A product that can't be reordered goes through the usual exceptions (section 6).
+- Gap filling: form, then text, then history, then profile defaults, then system defaults (delivery on the next delivery day Valio offers, waste 5 %). Every filled value is listed as "We assumed ..." with its source.
+- One clarifying question at most, and only when a needed value has no source. Its choices come from history where possible ("30, as last time").
+- History is used for recognition, reorder and gap filling only. Guardrails and approvals are unchanged: no rule reads history (the dropped history rules stay dropped).
+- Product codes in seeded history come from the catalogue via `scripts/find_demo_cases.py`, like the presets. Tests and fixtures still use invented products only.
+
+## 8b. Shopping list, approval and suggestions (UI requirements for `web/`)
+
+Designed for a busy 65-year-old first, then for the younger chef.
+
+- The result is one shopping list: product, quantity in plain words (`quantity_text`), unit price, line total, and per line the delivery date and the order deadline. Total at the bottom.
+- Delivery date and order deadline are central: shown at the top of the list ("Delivered Fri 20 Nov | Order by Thu 19 Nov 17:00") and on every line, never only in a details panel. A line whose deadline is missing or passed says so in plain text.
+- One-tap approval: one large "Approve order" button for the recommended quote. Other options and the decision log are secondary.
+- Large readable text, high contrast, plain words, no jargon (rule ids stay in the details, the reason is a sentence).
+- "We assumed ..." lines for filled gaps, each easy to correct.
+- The single clarifying question, when asked, is one screen with large choice buttons and "Use default".
+- Suggestions (playful customers only) sit below the list under "If you want", each with its price difference and an "Add" button. They are never added automatically.
 
 ## 9. Openness and path to production
 
@@ -225,11 +259,12 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 
 ### Phase 1: Thin end-to-end (target: Saturday midday)
 
-1. ENGINE: `gateway/offers.py`: shortlist → `Offer` with unit conversion, lot size, `dietary_check`, flags, reliability, CO2.
-2. ENGINE: `gateway/policy/` with the mandate file and the rules in section 4 except `PRICE_CHANGED`. One test per rule and outcome.
-3. ENGINE: `gateway/quotes.py` and `gateway/orders.py`: price lock, expiry, content hash, approvals bound to the hash, idempotent simulated orders. `gateway/store/` memory and JSON file. `gateway/audit.py` with the hash chain.
-4. STANDARD: routes from the contract: gateway tools, `POST/GET /requests`, `GET /presets`, approvals, audit. A deterministic agent runner for the `restaurant_weekly` preset (item list, top candidate by code, no LLM yet) that runs search → offers → quote → AUTO → order.
-5. TEST: end-to-end test with mocked Valio for the AUTO path and for a NEEDS_APPROVAL → approve → order path, including a 409 on a changed hash and an idempotent retry. `scripts/smoke.py` runs it against the live API.
+1. ENGINE: `gateway/offers.py`: shortlist → `Offer` with unit conversion, lot size, `quantity_text`, `delivery_date` and `order_deadline` per line, `dietary_check`, flags, reliability, CO2.
+2. ENGINE: `gateway/policy/` with the mandate file (including the seeded customers' buyers `ab-oy` and the chef's bistro) and the rules in section 4 except `PRICE_CHANGED`. One test per rule and outcome.
+3. ENGINE: `gateway/quotes.py` and `gateway/orders.py`: price lock, expiry, content hash, quote `delivery_date` and `order_deadline`, approvals bound to the hash, idempotent simulated orders. `gateway/store/` memory and JSON file. `gateway/audit.py` with the hash chain.
+4. ENGINE: `gateway/customers.py` and the `customers/` seed (section 8a): loader, profile defaults merged under request fields, `filled_gaps` for the values they supply, reorder by `reorder_of` with guest scaling in code, and a placed order appended to the customer's history. `scripts/seed_customers.py` picks the history's product codes from the catalogue. Tests use invented products.
+5. STANDARD: routes from the contract: gateway tools, `POST/GET /requests` (with `customer_id`), `GET /customers`, `GET /customers/{id}`, `GET /presets`, approvals, audit. A deterministic agent runner for the `restaurant_weekly` preset (item list, top candidate by code, no LLM yet) that runs search → offers → quote → AUTO → order.
+6. TEST: end-to-end test with mocked Valio for the AUTO path, for a NEEDS_APPROVAL → approve → order path (including a 409 on a changed hash and an idempotent retry), and for a seeded customer's reorder scaled to a new guest count that lands in their history. `scripts/smoke.py` runs it against the live API.
 
 ### Phase 2: MCP server
 
@@ -239,14 +274,16 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 
 ### Phase 3: Gemini agent
 
-1. ENGINE: intent parsing from free text (Flash, structured), buyer-set fields win.
-2. ENGINE: event expansion (structured, per serving): scaling, waste and merging in code, sanity notes. `scripts/eval_expansion.py` runs the four presets with Flash and Pro and writes a short comparison. Record the chosen model in Decisions.
-3. ENGINE: the tool loop: Gemini calls the gateway tools over HTTP to pick candidates and request a quote, and writes `agent_explanation` from the facts it was given. Ids and numbers it returns are validated against tool results.
+1. ENGINE: intent parsing from free text, short and vague or long and clear (Flash, structured). Precedence form → text → history → profile → defaults, every filled value in `filled_gaps`. Free-text reorder ("same as last time but for 80 people") resolves to a past order of the loaded customer; scaling stays in code.
+2. ENGINE: the one clarifying question: code decides whether a needed value (guests, delivery date, what to order) has no source and asks at most once, Gemini only words it, choices from history where possible. `NEEDS_INPUT`, `POST /requests/{id}/answer`, "Use default". Tests show vague prompts with and without history.
+3. ENGINE: event expansion (structured, per serving): scaling, waste and merging in code, sanity notes. `scripts/eval_expansion.py` runs the four presets with Flash and Pro and writes a short comparison. Record the chosen model in Decisions.
+4. ENGINE: the tool loop: Gemini calls the gateway tools over HTTP to pick candidates and request a quote, and writes `agent_explanation` from the facts it was given. Ids and numbers it returns are validated against tool results.
 
 ### Phase 4: Exceptions and presets
 
 1. ENGINE: partial stock with split options, late delivery, not deliverable, Valio substitutes then agent substitutes (Gemini proposes, rules decide), required preference unmet, budget exceeded with a cheaper option, quote expiry with re-quote and `PRICE_CHANGED`. Approval options as alternative quotes.
-2. TEST: `scripts/find_demo_cases.py`, the four preset files in `presets/`, recorded responses for each, and one test per preset that asserts its outcome and fired rules.
+2. ENGINE: suggestions for playful customers only (section 8b): Gemini proposes up to three seasonal, holiday or trend lines, code prices them through the gateway and keeps them out of the quote; accepting one re-quotes so the rules run again. A non-playful customer gets none, tested.
+3. TEST: `scripts/find_demo_cases.py`, the four preset files in `presets/`, the seeded customers' history codes, recorded responses for each, and one test per preset that asserts its outcome and fired rules, plus a reorder test for Pena.
 
 ### Phase 5: Ranking
 
@@ -254,8 +291,8 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 
 ### Phase 6: Aiven, docs and demo hardening
 
-1. DB_RLS: Postgres `Store` for requests, quotes, approvals, orders and the decision log, plus a migration SQL file. Mikael applies it to Aiven. File store stays the fallback.
-2. COPY: `README.md` (pitch, setup, fetch script, presets, MCP), `docs/ARCHITECTURE.md`, `docs/POLICY.md` (rule table and mandate fields).
+1. DB_RLS: Postgres `Store` for requests, quotes, approvals, orders, the history appended for seeded customers and the decision log, plus a migration SQL file. Mikael applies it to Aiven. File store stays the fallback.
+2. COPY: `README.md` (pitch, setup, fetch script, customers and presets, MCP), `docs/ARCHITECTURE.md`, `docs/POLICY.md` (rule table and mandate fields).
 3. STANDARD: record and replay of Valio and Gemini responses in `.runtime/` for an offline demo, `scripts/demo_check.py`, a clear message when a rate limit is hit.
 
 ### Phase 7 (add-on): Storage capacity rule
@@ -288,6 +325,9 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 - 2026-11-13: Passed `closingTime` is a flag, not a block (Terminal data shows past cut-offs with valid delivery dates).
 - 2026-11-13: Gemini Flash for everything; Pro is tested for event expansion in Phase 3.
 - 2026-11-14: `GEMINI_MODEL` pinned to `gemini-3.8-flash`, the current Flash on our key (`scripts/list_models.py`). The key has no `gemini-3.1-pro`; Phase 3 chooses the Pro-class model to test for dish expansion from the key's list (`gemini-2.5-pro` or a `gemini-4-*` model) and records it here. `GEMINI_EXPANSION_MODEL` stays empty (Flash) until then.
+- 2026-11-14: Valio mentor requirements added: seeded customer profiles with simulated history (Pena at Ab Oy, a younger playful chef), recognition by picking the customer, reorder with scaling, vague or clear prompts with gaps filled from history and defaults, at most one clarifying question, a shopping-list result with delivery date and order deadline on every line, one-tap approval designed for a busy 65-year-old first, and optional suggestions for playful profiles only. Contract bumped to v0.3.
+- 2026-11-14: History is back for seeded customers only and is used for recognition, reorder and gap filling. Guardrails and approvals are unchanged; the history-based rules stay dropped.
+- 2026-11-14: `age_group` is profile information only. No rule or ranking uses it.
 - 2026-11-14: pytest uses `--basetemp=.pytest-tmp` (in `pyproject.toml`) because a sandbox-created temp folder under `%TEMP%` can be unreadable.
 - 2026-11-13: MCP server is its own phase right after the thin end-to-end flow.
 - 2026-11-13: Storage capacity rule is an add-on phase. Menu photo is stretch.
@@ -295,6 +335,8 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 - 2026-11-13: Orders are simulated because the Valio mock API has no order endpoint.
 
 ## Open questions
+
+- Johannes: agree contract v0.3 (customers, question, suggestions, per-line deadlines) and the shopping-list UI requirements in section 8b.
 
 - Organisers: is a past `closingTime` for Terminal products intended?
 - Organisers: does availability change during the event?

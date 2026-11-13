@@ -48,8 +48,11 @@
       ],
       "exclude_allergens": [],
       "budget": null,
-      "priority": "price"
-    }
+      "priority": "price",
+      "customer_id": null,
+      "reorder_of": null
+    },
+    "customer_id": null
   },
   {
     "preset_id": "wedding_120",
@@ -97,8 +100,11 @@
       ],
       "exclude_allergens": [],
       "budget": 900,
-      "priority": "balanced"
-    }
+      "priority": "balanced",
+      "customer_id": null,
+      "reorder_of": null
+    },
+    "customer_id": null
   },
   {
     "preset_id": "birthday_kids_25",
@@ -136,8 +142,11 @@
         "peanuts"
       ],
       "budget": 250,
-      "priority": "balanced"
-    }
+      "priority": "balanced",
+      "customer_id": null,
+      "reorder_of": null
+    },
+    "customer_id": null
   },
   {
     "preset_id": "company_lunch_60",
@@ -177,7 +186,10 @@
       ],
       "exclude_allergens": [],
       "budget": 300,
-      "priority": "balanced"
-    }
+      "priority": "balanced",
+      "customer_id": null,
+      "reorder_of": null
+    },
+    "customer_id": null
   }
 ]

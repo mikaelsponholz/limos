@@ -4,20 +4,29 @@
     "created_at": "2026-11-14T09:12:02+02:00",
     "title": "Wedding for 120, 21 Nov",
     "status": "WAITING_APPROVAL",
-    "total": 82.07
+    "total": 82.07,
+    "customer_id": null,
+    "delivery_date": "2026-11-20",
+    "order_deadline": "2026-11-19T17:00:00+02:00"
   },
   {
     "request_id": "r_week07",
     "created_at": "2026-11-14T08:40:10+02:00",
     "title": "Restaurant weekly order",
     "status": "ORDERED",
-    "total": 214.6
+    "total": 214.6,
+    "customer_id": null,
+    "delivery_date": "2026-11-17",
+    "order_deadline": "2026-11-16T17:00:00+02:00"
   },
   {
     "request_id": "r_bday02",
     "created_at": "2026-11-14T08:05:44+02:00",
     "title": "Children's birthday for 25, 22 Nov",
     "status": "REJECTED",
-    "total": 118.35
+    "total": 118.35,
+    "customer_id": null,
+    "delivery_date": "2026-11-20",
+    "order_deadline": "2026-11-19T17:00:00+02:00"
   }
 ]
