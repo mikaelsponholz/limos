@@ -1,0 +1,1154 @@
+{
+  "approval_id": "a_wed01",
+  "status": "PENDING",
+  "quote": {
+    "quote_id": "q_wed_a",
+    "request_id": "r_wed01",
+    "buyer_id": "demo-catering",
+    "agent_id": "limos-gemini",
+    "status": "PENDING_APPROVAL",
+    "option_label": "Split the cream across 2 l and 1 l cartons",
+    "delivery_date": "2026-11-20",
+    "lines": [
+      {
+        "product_id": "900101",
+        "item_id": "it_butter",
+        "name": "Example Dairy butter 500 g lactose free",
+        "vendor": "Example Dairy Oy",
+        "sales_unit": "ST",
+        "pack_description": "500 g pack",
+        "pack_size": {
+          "value": 500,
+          "unit": "g"
+        },
+        "quantity_sales_units": 4,
+        "quantity_requested": {
+          "value": 1.764,
+          "unit": "kg"
+        },
+        "quantity_covered": {
+          "value": 2,
+          "unit": "kg"
+        },
+        "unit_price": 4.2,
+        "list_price": 4.6,
+        "comparison_price": {
+          "value": 8.4,
+          "unit": "KG"
+        },
+        "line_total": 16.8,
+        "line_total_with_tax": 19.07,
+        "tax_rate": 13.5,
+        "available_amount": null,
+        "available_date": "2026-11-16",
+        "requested_date": "2026-11-20",
+        "closing_time": "2026-11-19T17:00:00+02:00",
+        "logistic_model": "Stock",
+        "delivery_reliability": 0.99,
+        "carbon_kg_co2e_per_kg": 9,
+        "country_of_origin": "fi",
+        "labels": [
+          "finnish_label",
+          "finnish_origin",
+          "lactose_free",
+          "vegetarian"
+        ],
+        "allergens": {
+          "contains": [
+            "milk"
+          ],
+          "may_contain": [],
+          "data_available": true
+        },
+        "dietary_check": {
+          "lactose_free": "confirmed",
+          "finnish_origin": "confirmed",
+          "organic": "violated"
+        },
+        "tier": "better",
+        "score": 86,
+        "reason": "Lactose-free claim, Finnish (Blue Swan label), 8.40 EUR/kg, 99 % delivery reliability.",
+        "is_split": false,
+        "is_substitute": false,
+        "substitute_for": null,
+        "substitute_source": null,
+        "flags": []
+      },
+      {
+        "product_id": "900201",
+        "item_id": "it_cream",
+        "name": "Example Dairy whipping cream 2 l lactose free",
+        "vendor": "Example Dairy Oy",
+        "sales_unit": "PRK",
+        "pack_description": "2 l carton",
+        "pack_size": {
+          "value": 2,
+          "unit": "L"
+        },
+        "quantity_sales_units": 2,
+        "quantity_requested": {
+          "value": 6.3,
+          "unit": "L"
+        },
+        "quantity_covered": {
+          "value": 4,
+          "unit": "L"
+        },
+        "unit_price": 7.9,
+        "list_price": 8.6,
+        "comparison_price": {
+          "value": 3.95,
+          "unit": "L"
+        },
+        "line_total": 15.8,
+        "line_total_with_tax": 17.93,
+        "tax_rate": 13.5,
+        "available_amount": 2,
+        "available_date": "2026-11-16",
+        "requested_date": "2026-11-20",
+        "closing_time": "2026-11-19T17:00:00+02:00",
+        "logistic_model": "Stock",
+        "delivery_reliability": 0.98,
+        "carbon_kg_co2e_per_kg": 4.5,
+        "country_of_origin": "fi",
+        "labels": [
+          "finnish_label",
+          "finnish_origin",
+          "lactose_free"
+        ],
+        "allergens": {
+          "contains": [
+            "milk"
+          ],
+          "may_contain": [],
+          "data_available": true
+        },
+        "dietary_check": {
+          "lactose_free": "confirmed",
+          "finnish_origin": "confirmed",
+          "organic": "violated"
+        },
+        "tier": "better",
+        "score": 88,
+        "reason": "Lactose-free claim, Finnish (Blue Swan label), 3.95 EUR/l. Only 2 cartons in stock.",
+        "is_split": false,
+        "is_substitute": false,
+        "substitute_for": null,
+        "substitute_source": null,
+        "flags": [
+          "PARTIAL"
+        ]
+      },
+      {
+        "product_id": "900202",
+        "item_id": "it_cream",
+        "name": "Example Dairy whipping cream 1 l lactose free",
+        "vendor": "Example Dairy Oy",
+        "sales_unit": "PRK",
+        "pack_description": "1 l carton",
+        "pack_size": {
+          "value": 1,
+          "unit": "L"
+        },
+        "quantity_sales_units": 3,
+        "quantity_requested": {
+          "value": 6.3,
+          "unit": "L"
+        },
+        "quantity_covered": {
+          "value": 3,
+          "unit": "L"
+        },
+        "unit_price": 4.3,
+        "list_price": 4.6,
+        "comparison_price": {
+          "value": 4.3,
+          "unit": "L"
+        },
+        "line_total": 12.9,
+        "line_total_with_tax": 14.64,
+        "tax_rate": 13.5,
+        "available_amount": null,
+        "available_date": "2026-11-16",
+        "requested_date": "2026-11-20",
+        "closing_time": "2026-11-19T17:00:00+02:00",
+        "logistic_model": "Terminal",
+        "delivery_reliability": 0.98,
+        "carbon_kg_co2e_per_kg": 4.5,
+        "country_of_origin": "fi",
+        "labels": [
+          "finnish_label",
+          "finnish_origin",
+          "lactose_free"
+        ],
+        "allergens": {
+          "contains": [
+            "milk"
+          ],
+          "may_contain": [],
+          "data_available": true
+        },
+        "dietary_check": {
+          "lactose_free": "confirmed",
+          "finnish_origin": "confirmed",
+          "organic": "violated"
+        },
+        "tier": null,
+        "score": 82,
+        "reason": "Covers the missing 2.3 l in 1 l cartons of the same brand.",
+        "is_split": true,
+        "is_substitute": false,
+        "substitute_for": null,
+        "substitute_source": null,
+        "flags": []
+      },
+      {
+        "product_id": "900301",
+        "item_id": "it_bread",
+        "name": "Example Bakery rye bread sliced 1.2 kg",
+        "vendor": "Example Bakery Oy",
+        "sales_unit": "BAG",
+        "pack_description": "1.2 kg bag",
+        "pack_size": {
+          "value": 1.2,
+          "unit": "kg"
+        },
+        "quantity_sales_units": 7,
+        "quantity_requested": {
+          "value": 7.56,
+          "unit": "kg"
+        },
+        "quantity_covered": {
+          "value": 8.4,
+          "unit": "kg"
+        },
+        "unit_price": 3.1,
+        "list_price": 3.3,
+        "comparison_price": {
+          "value": 2.58,
+          "unit": "KG"
+        },
+        "line_total": 21.7,
+        "line_total_with_tax": 24.63,
+        "tax_rate": 13.5,
+        "available_amount": 340,
+        "available_date": "2026-11-16",
+        "requested_date": "2026-11-20",
+        "closing_time": "2026-11-19T17:00:00+02:00",
+        "logistic_model": "Stock",
+        "delivery_reliability": 0.97,
+        "carbon_kg_co2e_per_kg": 1,
+        "country_of_origin": "fi",
+        "labels": [
+          "finnish_label",
+          "finnish_origin",
+          "vegan"
+        ],
+        "allergens": {
+          "contains": [
+            "gluten"
+          ],
+          "may_contain": [
+            "sesame"
+          ],
+          "data_available": true
+        },
+        "dietary_check": {
+          "finnish_origin": "confirmed",
+          "organic": "violated"
+        },
+        "tier": "better",
+        "score": 80,
+        "reason": "Finnish (Blue Swan label), 2.58 EUR/kg, covers the need with 11 % extra.",
+        "is_split": false,
+        "is_substitute": false,
+        "substitute_for": null,
+        "substitute_source": null,
+        "flags": []
+      },
+      {
+        "product_id": "900402",
+        "item_id": "it_cucumber",
+        "name": "Example Greens cucumber Finland",
+        "vendor": "Example Greens Oy",
+        "sales_unit": "KG",
+        "pack_description": "loose, per kg",
+        "pack_size": {
+          "value": 1,
+          "unit": "kg"
+        },
+        "quantity_sales_units": 5.04,
+        "quantity_requested": {
+          "value": 5.04,
+          "unit": "kg"
+        },
+        "quantity_covered": {
+          "value": 5.04,
+          "unit": "kg"
+        },
+        "unit_price": 2.95,
+        "list_price": 2.95,
+        "comparison_price": {
+          "value": 2.95,
+          "unit": "KG"
+        },
+        "line_total": 14.87,
+        "line_total_with_tax": 16.88,
+        "tax_rate": 13.5,
+        "available_amount": 180,
+        "available_date": "2026-11-16",
+        "requested_date": "2026-11-20",
+        "closing_time": "2026-11-19T17:00:00+02:00",
+        "logistic_model": "Stock",
+        "delivery_reliability": 0.96,
+        "carbon_kg_co2e_per_kg": 0.6,
+        "country_of_origin": "fi",
+        "labels": [
+          "finnish_origin"
+        ],
+        "allergens": {
+          "contains": [],
+          "may_contain": [],
+          "data_available": false
+        },
+        "dietary_check": {
+          "finnish_origin": "confirmed",
+          "organic": "violated"
+        },
+        "tier": "good",
+        "score": 76,
+        "reason": "Valio-approved substitute for the organic cucumber. Finnish, 2.95 EUR/kg, in stock.",
+        "is_split": false,
+        "is_substitute": true,
+        "substitute_for": "900401",
+        "substitute_source": "valio",
+        "flags": []
+      }
+    ],
+    "total": 82.07,
+    "total_with_tax": 93.15,
+    "co2e_total_kg": 60.9,
+    "budget": {
+      "limit": 900,
+      "status": "within"
+    },
+    "created_at": "2026-11-14T09:12:41+02:00",
+    "expires_at": "2026-11-14T09:42:41+02:00",
+    "content_hash": "sha256:e90605b99e9e756146c6cbc8f2ec63725f3560a37386b337784c0be5eeb4414e",
+    "policy": {
+      "outcome": "NEEDS_APPROVAL",
+      "rules_fired": [
+        {
+          "rule_id": "SPLIT_DELIVERY",
+          "description": "Whipping cream is split across two products because only 4 of 6.3 l of the 2 l cartons are in stock.",
+          "outcome": "NEEDS_APPROVAL",
+          "item_id": "it_cream",
+          "product_id": "900202"
+        },
+        {
+          "rule_id": "SUBSTITUTION",
+          "description": "The organic cucumber can't be delivered, so Valio's approved substitute (Finnish cucumber, not organic) is used.",
+          "outcome": "NEEDS_APPROVAL",
+          "item_id": "it_cucumber",
+          "product_id": "900402"
+        }
+      ],
+      "mandate": {
+        "buyer_id": "demo-catering",
+        "auto_limit": 1500,
+        "line_limit": 250,
+        "hard_cap": 5000,
+        "max_overbuy_percent": 25,
+        "waste_percent": 5
+      }
+    },
+    "agent_explanation": "Butter and cream are lactose-free and Finnish, as required. Only 2 of the 2 l cream cartons are in stock, so I added three 1 l cartons of the same cream. The organic cucumber can't be delivered, so I used Valio's approved Finnish cucumber instead. Everything arrives on 16 November, before the 20 November deadline. Organic was preferred, but the organic butter costs 71 % more per kg, so I chose the Finnish one."
+  },
+  "request": {
+    "request_id": "r_wed01",
+    "title": "Wedding for 120, 21 Nov",
+    "intent": {
+      "event": {
+        "type": "wedding",
+        "date": "2026-11-21",
+        "guests": 120
+      },
+      "dishes": [
+        {
+          "dish_id": "d_cake",
+          "name": "Wedding cake",
+          "servings": 120
+        },
+        {
+          "dish_id": "d_sandwich",
+          "name": "Rye bread sandwiches",
+          "servings": 120
+        },
+        {
+          "dish_id": "d_salad",
+          "name": "Cucumber salad",
+          "servings": 120
+        }
+      ],
+      "items": [
+        {
+          "item_id": "it_butter",
+          "description": "butter",
+          "description_fi": "voi",
+          "quantity": 1.764,
+          "unit": "kg",
+          "constraints": [
+            "lactose_free",
+            "finnish_origin",
+            "organic"
+          ],
+          "used_in": [
+            {
+              "dish_id": "d_cake",
+              "quantity": 0.504
+            },
+            {
+              "dish_id": "d_sandwich",
+              "quantity": 1.26
+            }
+          ]
+        },
+        {
+          "item_id": "it_cream",
+          "description": "whipping cream",
+          "description_fi": "kuohukerma",
+          "quantity": 6.3,
+          "unit": "L",
+          "constraints": [
+            "lactose_free",
+            "finnish_origin",
+            "organic"
+          ],
+          "used_in": [
+            {
+              "dish_id": "d_cake",
+              "quantity": 6.3
+            }
+          ]
+        },
+        {
+          "item_id": "it_bread",
+          "description": "rye bread, sliced",
+          "description_fi": "ruisleipä, viipaloitu",
+          "quantity": 7.56,
+          "unit": "kg",
+          "constraints": [
+            "finnish_origin",
+            "organic"
+          ],
+          "used_in": [
+            {
+              "dish_id": "d_sandwich",
+              "quantity": 7.56
+            }
+          ]
+        },
+        {
+          "item_id": "it_cucumber",
+          "description": "cucumber",
+          "description_fi": "kurkku",
+          "quantity": 5.04,
+          "unit": "kg",
+          "constraints": [
+            "finnish_origin",
+            "organic"
+          ],
+          "used_in": [
+            {
+              "dish_id": "d_salad",
+              "quantity": 5.04
+            }
+          ]
+        }
+      ],
+      "deliver_by": "2026-11-20",
+      "preferences": [
+        {
+          "key": "lactose_free",
+          "level": "require"
+        },
+        {
+          "key": "finnish_origin",
+          "level": "prefer"
+        },
+        {
+          "key": "organic",
+          "level": "prefer"
+        }
+      ],
+      "exclude_allergens": [],
+      "budget": 900,
+      "priority": "balanced",
+      "assumptions": [
+        "One slice of cake per guest, about 110 g.",
+        "Two open rye sandwiches per guest.",
+        "Cream covers filling and decoration.",
+        "5 % waste added to every item."
+      ]
+    }
+  },
+  "options": [
+    {
+      "quote_id": "q_wed_a",
+      "request_id": "r_wed01",
+      "buyer_id": "demo-catering",
+      "agent_id": "limos-gemini",
+      "status": "PENDING_APPROVAL",
+      "option_label": "Split the cream across 2 l and 1 l cartons",
+      "delivery_date": "2026-11-20",
+      "lines": [
+        {
+          "product_id": "900101",
+          "item_id": "it_butter",
+          "name": "Example Dairy butter 500 g lactose free",
+          "vendor": "Example Dairy Oy",
+          "sales_unit": "ST",
+          "pack_description": "500 g pack",
+          "pack_size": {
+            "value": 500,
+            "unit": "g"
+          },
+          "quantity_sales_units": 4,
+          "quantity_requested": {
+            "value": 1.764,
+            "unit": "kg"
+          },
+          "quantity_covered": {
+            "value": 2,
+            "unit": "kg"
+          },
+          "unit_price": 4.2,
+          "list_price": 4.6,
+          "comparison_price": {
+            "value": 8.4,
+            "unit": "KG"
+          },
+          "line_total": 16.8,
+          "line_total_with_tax": 19.07,
+          "tax_rate": 13.5,
+          "available_amount": null,
+          "available_date": "2026-11-16",
+          "requested_date": "2026-11-20",
+          "closing_time": "2026-11-19T17:00:00+02:00",
+          "logistic_model": "Stock",
+          "delivery_reliability": 0.99,
+          "carbon_kg_co2e_per_kg": 9,
+          "country_of_origin": "fi",
+          "labels": [
+            "finnish_label",
+            "finnish_origin",
+            "lactose_free",
+            "vegetarian"
+          ],
+          "allergens": {
+            "contains": [
+              "milk"
+            ],
+            "may_contain": [],
+            "data_available": true
+          },
+          "dietary_check": {
+            "lactose_free": "confirmed",
+            "finnish_origin": "confirmed",
+            "organic": "violated"
+          },
+          "tier": "better",
+          "score": 86,
+          "reason": "Lactose-free claim, Finnish (Blue Swan label), 8.40 EUR/kg, 99 % delivery reliability.",
+          "is_split": false,
+          "is_substitute": false,
+          "substitute_for": null,
+          "substitute_source": null,
+          "flags": []
+        },
+        {
+          "product_id": "900201",
+          "item_id": "it_cream",
+          "name": "Example Dairy whipping cream 2 l lactose free",
+          "vendor": "Example Dairy Oy",
+          "sales_unit": "PRK",
+          "pack_description": "2 l carton",
+          "pack_size": {
+            "value": 2,
+            "unit": "L"
+          },
+          "quantity_sales_units": 2,
+          "quantity_requested": {
+            "value": 6.3,
+            "unit": "L"
+          },
+          "quantity_covered": {
+            "value": 4,
+            "unit": "L"
+          },
+          "unit_price": 7.9,
+          "list_price": 8.6,
+          "comparison_price": {
+            "value": 3.95,
+            "unit": "L"
+          },
+          "line_total": 15.8,
+          "line_total_with_tax": 17.93,
+          "tax_rate": 13.5,
+          "available_amount": 2,
+          "available_date": "2026-11-16",
+          "requested_date": "2026-11-20",
+          "closing_time": "2026-11-19T17:00:00+02:00",
+          "logistic_model": "Stock",
+          "delivery_reliability": 0.98,
+          "carbon_kg_co2e_per_kg": 4.5,
+          "country_of_origin": "fi",
+          "labels": [
+            "finnish_label",
+            "finnish_origin",
+            "lactose_free"
+          ],
+          "allergens": {
+            "contains": [
+              "milk"
+            ],
+            "may_contain": [],
+            "data_available": true
+          },
+          "dietary_check": {
+            "lactose_free": "confirmed",
+            "finnish_origin": "confirmed",
+            "organic": "violated"
+          },
+          "tier": "better",
+          "score": 88,
+          "reason": "Lactose-free claim, Finnish (Blue Swan label), 3.95 EUR/l. Only 2 cartons in stock.",
+          "is_split": false,
+          "is_substitute": false,
+          "substitute_for": null,
+          "substitute_source": null,
+          "flags": [
+            "PARTIAL"
+          ]
+        },
+        {
+          "product_id": "900202",
+          "item_id": "it_cream",
+          "name": "Example Dairy whipping cream 1 l lactose free",
+          "vendor": "Example Dairy Oy",
+          "sales_unit": "PRK",
+          "pack_description": "1 l carton",
+          "pack_size": {
+            "value": 1,
+            "unit": "L"
+          },
+          "quantity_sales_units": 3,
+          "quantity_requested": {
+            "value": 6.3,
+            "unit": "L"
+          },
+          "quantity_covered": {
+            "value": 3,
+            "unit": "L"
+          },
+          "unit_price": 4.3,
+          "list_price": 4.6,
+          "comparison_price": {
+            "value": 4.3,
+            "unit": "L"
+          },
+          "line_total": 12.9,
+          "line_total_with_tax": 14.64,
+          "tax_rate": 13.5,
+          "available_amount": null,
+          "available_date": "2026-11-16",
+          "requested_date": "2026-11-20",
+          "closing_time": "2026-11-19T17:00:00+02:00",
+          "logistic_model": "Terminal",
+          "delivery_reliability": 0.98,
+          "carbon_kg_co2e_per_kg": 4.5,
+          "country_of_origin": "fi",
+          "labels": [
+            "finnish_label",
+            "finnish_origin",
+            "lactose_free"
+          ],
+          "allergens": {
+            "contains": [
+              "milk"
+            ],
+            "may_contain": [],
+            "data_available": true
+          },
+          "dietary_check": {
+            "lactose_free": "confirmed",
+            "finnish_origin": "confirmed",
+            "organic": "violated"
+          },
+          "tier": null,
+          "score": 82,
+          "reason": "Covers the missing 2.3 l in 1 l cartons of the same brand.",
+          "is_split": true,
+          "is_substitute": false,
+          "substitute_for": null,
+          "substitute_source": null,
+          "flags": []
+        },
+        {
+          "product_id": "900301",
+          "item_id": "it_bread",
+          "name": "Example Bakery rye bread sliced 1.2 kg",
+          "vendor": "Example Bakery Oy",
+          "sales_unit": "BAG",
+          "pack_description": "1.2 kg bag",
+          "pack_size": {
+            "value": 1.2,
+            "unit": "kg"
+          },
+          "quantity_sales_units": 7,
+          "quantity_requested": {
+            "value": 7.56,
+            "unit": "kg"
+          },
+          "quantity_covered": {
+            "value": 8.4,
+            "unit": "kg"
+          },
+          "unit_price": 3.1,
+          "list_price": 3.3,
+          "comparison_price": {
+            "value": 2.58,
+            "unit": "KG"
+          },
+          "line_total": 21.7,
+          "line_total_with_tax": 24.63,
+          "tax_rate": 13.5,
+          "available_amount": 340,
+          "available_date": "2026-11-16",
+          "requested_date": "2026-11-20",
+          "closing_time": "2026-11-19T17:00:00+02:00",
+          "logistic_model": "Stock",
+          "delivery_reliability": 0.97,
+          "carbon_kg_co2e_per_kg": 1,
+          "country_of_origin": "fi",
+          "labels": [
+            "finnish_label",
+            "finnish_origin",
+            "vegan"
+          ],
+          "allergens": {
+            "contains": [
+              "gluten"
+            ],
+            "may_contain": [
+              "sesame"
+            ],
+            "data_available": true
+          },
+          "dietary_check": {
+            "finnish_origin": "confirmed",
+            "organic": "violated"
+          },
+          "tier": "better",
+          "score": 80,
+          "reason": "Finnish (Blue Swan label), 2.58 EUR/kg, covers the need with 11 % extra.",
+          "is_split": false,
+          "is_substitute": false,
+          "substitute_for": null,
+          "substitute_source": null,
+          "flags": []
+        },
+        {
+          "product_id": "900402",
+          "item_id": "it_cucumber",
+          "name": "Example Greens cucumber Finland",
+          "vendor": "Example Greens Oy",
+          "sales_unit": "KG",
+          "pack_description": "loose, per kg",
+          "pack_size": {
+            "value": 1,
+            "unit": "kg"
+          },
+          "quantity_sales_units": 5.04,
+          "quantity_requested": {
+            "value": 5.04,
+            "unit": "kg"
+          },
+          "quantity_covered": {
+            "value": 5.04,
+            "unit": "kg"
+          },
+          "unit_price": 2.95,
+          "list_price": 2.95,
+          "comparison_price": {
+            "value": 2.95,
+            "unit": "KG"
+          },
+          "line_total": 14.87,
+          "line_total_with_tax": 16.88,
+          "tax_rate": 13.5,
+          "available_amount": 180,
+          "available_date": "2026-11-16",
+          "requested_date": "2026-11-20",
+          "closing_time": "2026-11-19T17:00:00+02:00",
+          "logistic_model": "Stock",
+          "delivery_reliability": 0.96,
+          "carbon_kg_co2e_per_kg": 0.6,
+          "country_of_origin": "fi",
+          "labels": [
+            "finnish_origin"
+          ],
+          "allergens": {
+            "contains": [],
+            "may_contain": [],
+            "data_available": false
+          },
+          "dietary_check": {
+            "finnish_origin": "confirmed",
+            "organic": "violated"
+          },
+          "tier": "good",
+          "score": 76,
+          "reason": "Valio-approved substitute for the organic cucumber. Finnish, 2.95 EUR/kg, in stock.",
+          "is_split": false,
+          "is_substitute": true,
+          "substitute_for": "900401",
+          "substitute_source": "valio",
+          "flags": []
+        }
+      ],
+      "total": 82.07,
+      "total_with_tax": 93.15,
+      "co2e_total_kg": 60.9,
+      "budget": {
+        "limit": 900,
+        "status": "within"
+      },
+      "created_at": "2026-11-14T09:12:41+02:00",
+      "expires_at": "2026-11-14T09:42:41+02:00",
+      "content_hash": "sha256:e90605b99e9e756146c6cbc8f2ec63725f3560a37386b337784c0be5eeb4414e",
+      "policy": {
+        "outcome": "NEEDS_APPROVAL",
+        "rules_fired": [
+          {
+            "rule_id": "SPLIT_DELIVERY",
+            "description": "Whipping cream is split across two products because only 4 of 6.3 l of the 2 l cartons are in stock.",
+            "outcome": "NEEDS_APPROVAL",
+            "item_id": "it_cream",
+            "product_id": "900202"
+          },
+          {
+            "rule_id": "SUBSTITUTION",
+            "description": "The organic cucumber can't be delivered, so Valio's approved substitute (Finnish cucumber, not organic) is used.",
+            "outcome": "NEEDS_APPROVAL",
+            "item_id": "it_cucumber",
+            "product_id": "900402"
+          }
+        ],
+        "mandate": {
+          "buyer_id": "demo-catering",
+          "auto_limit": 1500,
+          "line_limit": 250,
+          "hard_cap": 5000,
+          "max_overbuy_percent": 25,
+          "waste_percent": 5
+        }
+      },
+      "agent_explanation": "Butter and cream are lactose-free and Finnish, as required. Only 2 of the 2 l cream cartons are in stock, so I added three 1 l cartons of the same cream. The organic cucumber can't be delivered, so I used Valio's approved Finnish cucumber instead. Everything arrives on 16 November, before the 20 November deadline. Organic was preferred, but the organic butter costs 71 % more per kg, so I chose the Finnish one."
+    },
+    {
+      "quote_id": "q_wed_b",
+      "request_id": "r_wed01",
+      "buyer_id": "demo-catering",
+      "agent_id": "limos-gemini",
+      "status": "PENDING_APPROVAL",
+      "option_label": "Cream in 1 l cartons only",
+      "delivery_date": "2026-11-20",
+      "lines": [
+        {
+          "product_id": "900101",
+          "item_id": "it_butter",
+          "name": "Example Dairy butter 500 g lactose free",
+          "vendor": "Example Dairy Oy",
+          "sales_unit": "ST",
+          "pack_description": "500 g pack",
+          "pack_size": {
+            "value": 500,
+            "unit": "g"
+          },
+          "quantity_sales_units": 4,
+          "quantity_requested": {
+            "value": 1.764,
+            "unit": "kg"
+          },
+          "quantity_covered": {
+            "value": 2,
+            "unit": "kg"
+          },
+          "unit_price": 4.2,
+          "list_price": 4.6,
+          "comparison_price": {
+            "value": 8.4,
+            "unit": "KG"
+          },
+          "line_total": 16.8,
+          "line_total_with_tax": 19.07,
+          "tax_rate": 13.5,
+          "available_amount": null,
+          "available_date": "2026-11-16",
+          "requested_date": "2026-11-20",
+          "closing_time": "2026-11-19T17:00:00+02:00",
+          "logistic_model": "Stock",
+          "delivery_reliability": 0.99,
+          "carbon_kg_co2e_per_kg": 9,
+          "country_of_origin": "fi",
+          "labels": [
+            "finnish_label",
+            "finnish_origin",
+            "lactose_free",
+            "vegetarian"
+          ],
+          "allergens": {
+            "contains": [
+              "milk"
+            ],
+            "may_contain": [],
+            "data_available": true
+          },
+          "dietary_check": {
+            "lactose_free": "confirmed",
+            "finnish_origin": "confirmed",
+            "organic": "violated"
+          },
+          "tier": "better",
+          "score": 86,
+          "reason": "Lactose-free claim, Finnish (Blue Swan label), 8.40 EUR/kg, 99 % delivery reliability.",
+          "is_split": false,
+          "is_substitute": false,
+          "substitute_for": null,
+          "substitute_source": null,
+          "flags": []
+        },
+        {
+          "product_id": "900202",
+          "item_id": "it_cream",
+          "name": "Example Dairy whipping cream 1 l lactose free",
+          "vendor": "Example Dairy Oy",
+          "sales_unit": "PRK",
+          "pack_description": "1 l carton",
+          "pack_size": {
+            "value": 1,
+            "unit": "L"
+          },
+          "quantity_sales_units": 7,
+          "quantity_requested": {
+            "value": 6.3,
+            "unit": "L"
+          },
+          "quantity_covered": {
+            "value": 7,
+            "unit": "L"
+          },
+          "unit_price": 4.3,
+          "list_price": 4.6,
+          "comparison_price": {
+            "value": 4.3,
+            "unit": "L"
+          },
+          "line_total": 30.1,
+          "line_total_with_tax": 34.16,
+          "tax_rate": 13.5,
+          "available_amount": null,
+          "available_date": "2026-11-16",
+          "requested_date": "2026-11-20",
+          "closing_time": "2026-11-19T17:00:00+02:00",
+          "logistic_model": "Terminal",
+          "delivery_reliability": 0.98,
+          "carbon_kg_co2e_per_kg": 4.5,
+          "country_of_origin": "fi",
+          "labels": [
+            "finnish_label",
+            "finnish_origin",
+            "lactose_free"
+          ],
+          "allergens": {
+            "contains": [
+              "milk"
+            ],
+            "may_contain": [],
+            "data_available": true
+          },
+          "dietary_check": {
+            "lactose_free": "confirmed",
+            "finnish_origin": "confirmed",
+            "organic": "violated"
+          },
+          "tier": "good",
+          "score": 80,
+          "reason": "Same brand in 1 l cartons, 4.30 EUR/l, delivered by the supplier.",
+          "is_split": false,
+          "is_substitute": false,
+          "substitute_for": null,
+          "substitute_source": null,
+          "flags": []
+        },
+        {
+          "product_id": "900301",
+          "item_id": "it_bread",
+          "name": "Example Bakery rye bread sliced 1.2 kg",
+          "vendor": "Example Bakery Oy",
+          "sales_unit": "BAG",
+          "pack_description": "1.2 kg bag",
+          "pack_size": {
+            "value": 1.2,
+            "unit": "kg"
+          },
+          "quantity_sales_units": 7,
+          "quantity_requested": {
+            "value": 7.56,
+            "unit": "kg"
+          },
+          "quantity_covered": {
+            "value": 8.4,
+            "unit": "kg"
+          },
+          "unit_price": 3.1,
+          "list_price": 3.3,
+          "comparison_price": {
+            "value": 2.58,
+            "unit": "KG"
+          },
+          "line_total": 21.7,
+          "line_total_with_tax": 24.63,
+          "tax_rate": 13.5,
+          "available_amount": 340,
+          "available_date": "2026-11-16",
+          "requested_date": "2026-11-20",
+          "closing_time": "2026-11-19T17:00:00+02:00",
+          "logistic_model": "Stock",
+          "delivery_reliability": 0.97,
+          "carbon_kg_co2e_per_kg": 1,
+          "country_of_origin": "fi",
+          "labels": [
+            "finnish_label",
+            "finnish_origin",
+            "vegan"
+          ],
+          "allergens": {
+            "contains": [
+              "gluten"
+            ],
+            "may_contain": [
+              "sesame"
+            ],
+            "data_available": true
+          },
+          "dietary_check": {
+            "finnish_origin": "confirmed",
+            "organic": "violated"
+          },
+          "tier": "better",
+          "score": 80,
+          "reason": "Finnish (Blue Swan label), 2.58 EUR/kg, covers the need with 11 % extra.",
+          "is_split": false,
+          "is_substitute": false,
+          "substitute_for": null,
+          "substitute_source": null,
+          "flags": []
+        },
+        {
+          "product_id": "900402",
+          "item_id": "it_cucumber",
+          "name": "Example Greens cucumber Finland",
+          "vendor": "Example Greens Oy",
+          "sales_unit": "KG",
+          "pack_description": "loose, per kg",
+          "pack_size": {
+            "value": 1,
+            "unit": "kg"
+          },
+          "quantity_sales_units": 5.04,
+          "quantity_requested": {
+            "value": 5.04,
+            "unit": "kg"
+          },
+          "quantity_covered": {
+            "value": 5.04,
+            "unit": "kg"
+          },
+          "unit_price": 2.95,
+          "list_price": 2.95,
+          "comparison_price": {
+            "value": 2.95,
+            "unit": "KG"
+          },
+          "line_total": 14.87,
+          "line_total_with_tax": 16.88,
+          "tax_rate": 13.5,
+          "available_amount": 180,
+          "available_date": "2026-11-16",
+          "requested_date": "2026-11-20",
+          "closing_time": "2026-11-19T17:00:00+02:00",
+          "logistic_model": "Stock",
+          "delivery_reliability": 0.96,
+          "carbon_kg_co2e_per_kg": 0.6,
+          "country_of_origin": "fi",
+          "labels": [
+            "finnish_origin"
+          ],
+          "allergens": {
+            "contains": [],
+            "may_contain": [],
+            "data_available": false
+          },
+          "dietary_check": {
+            "finnish_origin": "confirmed",
+            "organic": "violated"
+          },
+          "tier": "good",
+          "score": 76,
+          "reason": "Valio-approved substitute for the organic cucumber. Finnish, 2.95 EUR/kg, in stock.",
+          "is_split": false,
+          "is_substitute": true,
+          "substitute_for": "900401",
+          "substitute_source": "valio",
+          "flags": []
+        }
+      ],
+      "total": 83.47,
+      "total_with_tax": 94.74,
+      "co2e_total_kg": 60.9,
+      "budget": {
+        "limit": 900,
+        "status": "within"
+      },
+      "created_at": "2026-11-14T09:12:41+02:00",
+      "expires_at": "2026-11-14T09:42:41+02:00",
+      "content_hash": "sha256:c3b10fc693ba662e2dd60fbc32f55dcdf6a9211fe223eb1db2052fc4e4902df6",
+      "policy": {
+        "outcome": "NEEDS_APPROVAL",
+        "rules_fired": [
+          {
+            "rule_id": "SUBSTITUTION",
+            "description": "The organic cucumber can't be delivered, so Valio's approved substitute (Finnish cucumber, not organic) is used.",
+            "outcome": "NEEDS_APPROVAL",
+            "item_id": "it_cucumber",
+            "product_id": "900402"
+          }
+        ],
+        "mandate": {
+          "buyer_id": "demo-catering",
+          "auto_limit": 1500,
+          "line_limit": 250,
+          "hard_cap": 5000,
+          "max_overbuy_percent": 25,
+          "waste_percent": 5
+        }
+      },
+      "agent_explanation": "Same as the recommended option, but all cream comes as seven 1 l cartons from the supplier, so there is no split. It costs 1.40 EUR more and the amount in stock is not reported for this product."
+    }
+  ],
+  "decided_by": null,
+  "decided_at": null,
+  "comment": null
+}

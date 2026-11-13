@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "QUOTE_CHANGED",
+    "message": "This quote changed after it was shown. Reload to see the current version."
+  }
+}

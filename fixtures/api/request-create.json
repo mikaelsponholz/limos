@@ -1,0 +1,43 @@
+{
+  "buyer_id": "demo-catering",
+  "preset_id": "wedding_120",
+  "text": "Wedding for 120 guests on Saturday 21 November. Wedding cake, rye bread sandwiches and a cucumber salad. Lactose-free please, Finnish where possible, organic is a bonus. Budget 900 euros.",
+  "requested_date": "2026-11-20",
+  "event": {
+    "type": "wedding",
+    "date": "2026-11-21",
+    "guests": 120,
+    "dishes": [
+      {
+        "name": "Wedding cake",
+        "servings": null
+      },
+      {
+        "name": "Rye bread sandwiches",
+        "servings": null
+      },
+      {
+        "name": "Cucumber salad",
+        "servings": null
+      }
+    ]
+  },
+  "items": [],
+  "preferences": [
+    {
+      "key": "lactose_free",
+      "level": "require"
+    },
+    {
+      "key": "finnish_origin",
+      "level": "prefer"
+    },
+    {
+      "key": "organic",
+      "level": "prefer"
+    }
+  ],
+  "exclude_allergens": [],
+  "budget": 900,
+  "priority": "balanced"
+}

@@ -1,0 +1,193 @@
+[
+  {
+    "seq": 1,
+    "at": "2026-11-14T09:12:02+02:00",
+    "actor": "user",
+    "type": "REQUEST_RECEIVED",
+    "title": "Wedding for 120 guests on 21 November, preset Wedding for 120",
+    "detail": {
+      "preset_id": "wedding_120"
+    },
+    "model": null,
+    "prev_hash": null,
+    "hash": "sha256:9ae672535742aab4e1d2f377a05259fd8aa6529dc9ce6b141f619d94f0aa0adc"
+  },
+  {
+    "seq": 2,
+    "at": "2026-11-14T09:12:09+02:00",
+    "actor": "agent",
+    "type": "INTENT_PARSED",
+    "title": "Understood: 3 dishes, delivery by 20 November, lactose-free required, Finnish and organic preferred, budget 900 EUR",
+    "detail": {},
+    "model": "gemini-flash",
+    "prev_hash": "sha256:9ae672535742aab4e1d2f377a05259fd8aa6529dc9ce6b141f619d94f0aa0adc",
+    "hash": "sha256:e1fb09fe0662b5c7dea4d3ece13633e47b82a85e6c51be39a94c6d88684ba551"
+  },
+  {
+    "seq": 3,
+    "at": "2026-11-14T09:12:15+02:00",
+    "actor": "agent",
+    "type": "EVENT_EXPANDED",
+    "title": "Expanded 3 dishes into 4 items for 120 servings, with 5 % waste",
+    "detail": {
+      "items": 4
+    },
+    "model": "gemini-flash",
+    "prev_hash": "sha256:e1fb09fe0662b5c7dea4d3ece13633e47b82a85e6c51be39a94c6d88684ba551",
+    "hash": "sha256:31bced391b463344e0e9d255895c7a2b7ead8e36f82e54c7c5cee8537621f4cf"
+  },
+  {
+    "seq": 4,
+    "at": "2026-11-14T09:12:19+02:00",
+    "actor": "gateway",
+    "type": "TOOL_CALL",
+    "title": "Searched the catalogue for 4 items and found 38 products",
+    "detail": {
+      "tool": "search_products",
+      "results": 38
+    },
+    "model": null,
+    "prev_hash": "sha256:31bced391b463344e0e9d255895c7a2b7ead8e36f82e54c7c5cee8537621f4cf",
+    "hash": "sha256:42f28450923927f09a4ab5e1af0d12c1c7d09bb0adfba6db2c9453d104b3bfc5"
+  },
+  {
+    "seq": 5,
+    "at": "2026-11-14T09:12:22+02:00",
+    "actor": "agent",
+    "type": "CANDIDATES",
+    "title": "Kept 9 relevant products, for example dropped cream cheese for whipping cream",
+    "detail": {
+      "kept": 9,
+      "dropped": 29
+    },
+    "model": "gemini-flash",
+    "prev_hash": "sha256:42f28450923927f09a4ab5e1af0d12c1c7d09bb0adfba6db2c9453d104b3bfc5",
+    "hash": "sha256:1ff9ee615fe5db0bc969e58b13b028540f2ce52f044980129a3d0eaa394daaeb"
+  },
+  {
+    "seq": 6,
+    "at": "2026-11-14T09:12:28+02:00",
+    "actor": "gateway",
+    "type": "TOOL_CALL",
+    "title": "Checked price and availability for 9 products for 20 November",
+    "detail": {
+      "tool": "check_offers",
+      "product_ids": [
+        "900102",
+        "900101",
+        "900103",
+        "900201",
+        "900202",
+        "900302",
+        "900301",
+        "900401",
+        "900402"
+      ]
+    },
+    "model": null,
+    "prev_hash": "sha256:1ff9ee615fe5db0bc969e58b13b028540f2ce52f044980129a3d0eaa394daaeb",
+    "hash": "sha256:49f5e77fdeb9f2fff5c526ecd2e6be89792dede15d8e51d882633e12f60e7fdf"
+  },
+  {
+    "seq": 7,
+    "at": "2026-11-14T09:12:30+02:00",
+    "actor": "gateway",
+    "type": "EXCEPTION",
+    "title": "Only 2 cartons of 2 l whipping cream are in stock, 6.3 l is needed",
+    "detail": {
+      "item_id": "it_cream",
+      "product_id": "900201"
+    },
+    "model": null,
+    "prev_hash": "sha256:49f5e77fdeb9f2fff5c526ecd2e6be89792dede15d8e51d882633e12f60e7fdf",
+    "hash": "sha256:fa392a8a4700280bc4fdfe3615f05b920394187239552d97bff8a088a5a9ddf5"
+  },
+  {
+    "seq": 8,
+    "at": "2026-11-14T09:12:31+02:00",
+    "actor": "gateway",
+    "type": "EXCEPTION",
+    "title": "The organic cucumber can't be delivered on any date",
+    "detail": {
+      "item_id": "it_cucumber",
+      "product_id": "900401"
+    },
+    "model": null,
+    "prev_hash": "sha256:fa392a8a4700280bc4fdfe3615f05b920394187239552d97bff8a088a5a9ddf5",
+    "hash": "sha256:c67b87f3a9f8f29fef87dcea89aac8ddd6728d07771bf8126ae51c3dca2c6382"
+  },
+  {
+    "seq": 9,
+    "at": "2026-11-14T09:12:33+02:00",
+    "actor": "agent",
+    "type": "SUBSTITUTE_PROPOSED",
+    "title": "Proposed Valio's approved substitute: Finnish cucumber, in stock, 28 % cheaper",
+    "detail": {
+      "item_id": "it_cucumber",
+      "product_id": "900402",
+      "source": "valio"
+    },
+    "model": "gemini-flash",
+    "prev_hash": "sha256:c67b87f3a9f8f29fef87dcea89aac8ddd6728d07771bf8126ae51c3dca2c6382",
+    "hash": "sha256:93737c075a17137e7a01a003ec4c61ab0a733cc5c0d6642c2b0b96e747044582"
+  },
+  {
+    "seq": 10,
+    "at": "2026-11-14T09:12:36+02:00",
+    "actor": "agent",
+    "type": "CHOICE",
+    "title": "Chose Finnish lactose-free butter and cream, split the cream across 2 l and 1 l cartons",
+    "detail": {
+      "quote_options": 2
+    },
+    "model": "gemini-flash",
+    "prev_hash": "sha256:93737c075a17137e7a01a003ec4c61ab0a733cc5c0d6642c2b0b96e747044582",
+    "hash": "sha256:58f9b758d66a08b803d027319d455fea8ecff5b27eeb88213e6f8bc99f823ac5"
+  },
+  {
+    "seq": 11,
+    "at": "2026-11-14T09:12:40+02:00",
+    "actor": "gateway",
+    "type": "QUOTE_CREATED",
+    "title": "Locked prices in 2 quote options until 09:42, recommended total 82.07 EUR excl. VAT",
+    "detail": {
+      "quote_ids": [
+        "q_wed_a",
+        "q_wed_b"
+      ]
+    },
+    "model": null,
+    "prev_hash": "sha256:58f9b758d66a08b803d027319d455fea8ecff5b27eeb88213e6f8bc99f823ac5",
+    "hash": "sha256:67b90a193ad29e93f863553a8deb07c313e68acdf6480ea5e2154ca16cc899b2"
+  },
+  {
+    "seq": 12,
+    "at": "2026-11-14T09:12:40+02:00",
+    "actor": "policy",
+    "type": "POLICY_DECISION",
+    "title": "Needs approval: split delivery for cream and a substitute for cucumber",
+    "detail": {
+      "outcome": "NEEDS_APPROVAL",
+      "rule_ids": [
+        "SPLIT_DELIVERY",
+        "SUBSTITUTION"
+      ]
+    },
+    "model": null,
+    "prev_hash": "sha256:67b90a193ad29e93f863553a8deb07c313e68acdf6480ea5e2154ca16cc899b2",
+    "hash": "sha256:525895f8aef26bce330f851319c488d81c7dc927d8a12d58fe02b8dd0f7e09d8"
+  },
+  {
+    "seq": 13,
+    "at": "2026-11-14T09:12:41+02:00",
+    "actor": "gateway",
+    "type": "APPROVAL_REQUESTED",
+    "title": "Sent 2 options to a human for approval",
+    "detail": {
+      "approval_id": "a_wed01"
+    },
+    "model": null,
+    "prev_hash": "sha256:525895f8aef26bce330f851319c488d81c7dc927d8a12d58fe02b8dd0f7e09d8",
+    "hash": "sha256:0bfa47569fdd37a220025d8ba0e457d50550f7021aac751f3e61f2f241eb8a3e"
+  }
+]

@@ -8,5 +8,5 @@ node_modules/
 __pycache__/
 *.pyc
 
-# Valio challenge data: never commit
-data/valio/
+# Challenge data: never commit
+data/

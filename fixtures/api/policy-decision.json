@@ -1,0 +1,27 @@
+{
+  "outcome": "NEEDS_APPROVAL",
+  "rules_fired": [
+    {
+      "rule_id": "SPLIT_DELIVERY",
+      "description": "Whipping cream is split across two products because only 4 of 6.3 l of the 2 l cartons are in stock.",
+      "outcome": "NEEDS_APPROVAL",
+      "item_id": "it_cream",
+      "product_id": "900202"
+    },
+    {
+      "rule_id": "SUBSTITUTION",
+      "description": "The organic cucumber can't be delivered, so Valio's approved substitute (Finnish cucumber, not organic) is used.",
+      "outcome": "NEEDS_APPROVAL",
+      "item_id": "it_cucumber",
+      "product_id": "900402"
+    }
+  ],
+  "mandate": {
+    "buyer_id": "demo-catering",
+    "auto_limit": 1500,
+    "line_limit": 250,
+    "hard_cap": 5000,
+    "max_overbuy_percent": 25,
+    "waste_percent": 5
+  }
+}
