@@ -72,7 +72,10 @@
         "is_substitute": false,
         "substitute_for": null,
         "substitute_source": null,
-        "flags": []
+        "flags": [],
+        "delivery_date": "2026-11-20",
+        "order_deadline": "2026-11-19T17:00:00+02:00",
+        "quantity_text": "4 x 500 g pack"
       },
       {
         "product_id": "900201",
@@ -137,7 +140,10 @@
         "substitute_source": null,
         "flags": [
           "PARTIAL"
-        ]
+        ],
+        "delivery_date": "2026-11-20",
+        "order_deadline": "2026-11-19T17:00:00+02:00",
+        "quantity_text": "2 x 2 l carton"
       },
       {
         "product_id": "900202",
@@ -200,7 +206,10 @@
         "is_substitute": false,
         "substitute_for": null,
         "substitute_source": null,
-        "flags": []
+        "flags": [],
+        "delivery_date": "2026-11-20",
+        "order_deadline": "2026-11-19T17:00:00+02:00",
+        "quantity_text": "3 x 1 l carton"
       },
       {
         "product_id": "900301",
@@ -264,7 +273,10 @@
         "is_substitute": false,
         "substitute_for": null,
         "substitute_source": null,
-        "flags": []
+        "flags": [],
+        "delivery_date": "2026-11-20",
+        "order_deadline": "2026-11-19T17:00:00+02:00",
+        "quantity_text": "7 x 1.2 kg bag"
       },
       {
         "product_id": "900402",
@@ -322,7 +334,10 @@
         "is_substitute": true,
         "substitute_for": "900401",
         "substitute_source": "valio",
-        "flags": []
+        "flags": [],
+        "delivery_date": "2026-11-20",
+        "order_deadline": "2026-11-19T17:00:00+02:00",
+        "quantity_text": "5.04 x loose, per kg"
       }
     ],
     "total": 82.07,
@@ -334,7 +349,7 @@
     },
     "created_at": "2026-11-14T09:12:41+02:00",
     "expires_at": "2026-11-14T09:42:41+02:00",
-    "content_hash": "sha256:e90605b99e9e756146c6cbc8f2ec63725f3560a37386b337784c0be5eeb4414e",
+    "content_hash": "sha256:523b535824095546e42e221eb4012b3d0eb5650d9467d0cc87bc1df7326e3770",
     "policy": {
       "outcome": "NEEDS_APPROVAL",
       "rules_fired": [
@@ -362,7 +377,8 @@
         "waste_percent": 5
       }
     },
-    "agent_explanation": "Butter and cream are lactose-free and Finnish, as required. Only 2 of the 2 l cream cartons are in stock, so I added three 1 l cartons of the same cream. The organic cucumber can't be delivered, so I used Valio's approved Finnish cucumber instead. Everything arrives on 16 November, before the 20 November deadline. Organic was preferred, but the organic butter costs 71 % more per kg, so I chose the Finnish one."
+    "agent_explanation": "Butter and cream are lactose-free and Finnish, as required. Only 2 of the 2 l cream cartons are in stock, so I added three 1 l cartons of the same cream. The organic cucumber can't be delivered, so I used Valio's approved Finnish cucumber instead. Everything arrives on 16 November, before the 20 November deadline. Organic was preferred, but the organic butter costs 71 % more per kg, so I chose the Finnish one.",
+    "order_deadline": "2026-11-19T17:00:00+02:00"
   },
   "request": {
     "request_id": "r_wed01",
@@ -489,7 +505,9 @@
         "Two open rye sandwiches per guest.",
         "Cream covers filling and decoration.",
         "5 % waste added to every item."
-      ]
+      ],
+      "based_on": null,
+      "filled_gaps": []
     }
   },
   "options": [
@@ -564,7 +582,10 @@
           "is_substitute": false,
           "substitute_for": null,
           "substitute_source": null,
-          "flags": []
+          "flags": [],
+          "delivery_date": "2026-11-20",
+          "order_deadline": "2026-11-19T17:00:00+02:00",
+          "quantity_text": "4 x 500 g pack"
         },
         {
           "product_id": "900201",
@@ -629,7 +650,10 @@
           "substitute_source": null,
           "flags": [
             "PARTIAL"
-          ]
+          ],
+          "delivery_date": "2026-11-20",
+          "order_deadline": "2026-11-19T17:00:00+02:00",
+          "quantity_text": "2 x 2 l carton"
         },
         {
           "product_id": "900202",
@@ -692,7 +716,10 @@
           "is_substitute": false,
           "substitute_for": null,
           "substitute_source": null,
-          "flags": []
+          "flags": [],
+          "delivery_date": "2026-11-20",
+          "order_deadline": "2026-11-19T17:00:00+02:00",
+          "quantity_text": "3 x 1 l carton"
         },
         {
           "product_id": "900301",
@@ -756,7 +783,10 @@
           "is_substitute": false,
           "substitute_for": null,
           "substitute_source": null,
-          "flags": []
+          "flags": [],
+          "delivery_date": "2026-11-20",
+          "order_deadline": "2026-11-19T17:00:00+02:00",
+          "quantity_text": "7 x 1.2 kg bag"
         },
         {
           "product_id": "900402",
@@ -814,7 +844,10 @@
           "is_substitute": true,
           "substitute_for": "900401",
           "substitute_source": "valio",
-          "flags": []
+          "flags": [],
+          "delivery_date": "2026-11-20",
+          "order_deadline": "2026-11-19T17:00:00+02:00",
+          "quantity_text": "5.04 x loose, per kg"
         }
       ],
       "total": 82.07,
@@ -826,7 +859,7 @@
       },
       "created_at": "2026-11-14T09:12:41+02:00",
       "expires_at": "2026-11-14T09:42:41+02:00",
-      "content_hash": "sha256:e90605b99e9e756146c6cbc8f2ec63725f3560a37386b337784c0be5eeb4414e",
+      "content_hash": "sha256:523b535824095546e42e221eb4012b3d0eb5650d9467d0cc87bc1df7326e3770",
       "policy": {
         "outcome": "NEEDS_APPROVAL",
         "rules_fired": [
@@ -854,7 +887,8 @@
           "waste_percent": 5
         }
       },
-      "agent_explanation": "Butter and cream are lactose-free and Finnish, as required. Only 2 of the 2 l cream cartons are in stock, so I added three 1 l cartons of the same cream. The organic cucumber can't be delivered, so I used Valio's approved Finnish cucumber instead. Everything arrives on 16 November, before the 20 November deadline. Organic was preferred, but the organic butter costs 71 % more per kg, so I chose the Finnish one."
+      "agent_explanation": "Butter and cream are lactose-free and Finnish, as required. Only 2 of the 2 l cream cartons are in stock, so I added three 1 l cartons of the same cream. The organic cucumber can't be delivered, so I used Valio's approved Finnish cucumber instead. Everything arrives on 16 November, before the 20 November deadline. Organic was preferred, but the organic butter costs 71 % more per kg, so I chose the Finnish one.",
+      "order_deadline": "2026-11-19T17:00:00+02:00"
     },
     {
       "quote_id": "q_wed_b",
@@ -927,7 +961,10 @@
           "is_substitute": false,
           "substitute_for": null,
           "substitute_source": null,
-          "flags": []
+          "flags": [],
+          "delivery_date": "2026-11-20",
+          "order_deadline": "2026-11-19T17:00:00+02:00",
+          "quantity_text": "4 x 500 g pack"
         },
         {
           "product_id": "900202",
@@ -990,7 +1027,10 @@
           "is_substitute": false,
           "substitute_for": null,
           "substitute_source": null,
-          "flags": []
+          "flags": [],
+          "delivery_date": "2026-11-20",
+          "order_deadline": "2026-11-19T17:00:00+02:00",
+          "quantity_text": "7 x 1 l carton"
         },
         {
           "product_id": "900301",
@@ -1054,7 +1094,10 @@
           "is_substitute": false,
           "substitute_for": null,
           "substitute_source": null,
-          "flags": []
+          "flags": [],
+          "delivery_date": "2026-11-20",
+          "order_deadline": "2026-11-19T17:00:00+02:00",
+          "quantity_text": "7 x 1.2 kg bag"
         },
         {
           "product_id": "900402",
@@ -1112,7 +1155,10 @@
           "is_substitute": true,
           "substitute_for": "900401",
           "substitute_source": "valio",
-          "flags": []
+          "flags": [],
+          "delivery_date": "2026-11-20",
+          "order_deadline": "2026-11-19T17:00:00+02:00",
+          "quantity_text": "5.04 x loose, per kg"
         }
       ],
       "total": 83.47,
@@ -1124,7 +1170,7 @@
       },
       "created_at": "2026-11-14T09:12:41+02:00",
       "expires_at": "2026-11-14T09:42:41+02:00",
-      "content_hash": "sha256:c3b10fc693ba662e2dd60fbc32f55dcdf6a9211fe223eb1db2052fc4e4902df6",
+      "content_hash": "sha256:3662731d4e0cc74a7d6a2e5637711b80844cc4228d79cbba8342c5d282d0b45b",
       "policy": {
         "outcome": "NEEDS_APPROVAL",
         "rules_fired": [
@@ -1145,7 +1191,8 @@
           "waste_percent": 5
         }
       },
-      "agent_explanation": "Same as the recommended option, but all cream comes as seven 1 l cartons from the supplier, so there is no split. It costs 1.40 EUR more and the amount in stock is not reported for this product."
+      "agent_explanation": "Same as the recommended option, but all cream comes as seven 1 l cartons from the supplier, so there is no split. It costs 1.40 EUR more and the amount in stock is not reported for this product.",
+      "order_deadline": "2026-11-19T17:00:00+02:00"
     }
   ],
   "decided_by": null,

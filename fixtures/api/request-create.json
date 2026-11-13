@@ -39,5 +39,7 @@
   ],
   "exclude_allergens": [],
   "budget": 900,
-  "priority": "balanced"
+  "priority": "balanced",
+  "customer_id": null,
+  "reorder_of": null
 }

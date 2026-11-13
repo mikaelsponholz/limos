@@ -1,0 +1,412 @@
+{
+  "request_id": "r_chef01",
+  "buyer_id": "bistro-example",
+  "customer_id": "c_chef",
+  "preset_id": null,
+  "status": "WAITING_APPROVAL",
+  "created_at": "2026-11-14T10:10:00+02:00",
+  "input": {
+    "text": "Same berries as the last tasting menu evening, but for 80 people on 20 November. Budget 20 euros.",
+    "image_url": null
+  },
+  "intent": {
+    "event": {
+      "type": "tasting_menu",
+      "date": "2026-11-20",
+      "guests": 80
+    },
+    "dishes": [
+      {
+        "dish_id": "d_dessert",
+        "name": "Berries for the tasting menu",
+        "servings": 80
+      }
+    ],
+    "items": [
+      {
+        "item_id": "it_berries",
+        "description": "organic strawberries",
+        "description_fi": "luomumansikat",
+        "quantity": 4,
+        "unit": "kg",
+        "constraints": [
+          "organic",
+          "low_carbon"
+        ],
+        "used_in": [
+          {
+            "dish_id": "d_dessert",
+            "quantity": 4
+          }
+        ]
+      }
+    ],
+    "deliver_by": "2026-11-20",
+    "preferences": [
+      {
+        "key": "organic",
+        "level": "prefer"
+      },
+      {
+        "key": "low_carbon",
+        "level": "prefer"
+      }
+    ],
+    "exclude_allergens": [],
+    "budget": 20,
+    "priority": "balanced",
+    "assumptions": [
+      "The previous 2 kg of berries for 40 guests becomes 4 kg for 80 guests."
+    ],
+    "based_on": {
+      "order_ref": "ph_chef_01",
+      "title": "Tasting menu evening for 40",
+      "date": "2026-10-23",
+      "guests_before": 40,
+      "guests_now": 80,
+      "scale": 2
+    },
+    "filled_gaps": [
+      {
+        "field": "preferences",
+        "value": [
+          {
+            "key": "organic",
+            "level": "prefer"
+          },
+          {
+            "key": "low_carbon",
+            "level": "prefer"
+          }
+        ],
+        "source": "profile",
+        "note": "Your profile prefers organic ingredients and low carbon options."
+      }
+    ]
+  },
+  "question": null,
+  "steps": [
+    {
+      "seq": 1,
+      "at": "2026-11-14T10:10:00+02:00",
+      "actor": "user",
+      "type": "REQUEST_RECEIVED",
+      "title": "Received a tasting menu reorder for 80 guests",
+      "detail": {},
+      "model": null,
+      "prev_hash": null,
+      "hash": "sha256:7dca1b048b4d18541190d3fa8c006f324ceaa167cc94a9d4d279ed33677ee80a"
+    },
+    {
+      "seq": 2,
+      "at": "2026-11-14T10:10:01+02:00",
+      "actor": "gateway",
+      "type": "CUSTOMER_LOADED",
+      "title": "Loaded the chef at Bistro Example Oy and past orders",
+      "detail": {
+        "customer_id": "c_chef"
+      },
+      "model": null,
+      "prev_hash": "sha256:7dca1b048b4d18541190d3fa8c006f324ceaa167cc94a9d4d279ed33677ee80a",
+      "hash": "sha256:017e6390799be78e282edec674e1026d20055e34acdec714f70b7a2aacd20699"
+    },
+    {
+      "seq": 3,
+      "at": "2026-11-14T10:10:10+02:00",
+      "actor": "gateway",
+      "type": "QUOTE_CREATED",
+      "title": "Created a quote for 4 kg of strawberries at 24 EUR",
+      "detail": {
+        "quote_id": "q_chef01"
+      },
+      "model": null,
+      "prev_hash": "sha256:017e6390799be78e282edec674e1026d20055e34acdec714f70b7a2aacd20699",
+      "hash": "sha256:91c00cd5a28a9a52c669158ef472e0f639dcf06fab12c6f210cddd58e59db74a"
+    },
+    {
+      "seq": 4,
+      "at": "2026-11-14T10:10:11+02:00",
+      "actor": "policy",
+      "type": "POLICY_DECISION",
+      "title": "The total exceeds the budget and needs approval",
+      "detail": {
+        "outcome": "NEEDS_APPROVAL",
+        "rule_ids": [
+          "BUDGET_EXCEEDED"
+        ]
+      },
+      "model": null,
+      "prev_hash": "sha256:91c00cd5a28a9a52c669158ef472e0f639dcf06fab12c6f210cddd58e59db74a",
+      "hash": "sha256:95beb837c637528d5b7956de363f26677ae56c4a46a5f48b22c71202f2e1df35"
+    },
+    {
+      "seq": 5,
+      "at": "2026-11-14T10:10:12+02:00",
+      "actor": "gateway",
+      "type": "APPROVAL_REQUESTED",
+      "title": "Sent the berry quote for approval",
+      "detail": {
+        "approval_id": "a_chef01"
+      },
+      "model": null,
+      "prev_hash": "sha256:95beb837c637528d5b7956de363f26677ae56c4a46a5f48b22c71202f2e1df35",
+      "hash": "sha256:301711eab0b74afdc2bbb0d05f56276ab20a33d27ffa88e5f853dafe3084ec93"
+    },
+    {
+      "seq": 6,
+      "at": "2026-11-14T10:10:13+02:00",
+      "actor": "agent",
+      "type": "SUGGESTIONS_PROPOSED",
+      "title": "Offered lingonberries as a separate autumn option",
+      "detail": {
+        "suggestion_ids": [
+          "sg_r_chef01_1"
+        ]
+      },
+      "model": null,
+      "prev_hash": "sha256:301711eab0b74afdc2bbb0d05f56276ab20a33d27ffa88e5f853dafe3084ec93",
+      "hash": "sha256:1a07ad32fd18a859668e08c65cea9cfd4d72095543fef142cf19806805f2865d"
+    }
+  ],
+  "candidates": [
+    {
+      "product_id": "900312",
+      "item_id": "it_berries",
+      "name": "Example Farm organic strawberries 1 kg",
+      "vendor": "Example Farm Oy",
+      "sales_unit": "BAG",
+      "pack_description": "1 kg bag",
+      "pack_size": {
+        "value": 1,
+        "unit": "kg"
+      },
+      "quantity_sales_units": 4,
+      "quantity_requested": {
+        "value": 4,
+        "unit": "kg"
+      },
+      "quantity_covered": {
+        "value": 4,
+        "unit": "kg"
+      },
+      "unit_price": 6.0,
+      "list_price": 6.5,
+      "comparison_price": {
+        "value": 6.0,
+        "unit": "KG"
+      },
+      "line_total": 24.0,
+      "line_total_with_tax": 27.24,
+      "tax_rate": 13.5,
+      "available_amount": 40,
+      "available_date": "2026-11-16",
+      "requested_date": "2026-11-20",
+      "closing_time": "2026-11-19T17:00:00+02:00",
+      "logistic_model": "Stock",
+      "delivery_reliability": 0.98,
+      "carbon_kg_co2e_per_kg": null,
+      "country_of_origin": "fi",
+      "labels": [
+        "organic_label"
+      ],
+      "allergens": {
+        "contains": [],
+        "may_contain": [],
+        "data_available": true
+      },
+      "dietary_check": {
+        "organic": "confirmed",
+        "low_carbon": "unknown"
+      },
+      "tier": "better",
+      "score": 80,
+      "reason": "Organic strawberries in 1 kg bags cover the scaled tasting menu quantities.",
+      "is_split": false,
+      "is_substitute": false,
+      "substitute_for": null,
+      "substitute_source": null,
+      "flags": [],
+      "delivery_date": "2026-11-20",
+      "order_deadline": "2026-11-19T17:00:00+02:00",
+      "quantity_text": "4 x 1 kg bag"
+    }
+  ],
+  "quote": {
+    "quote_id": "q_chef01",
+    "request_id": "r_chef01",
+    "buyer_id": "bistro-example",
+    "agent_id": "limos-gemini",
+    "status": "PENDING_APPROVAL",
+    "option_label": null,
+    "delivery_date": "2026-11-20",
+    "order_deadline": "2026-11-19T17:00:00+02:00",
+    "lines": [
+      {
+        "product_id": "900312",
+        "item_id": "it_berries",
+        "name": "Example Farm organic strawberries 1 kg",
+        "vendor": "Example Farm Oy",
+        "sales_unit": "BAG",
+        "pack_description": "1 kg bag",
+        "pack_size": {
+          "value": 1,
+          "unit": "kg"
+        },
+        "quantity_sales_units": 4,
+        "quantity_requested": {
+          "value": 4,
+          "unit": "kg"
+        },
+        "quantity_covered": {
+          "value": 4,
+          "unit": "kg"
+        },
+        "unit_price": 6.0,
+        "list_price": 6.5,
+        "comparison_price": {
+          "value": 6.0,
+          "unit": "KG"
+        },
+        "line_total": 24.0,
+        "line_total_with_tax": 27.24,
+        "tax_rate": 13.5,
+        "available_amount": 40,
+        "available_date": "2026-11-16",
+        "requested_date": "2026-11-20",
+        "closing_time": "2026-11-19T17:00:00+02:00",
+        "logistic_model": "Stock",
+        "delivery_reliability": 0.98,
+        "carbon_kg_co2e_per_kg": null,
+        "country_of_origin": "fi",
+        "labels": [
+          "organic_label"
+        ],
+        "allergens": {
+          "contains": [],
+          "may_contain": [],
+          "data_available": true
+        },
+        "dietary_check": {
+          "organic": "confirmed",
+          "low_carbon": "unknown"
+        },
+        "tier": "better",
+        "score": 80,
+        "reason": "Organic strawberries in 1 kg bags cover the scaled tasting menu quantities.",
+        "is_split": false,
+        "is_substitute": false,
+        "substitute_for": null,
+        "substitute_source": null,
+        "flags": [],
+        "delivery_date": "2026-11-20",
+        "order_deadline": "2026-11-19T17:00:00+02:00",
+        "quantity_text": "4 x 1 kg bag"
+      }
+    ],
+    "total": 24.0,
+    "total_with_tax": 27.24,
+    "co2e_total_kg": null,
+    "budget": {
+      "limit": 20,
+      "status": "over"
+    },
+    "created_at": "2026-11-14T10:10:10+02:00",
+    "expires_at": "2026-11-14T10:40:10+02:00",
+    "content_hash": "sha256:763d6b28325e2fa05350e83dcb701530d2ded2e47bff7e5a110e77ee8a9ad08f",
+    "policy": {
+      "outcome": "NEEDS_APPROVAL",
+      "rules_fired": [
+        {
+          "rule_id": "BUDGET_EXCEEDED",
+          "description": "The 24 EUR total exceeds the 20 EUR budget.",
+          "outcome": "NEEDS_APPROVAL"
+        }
+      ],
+      "mandate": {
+        "buyer_id": "bistro-example",
+        "auto_limit": 1500,
+        "line_limit": 250,
+        "hard_cap": 5000,
+        "max_overbuy_percent": 25,
+        "waste_percent": 5
+      }
+    },
+    "agent_explanation": "Scaled the tasting menu berries from 40 to 80 guests. The total exceeds the budget and needs approval. The optional lingonberries are separate from this quote."
+  },
+  "suggestions": [
+    {
+      "suggestion_id": "sg_r_chef01_1",
+      "kind": "seasonal",
+      "title": "Use lingonberries for the autumn menu",
+      "reason": "Lingonberries suit the autumn menu and cost 2 EUR less per kg in this order.",
+      "replaces_item_id": "it_berries",
+      "offer": {
+        "product_id": "900313",
+        "item_id": "it_berries",
+        "name": "Example Farm organic lingonberries 1 kg",
+        "vendor": "Example Farm Oy",
+        "sales_unit": "BAG",
+        "pack_description": "1 kg bag",
+        "pack_size": {
+          "value": 1,
+          "unit": "kg"
+        },
+        "quantity_sales_units": 4,
+        "quantity_requested": {
+          "value": 4,
+          "unit": "kg"
+        },
+        "quantity_covered": {
+          "value": 4,
+          "unit": "kg"
+        },
+        "unit_price": 4.0,
+        "list_price": 4.5,
+        "comparison_price": {
+          "value": 4.0,
+          "unit": "KG"
+        },
+        "line_total": 16.0,
+        "line_total_with_tax": 18.16,
+        "tax_rate": 13.5,
+        "available_amount": 40,
+        "available_date": "2026-11-16",
+        "requested_date": "2026-11-20",
+        "closing_time": "2026-11-13T17:00:00+02:00",
+        "logistic_model": "Stock",
+        "delivery_reliability": 0.98,
+        "carbon_kg_co2e_per_kg": null,
+        "country_of_origin": "fi",
+        "labels": [
+          "organic_label"
+        ],
+        "allergens": {
+          "contains": [],
+          "may_contain": [],
+          "data_available": true
+        },
+        "dietary_check": {
+          "organic": "confirmed",
+          "low_carbon": "unknown"
+        },
+        "tier": "better",
+        "score": 80,
+        "reason": "Organic lingonberries are an autumn option. The reported order cutoff has passed.",
+        "is_split": false,
+        "is_substitute": false,
+        "substitute_for": null,
+        "substitute_source": null,
+        "flags": [
+          "CUTOFF_PASSED"
+        ],
+        "delivery_date": "2026-11-20",
+        "order_deadline": null,
+        "quantity_text": "4 x 1 kg bag"
+      },
+      "status": "OFFERED"
+    }
+  ],
+  "approval_id": "a_chef01",
+  "order": null,
+  "error": null
+}
