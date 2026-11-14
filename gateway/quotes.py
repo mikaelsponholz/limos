@@ -55,13 +55,14 @@ def create_quote(
     budget: float | None = None,
     option_label: str | None = None,
     agent_explanation: str = "",
+    previous_prices: Mapping[tuple[str, str], float] | None = None,
 ) -> Quote:
     check_now(now)
     if mandate.buyer_id != buyer_id:
         raise ValueError("Mandate must belong to the quote buyer.")
     locked_lines = [line.model_copy(deep=True) for line in lines]
     total = _sum_money([line.line_total for line in locked_lines])
-    policy = evaluate(locked_lines, item_context, mandate, agent_id, budget)
+    policy = evaluate(locked_lines, item_context, mandate, agent_id, budget, previous_prices)
     statuses: dict[str, QuoteStatus] = {
         "AUTO": "AUTO_APPROVED",
         "NEEDS_APPROVAL": "PENDING_APPROVAL",
@@ -170,11 +171,12 @@ def request_approval(
     store: Store,
     now: datetime,
     id_generator: Callable[[], str],
+    allow_auto: bool = False,
 ) -> ApprovalRecord:
     with store.transaction():
         quote = get_quote(store, quote_id, buyer_id, now)
         _approvable(quote, now)
-        if quote.status != "PENDING_APPROVAL":
+        if quote.status != "PENDING_APPROVAL" and not allow_auto:
             raise GatewayError(403, "NEEDS_APPROVAL", "Only a pending quote needs approval.")
         options = list(dict.fromkeys([quote_id, *(alternative_quote_ids or [])]))
         if len(options) > 3:
@@ -184,6 +186,10 @@ def request_approval(
             if option.request_id != quote.request_id:
                 raise GatewayError(404, "NOT_FOUND", "Option quote not found for this request.")
             _approvable(option, now)
+            if allow_auto and option.status == "AUTO_APPROVED":
+                # Preserve the policy result while requiring the human's decision.
+                option.status = "PENDING_APPROVAL"
+                store.save_quote(option)
         approval = ApprovalRecord(
             approval_id=id_generator(),
             buyer_id=buyer_id,

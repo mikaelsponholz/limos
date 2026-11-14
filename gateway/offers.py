@@ -22,6 +22,7 @@ from gateway.schemas import (
     Quantity,
     QuoteLine,
 )
+from gateway.valio.client import ValioClient
 from gateway.valio.models import (
     AvailabilityResponse,
     PriceResponse,
@@ -412,6 +413,7 @@ async def price_fixed_lines(
     needs: Mapping[str, Quantity] | None = None,
     item_context: Mapping[str, "ItemContext"] | None = None,
     max_overbuy_percent: float = 25,
+    refresh: bool = False,
 ) -> list[Offer]:
     """Price the caller's exact sales units; shortage is evidence, never a quantity edit.
 
@@ -441,8 +443,12 @@ async def price_fixed_lines(
     if not lines:
         return []
     codes = list(dict.fromkeys(line.product_id for line in lines))
-    prices = await valio.price(codes, requested_date)
-    availability = await valio.availability(codes, requested_date)
+    if refresh and isinstance(valio, ValioClient):
+        prices = await valio.price(codes, requested_date, refresh=True)
+        availability = await valio.availability(codes, requested_date, refresh=True)
+    else:
+        prices = await valio.price(codes, requested_date)
+        availability = await valio.availability(codes, requested_date)
     prices_by_id = {entry.product_id: entry for entry in prices.products}
     stock_by_id = {entry.product_id: entry for entry in availability.products}
     inferred: dict[str, Quantity] = {}

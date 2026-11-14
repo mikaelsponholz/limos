@@ -202,6 +202,7 @@ def run_loop(
                 AGENT_ID,
                 create,
                 alternative_ids if alternative_ids is not None else [],
+                env,
             )
 
         try:

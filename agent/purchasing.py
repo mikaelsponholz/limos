@@ -6,13 +6,14 @@ from fractions import Fraction
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from agent.exceptions import ItemPlan, plan_item, quote_options, usable
+from agent.exceptions import ItemPlan, cheaper_option, plan_item, quote_options, usable
 from agent.llm import LLM
+from gateway import tools
 from gateway.api.dependencies import Resources
 from gateway.audit import append_step
 from gateway.errors import GatewayError
 from gateway.policy import ItemContext
-from gateway.schemas import IntentItem, Offer, Quote, QuoteBody, RequestDetail
+from gateway.schemas import IntentItem, Offer, Quote, QuoteBody, QuoteLine, RequestDetail
 
 type FetchOffers = Callable[[list[str]], Awaitable[list[Offer]]]
 type Search = Callable[[str], list[str]]
@@ -142,23 +143,65 @@ async def create_options(
     agent_id: str,
     create: Callable[[QuoteBody], Awaitable[Quote]],
     alternative_ids: list[str],
+    env: Resources,
 ) -> Quote:
     variants = quote_options(items, plans, detail.intent.deliver_by)
-    quotes = []
-    for lines, label in variants:
-        quotes.append(
-            await create(
-                QuoteBody(
-                    buyer_id=detail.buyer_id,
-                    agent_id=agent_id,
-                    request_id=detail.request_id,
-                    requested_date=detail.intent.deliver_by,
-                    lines=lines,
-                    budget=detail.intent.budget,
-                    option_label=label,
-                )
+
+    async def make(lines: list[QuoteLine], label: str | None) -> Quote:
+        return await create(
+            QuoteBody(
+                buyer_id=detail.buyer_id,
+                agent_id=agent_id,
+                request_id=detail.request_id,
+                requested_date=detail.intent.deliver_by,
+                lines=lines,
+                budget=detail.intent.budget,
+                option_label=label,
             )
         )
+
+    recommended = await make(*variants[0])
+    cheaper = None
+    if any(
+        rule.rule_id in {"BUDGET_EXCEEDED", "BUDGET_HARD_STOP"}
+        for rule in recommended.policy.rules_fired
+    ):
+        variant = cheaper_option(
+            recommended,
+            plans,
+            tools.contexts(detail, [item.item_id for item in items]),
+            detail.intent.deliver_by,
+        )
+        if variant:
+            cheaper = await make(*variant)
+            append_step(
+                env.store,
+                detail.request_id,
+                "agent",
+                "EXCEPTION",
+                "Quoted a cheaper option using the largest savings first",
+                {
+                    "recommended_quote_id": recommended.quote_id,
+                    "quote_id": cheaper.quote_id,
+                    "saving": round(recommended.total - cheaper.total, 2),
+                },
+                None,
+                env.now(),
+            )
+            if cheaper.budget:
+                cheaper.option_label = (
+                    "Cheaper option within budget"
+                    if cheaper.budget.status == "within"
+                    else "Cheaper option"
+                )
+                env.store.save_quote(cheaper)
+    if recommended.policy.outcome == "BLOCK":
+        return cheaper if cheaper and cheaper.policy.outcome != "BLOCK" else recommended
+    quotes = [recommended]
+    for lines, label in variants[1 : 2 if cheaper else 3]:
+        quotes.append(await make(lines, label))
+    if cheaper:
+        quotes.append(cheaper)
     alternative_ids.extend(
         quote.quote_id for quote in quotes[1:] if quote.policy.outcome != "BLOCK"
     )

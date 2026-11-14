@@ -367,9 +367,11 @@ def test_approval_error_codes(client: TestClient, change: str) -> None:
     assert response.json()["error"]["code"] == expected_code
     assert client.app.state.store.order_for_request(quote["request_id"], "demo-catering") is None
     assert client.app.state.store.get_approval(approval_id, "demo-catering").status == "PENDING"
-    assert len(client.app.state.valio.calls) - before == (
-        1 if expected_code == "AVAILABILITY_CHANGED" else 0
-    )
+    # An expired quote is re-quoted once (Phase 4): one price and one availability call.
+    assert len(client.app.state.valio.calls) - before == {
+        "AVAILABILITY_CHANGED": 1,
+        "QUOTE_EXPIRED": 2,
+    }.get(expected_code, 0)
 
 
 def test_reject(client: TestClient) -> None:

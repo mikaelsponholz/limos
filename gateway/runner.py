@@ -463,7 +463,7 @@ async def run(
                 return await tools.request_quote(body, env)
 
             quote = await create_options(
-                detail, detail.intent.items, plans, AGENT_ID, create, alternative_ids
+                detail, detail.intent.items, plans, AGENT_ID, create, alternative_ids, env
             )
         else:
             tools.tool_step(env, request_id, "request_quote")

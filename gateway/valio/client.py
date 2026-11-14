@@ -123,9 +123,16 @@ class ValioClient:
         return await self._request("/api/ping", PingResponse)
 
     async def price(
-        self, product_codes: Iterable[str], requested_date: date, *, customer: str = "123"
+        self,
+        product_codes: Iterable[str],
+        requested_date: date,
+        *,
+        customer: str = "123",
+        refresh: bool = False,
     ) -> PriceResponse:
-        return await self._products("price", product_codes, requested_date, customer, PriceResponse)
+        return await self._products(
+            "price", product_codes, requested_date, customer, PriceResponse, refresh=refresh
+        )
 
     async def availability(
         self,

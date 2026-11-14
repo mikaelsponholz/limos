@@ -1,14 +1,14 @@
 """Pure exception planning over a fetched shortlist. No model calls or I/O."""
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
-from decimal import ROUND_CEILING, Decimal
+from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal
 from typing import Literal
 
 from gateway.policy import ItemContext
 from gateway.policy.engine import REQUIRE_HARD_DIETARY_KEYS
-from gateway.schemas import IntentItem, Offer, QuoteLine
+from gateway.schemas import IntentItem, Offer, Quote, QuoteLine
 
 
 @dataclass
@@ -18,6 +18,8 @@ class ItemPlan:
     decisions: list[str]
     facts: list[str]
     offers: list[Offer]
+    sources: dict[str, Literal["valio", "agent"]] = field(default_factory=dict)
+    lots: Mapping[str, float] = field(default_factory=dict)
 
 
 def hard_safe(offer: Offer, context: ItemContext) -> bool:
@@ -144,7 +146,109 @@ def plan_item(
         and offer.dietary_check.get(key) != "confirmed"
     ]
     decisions.extend(facts)
-    return ItemPlan(recommended, alternatives, decisions, facts, pool)
+    return ItemPlan(recommended, alternatives, decisions, facts, pool, sources, lots or {})
+
+
+def cheaper_option(
+    quote: Quote,
+    plans: Sequence[ItemPlan],
+    contexts: Mapping[str, ItemContext],
+    requested: date,
+) -> tuple[list[QuoteLine], str] | None:
+    """Replace lines by largest saving, retaining coverage, lots and timely delivery."""
+    if quote.budget is None:
+        return None
+    by_item = {plan.recommended[0].item_id: plan for plan in plans}
+    lines = [
+        QuoteLine(
+            item_id=line.item_id,
+            product_id=line.product_id,
+            quantity_sales_units=line.quantity_sales_units,
+            substitute_for=line.substitute_for,
+            substitute_source=line.substitute_source,
+        )
+        for line in quote.lines
+    ]
+    costs = [Decimal(str(line.line_total)) for line in quote.lines]
+    coverage = [Decimal(str(line.quantity_covered.value)) for line in quote.lines]
+    total = Decimal(str(quote.total))
+    limit = Decimal(str(quote.budget.limit))
+    pending = set(range(len(lines)))
+    changed = False
+    while total > limit:
+        swaps: list[tuple[Decimal, int, QuoteLine, Decimal, Decimal]] = []
+        for index in sorted(pending):
+            old = quote.lines[index]
+            plan = by_item[old.item_id]
+            pool = [offer for offer in plan.offers if usable(offer, contexts[old.item_id])]
+            timely = [o for o in pool if o.available_date and o.available_date <= requested]
+            pool = timely or pool
+            occupied = {
+                line.product_id
+                for other, line in enumerate(lines)
+                if other != index and line.item_id == old.item_id
+            }
+            # Pack rounding may exceed the need; retain the line's contribution to it.
+            other_coverage = sum(
+                coverage[other]
+                for other, line in enumerate(quote.lines)
+                if other != index and line.item_id == old.item_id
+            )
+            needed = min(
+                Decimal(str(old.quantity_covered.value)),
+                max(Decimal(0), Decimal(str(old.quantity_requested.value)) - other_coverage),
+            )
+            candidates = []
+            for offer in pool:
+                if (
+                    offer.item_id != old.item_id
+                    or offer.product_id in occupied | {old.product_id}
+                    or offer.quantity_covered.unit != old.quantity_covered.unit
+                    or offer.quantity_covered.value <= 0
+                    or offer.quantity_sales_units <= 0
+                    or needed <= 0
+                ):
+                    continue
+                per_unit = Decimal(str(offer.quantity_covered.value)) / Decimal(
+                    str(offer.quantity_sales_units)
+                )
+                lot = Decimal(str(plan.lots.get(offer.product_id, 1)))
+                units = (needed / per_unit / lot).to_integral_value(rounding=ROUND_CEILING) * lot
+                if units > Decimal(str(offer.quantity_sales_units)):
+                    continue
+                cost = (units * Decimal(str(offer.unit_price))).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
+                source = plan.sources.get(offer.product_id)
+                replacement = QuoteLine(
+                    item_id=old.item_id,
+                    product_id=offer.product_id,
+                    quantity_sales_units=float(units),
+                    substitute_for=plan.offers[0].product_id if source else None,
+                    substitute_source=source,
+                )
+                candidates.append((cost, offer.product_id, replacement, units * per_unit))
+            if candidates:
+                cost, _, replacement, covered = min(
+                    candidates, key=lambda entry: (entry[0], entry[1])
+                )
+                saving = costs[index] - cost
+                if saving > 0:
+                    swaps.append((saving, index, replacement, cost, covered))
+        if not swaps:
+            break
+        saving, index, replacement, cost, covered = min(
+            swaps, key=lambda entry: (-entry[0], entry[1])
+        )
+        lines[index] = replacement
+        costs[index] = cost
+        coverage[index] = covered
+        pending.remove(index)
+        total -= saving
+        changed = True
+    if not changed:
+        return None
+    return lines, "Cheaper option within budget" if total <= limit else "Cheaper option"
 
 
 def option_phrase(
