@@ -334,40 +334,43 @@ function ListView({
 
   return (
     <div className={`flex flex-col gap-5 motion-safe:transition-opacity motion-safe:duration-150 ${busy ? "opacity-60" : ""}`} aria-busy={busy}>
-      <section aria-label="Summary" className="bg-petrol text-white rounded-xl p-5 sm:p-6 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-5 sm:gap-4">
-        <div>
-          <p className="m-0 text-[15px] text-petrol-tint">Total incl. VAT</p>
-          <p className="m-0 text-[40px] leading-tight font-semibold tabular-nums">{eur(q.total_with_tax)}</p>
-          <p className="m-0 mt-1 text-[15px] text-petrol-tint">Products {eur(q.total)} | VAT {eur(vat)}</p>
-        </div>
-        <div className="text-[17px]">
-          <p className="m-0">Delivery <strong className="font-semibold">{day(q.delivery_date)}</strong></p>
-          <p className="m-0">
-            {q.order_deadline ? <>Order by <strong className="font-semibold">{dayTime(q.order_deadline)}</strong></> : "No order deadline from Valio"}
-          </p>
-        </div>
-        {req.status === "WAITING_APPROVAL" && !blocked && req.approval_id && (
-          <button type="button" onClick={onApprove} disabled={busy} className="w-full sm:w-auto shrink-0 min-h-14 px-7 rounded-md bg-lime text-petrol-dark text-[18px] font-semibold disabled:opacity-60">
-            Approve order
-          </button>
-        )}
-        {blocked && <p className="m-0 text-[18px] font-semibold">Can&apos;t be ordered</p>}
+      <section aria-label="Summary" className="bg-petrol text-white rounded-xl p-5 sm:p-6 flex flex-col gap-5">
         {ordered && (
-          <div className="flex flex-col gap-1 sm:max-w-[280px]">
-            <p className="m-0 flex items-center gap-2 text-[20px] font-semibold">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0"><path d="m5 12 4 4L19 6" /></svg>
-              Order placed
-            </p>
-            <p className="m-0 text-[17px]">
-              {req.order?.approved_by
-                ? `Thanks ${first}.`
-                : `Ordered automatically, within ${company}'s ordering limits.`}
-              <br />
-              Arrives <span className="whitespace-nowrap">{day(req.order?.delivery_date ?? q.delivery_date)}</span>.
-            </p>
-            <Link href={`/audit/${req.request_id}`} className="self-start min-h-11 inline-flex items-center text-[16px] text-white underline">See order details</Link>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 pb-5 border-b border-white/25">
+            <div className="min-w-0">
+              <h2 className="m-0 text-[24px] leading-tight font-semibold">Order placed</h2>
+              <p className="m-0 mt-1 text-[17px]">
+                {req.order?.approved_by ? `Thanks, ${first}. Valio Aimo has your order.` : `Ordered automatically, within ${company}'s ordering limits.`}
+              </p>
+            </div>
+            <Link href={`/audit/${req.request_id}`} className="min-h-11 inline-flex items-center text-[16px] font-medium text-white underline">
+              See order details
+            </Link>
           </div>
         )}
+        {/* Two columns built the same way (label, big value, small line) so they line up row by row; the action sits on the right. */}
+        <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-start gap-5 sm:gap-6">
+          <div>
+            <p className="m-0 text-[15px] text-petrol-tint">Total incl. VAT</p>
+            <p className="m-0 text-[40px] leading-[1.15] font-semibold tabular-nums">{eur(q.total_with_tax)}</p>
+            <p className="m-0 text-[15px] text-petrol-tint">Products {eur(q.total)} | VAT {eur(vat)}</p>
+          </div>
+          <div>
+            <p className="m-0 text-[15px] text-petrol-tint">{ordered ? "Arrives" : "Delivery"}</p>
+            <p className="m-0 text-[40px] leading-[1.15] font-semibold whitespace-nowrap">{day(req.order?.delivery_date ?? q.delivery_date)}</p>
+            {!ordered && (
+              <p className="m-0 text-[15px] text-petrol-tint">
+                {q.order_deadline ? `Order by ${dayTime(q.order_deadline)}` : "No order deadline from Valio"}
+              </p>
+            )}
+          </div>
+          {req.status === "WAITING_APPROVAL" && !blocked && req.approval_id && (
+            <button type="button" onClick={onApprove} disabled={busy} className="w-full sm:w-auto sm:self-center shrink-0 min-h-14 px-7 rounded-md bg-lime text-petrol-dark text-[18px] font-semibold disabled:opacity-60">
+              Approve order
+            </button>
+          )}
+          {blocked && <p className="m-0 sm:self-center text-[18px] font-semibold">Can&apos;t be ordered</p>}
+        </div>
       </section>
 
       {!ordered && generalRules.length === 0 && linesToCheck > 0 && (
