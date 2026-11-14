@@ -141,32 +141,14 @@ def test_invalid_guests_and_wrong_question_leave_question_open(tmp_path: Path, a
         assert unchanged.steps == detail.steps
 
 
-@pytest.mark.parametrize("answer", ["2026-11-20", None, "2026-11-13", "20261120", "bad-date"])
-def test_delivery_answer_validation(tmp_path: Path, answer: str | None) -> None:
-    llm = FakeLLM(
-        structured_outputs=[
-            {"items": ITEMS},
-            {"text": "What delivery date do you need?"},
-            EXPLANATION,
-        ],
-        tool_responses=purchase(),
-    )
+def test_missing_delivery_date_is_not_asked(tmp_path: Path) -> None:
+    # Busy buyers get the next delivery day, and the filled gap says so.
+    llm = FakeLLM(structured_outputs=[{"items": ITEMS}, EXPLANATION], tool_responses=purchase())
     with client_for(tmp_path, llm) as client:
-        detail = post_text(client)
-        assert detail.question is not None and detail.question.field == "deliver_by"
-        assert detail.question.choices == ["2026-11-15", "2026-11-16", "2026-11-17", "2026-11-18"]
-        response = client.post(
-            f"/requests/{detail.request_id}/answer",
-            json={"question_id": detail.question.question_id, "answer": answer},
-        )
-        result = poll(client, detail.request_id)
-        if answer in (None, "2026-11-20"):
-            assert response.status_code == 202 and result.quote is not None
-            assert result.intent.deliver_by.isoformat() == (answer or "2026-11-15")
-            assert gap_sources(result)["deliver_by"] == ("default" if answer is None else "answer")
-        else:
-            assert response.status_code == 422 and result.question == detail.question
-            assert result.status == "NEEDS_INPUT"
+        result = post_text(client)
+    assert result.question is None and result.quote is not None
+    assert result.intent.deliver_by.isoformat() == "2026-11-15"
+    assert gap_sources(result)["deliver_by"] == "default"
 
 
 @pytest.mark.parametrize("answer", ["Invented board meeting", None])

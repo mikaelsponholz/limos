@@ -52,10 +52,8 @@ def missing_field(intent: Intent, reorder_target: str | None) -> QuestionField |
         return "items"
     if (has_event or intent.dishes) and "event.guests" in defaults:
         return "guests"
-    # An explicit event date avoids a question, but delivery still uses its own default.
-    has_event_date = intent.event is not None and "event.date" not in defaults
-    if "deliver_by" in defaults and not has_event_date:
-        return "deliver_by"
+    # A missing delivery date is never asked: busy buyers get the next delivery day, moved
+    # to the earliest date Valio offers, and the filled gap says so.
     return None
 
 

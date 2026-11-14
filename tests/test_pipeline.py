@@ -218,29 +218,20 @@ def test_no_usable_products_blocks_instead_of_failing(tmp_path, unusable):
         assert "flour" in detail.error.message
 
 
-def test_default_answer_moves_delivery_to_latest_earliest_available_date(tmp_path):
+def test_missing_date_moves_delivery_to_latest_earliest_available_date(tmp_path):
     records = [product("990001"), product("990002", names={"en": "Invented carrots"})]
     availability = [
         stock("990001", scheduleLines=[schedule(availableDate="2026-11-18")]),
         stock("990002", scheduleLines=[schedule(availableDate="2026-11-19")]),
     ]
     outputs = [
-        {"text": "What date do you need the delivery?"},
         picks("990001", "990002"),
         EXPLANATION,
     ]
     with environment(tmp_path, records, outputs, availability=availability) as client:
+        # Busy buyers are not asked for a date; the default moves to Valio's earliest date.
         detail = start(client, requested_date=None, items=[item(), item("carrots")])
-        assert detail.status == "NEEDS_INPUT" and detail.question.field == "deliver_by"
-        response = client.post(
-            f"/requests/{detail.request_id}/answer",
-            json={
-                "question_id": detail.question.question_id,
-                "answer": None,
-            },
-        )
-        assert response.status_code == 202
-        detail = poll(client, detail.request_id)
+        assert detail.question is None
         assert detail.error is None and detail.intent.deliver_by == date(2026, 11, 19)
         gap = next(g for g in detail.intent.filled_gaps if g.field == "deliver_by")
         assert gap.source == "default" and gap.value == "2026-11-19"

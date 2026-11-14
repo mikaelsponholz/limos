@@ -4,7 +4,6 @@ from datetime import date
 
 import pytest
 
-from tests.test_e2e import poll
 from tests.test_offers import product, schedule, stock
 from tests.test_pipeline import EXPLANATION, environment, item, start
 from tests.test_relevance_fix import choice, picks
@@ -27,7 +26,6 @@ def test_substitute_with_moved_default_date_requires_approval(
         product("990003", names={"en": "Invented carrots"}),
     ]
     outputs = [
-        {"text": "What date do you need the delivery?"},
         picks(
             choice("it_1", "990001", ["990002"] if source == "valio" else []),
             choice("it_2", "990003"),
@@ -47,14 +45,8 @@ def test_substitute_with_moved_default_date_requires_approval(
         ),
     ]
     with environment(tmp_path, records, outputs, availability=availability) as client:
+        # A missing date is not asked; the default moves to Valio's earliest date.
         detail = start(client, requested_date=None, items=[item("sugar paste"), item("carrots")])
-        assert detail.status == "NEEDS_INPUT"
-        response = client.post(
-            f"/requests/{detail.request_id}/answer",
-            json={"question_id": detail.question.question_id, "answer": None},
-        )
-        assert response.status_code == 202
-        detail = poll(client, detail.request_id)
         assert detail.error is None
         assert detail.intent.deliver_by == date(2026, 11, 19)
         assert detail.quote is not None

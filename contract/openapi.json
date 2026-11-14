@@ -2793,6 +2793,18 @@
             "default": null,
             "title": "Requested Date"
           },
+          "revises": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Revises"
+          },
           "text": {
             "anyOf": [
               {
