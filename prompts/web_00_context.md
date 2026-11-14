@@ -23,12 +23,12 @@ The UI is what the judges see. 30% of the Valio score is a working end-to-end de
 
 ## 3. Who it is for, and the screens
 
-**The user is "Pena"**: a busy, older business owner (think 65, not 25) who buys from Valio Aimo. Valio Aimo told us at Junction: their customers are in a hurry, want the order off their plate fast, and trust is everything. Today they phone Valio Aimo sales to ask about order cut-off times. So:
+**The user is "Frank"**: a busy, older business owner (think 65, not 25) who buys from Valio Aimo. Valio Aimo told us at Junction: their customers are in a hurry, want the order off their plate fast, and trust is everything. Today they phone Valio Aimo sales to ask about order cut-off times. So:
 
-- **One text field first.** Pena writes what he needs, short and vague or long and precise ("strawberry cakes for 40 on Friday, same as last time"). Everything else comes after.
+- **One text field first.** Frank writes what he needs, short and vague or long and precise ("strawberry cakes for 40 on Friday, same as last time"). Everything else comes after.
 - **The answer is a shopping list and a total**, not a chat reply, not a dashboard.
 - **The order cut-off is always visible**: "Order by Thursday 5 pm and it arrives Friday morning." Taken from the earliest `closing_time` and the quote `delivery_date`.
-- **Suggestions only for playful customers** (`playful: true`, e.g. the chef, not Pena): below the list under "If you want", each with its price difference and an "Add" button (`POST /requests/{id}/suggestions/{sid}/accept`, which re-quotes). Never added automatically.
+- **Suggestions only for playful customers** (`playful: true`, e.g. the chef, not Frank): below the list under "If you want", each with its price difference and an "Add" button (`POST /requests/{id}/suggestions/{sid}/accept`, which re-quotes). Never added automatically.
 - **Recognise the user**: no sign-in. A customer picker (`GET /customers`, remembered in localStorage) is how the user is recognised. Greet by first name, show the company in the header, and offer "Order again" for the last past order (`reorder_of`).
 - Requirements from `docs/PLAN.md` section 8b win if anything here disagrees.
 - **Not "AI-looking"**: no chat bubbles, no sparkles or gradients, no robot avatar, no "As an AI…" voice, no "thinking" animations. It must look like a friendly grocery app.
@@ -37,11 +37,11 @@ The UI is what the judges see. 30% of the Valio score is a working end-to-end de
 - Warm light background `#F6F4EF`, white cards, **rounded corners** (cards 16 px, inputs 12 px, buttons pill-shaped), a very soft shadow `0 1px 2px rgba(31,42,48,.06)`.
 - Brand: Valio Aimo petrol `#005670` for primary actions and links, lime `#C0E021` (text `#00394B`) only for the main **Approve order** button, soft green `#EAF4D3` for good news (cut-off banner, order placed). Text `#1F2A30`, muted `#6B767B`, borders `#E7E3DA`.
 - Font: **Figtree** only, sentence case, no uppercase headings. Base size 18 px, field text 19 px, totals 30 px bold. Every tap target at least 44 px. Strong contrast (WCAG AA).
-- English UI. Plain words: "Your list", "If you want", "Approve order", never "quote", "hash", "policy" or "agent" on Pena's screen.
+- English UI. Plain words: "Your list", "If you want", "Approve order", never "quote", "hash", "policy" or "agent" on Frank's screen.
 
 ### A. Order (`/`), the main screen
-1. Header: "limos" wordmark in petrol, right side initials avatar + company ("PV · Pena Ab Oy").
-2. Heading "Hi Pena, what would you like to order?" and the text field with a petrol **Make my list** button, plus an "Order again: <last order title>" button. While working the button reads "Checking prices…" and the list fades; no spinner chatter. Submits `POST /requests` with `{customer_id, text}` (or `reorder_of`) and polls `GET /requests/{id}` every 1.5 s.
+1. Header: "limos" wordmark in petrol, right side initials avatar + company ("FV · Frank Ab Oy").
+2. Heading "Hi Frank, what would you like to order?" and the text field with a petrol **Make my list** button, plus an "Order again: <last order title>" button. While working the button reads "Checking prices…" and the list fades; no spinner chatter. Submits `POST /requests` with `{customer_id, text}` (or `reorder_of`) and polls `GET /requests/{id}` every 1.5 s.
 3. `NEEDS_INPUT`: one card with the question in large text, large choice buttons and "Use default (…)" (`POST /requests/{id}/answer`).
 4. Banner at the top of the list: "Delivered Fri 20 Nov · Order by Thu 19 Nov, 17:00" (quote `delivery_date`, `order_deadline`).
 5. "We assumed …" lines from `intent.filled_gaps`, each with a "Change" link that puts the cursor back in the text field.
@@ -49,7 +49,7 @@ The UI is what the judges see. 30% of the Valio score is a working end-to-end de
 7. Playful customers only: **If you want** suggestions.
 8. Right (stacks under on phones): summary card with Delivery, Order by, Products, VAT, big Total and the lime **Approve order** pill. Under it, small: "Prices and stock straight from Valio Aimo."
 9. **The rules stay visible but friendly** (this is 20 % of the Valio score): with `NEEDS_APPROVAL`, a short amber note above the button lists each fired rule's `description` sentence. One tap approves the recommended quote (`POST /approvals/{id}/approve` with `quote_id`, `content_hash` and the customer's name as `approver`). If the status is already `ORDERED` (rules said `AUTO`), say "Ordered, it was within your rules." If `BLOCKED`, explain why and show no button.
-8. After ordering: green card "Thanks Pena, order placed. Arrives Friday morning." plus a small "See order details" link to the decision log. Mark the order as simulated in the details, not in Pena's face.
+8. After ordering: green card "Thanks Frank, order placed. Arrives Friday morning." plus a small "See order details" link to the decision log. Mark the order as simulated in the details, not in Frank's face.
 9. Handle `409 QUOTE_CHANGED` ("Prices changed while you were looking. Here is the updated list.") and `410 QUOTE_EXPIRED` ("This list expired, checking prices again.").
 
 ### B. Approvals for someone else (`/approve`, `/approve/[id]`, phone first, 375 px)
@@ -80,4 +80,4 @@ Small: "Prices and availability from the Valio Aimo test API. Orders are simulat
 
 ## Contract changes to agree with Mikael
 - Changing a quantity needs a re-quote (e.g. `POST /requests/{id}/requote` with `lines`). Not needed for the demo.
-- A fixture for Pena's request after the answer (status `WAITING_APPROVAL` with a quote), so the mock does not have to invent it.
+- A fixture for Frank's request after the answer (status `WAITING_APPROVAL` with a quote), so the mock does not have to invent it.

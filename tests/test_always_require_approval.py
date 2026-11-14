@@ -165,7 +165,7 @@ def test_mandate_loader_rejects_non_boolean(tmp_path: Path, value: Any) -> None:
         load_mandates(path)
 
 
-def test_pena_item_request_waits_for_hash_bound_human_approval(client: TestClient) -> None:
+def test_frank_item_request_waits_for_hash_bound_human_approval(client: TestClient) -> None:
     response = client.post(
         "/requests",
         json={

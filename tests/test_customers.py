@@ -23,7 +23,7 @@ from gateway.store import FileStore, MemoryStore, Store
 from tests.test_offers import NOW, REQUESTED, offer
 
 
-def pena() -> Customer:
+def frank() -> Customer:
     return load_customers(overlay_dir=None)["c_pena"]
 
 
@@ -43,7 +43,7 @@ def test_both_seeds_validate_and_match_demo_profiles() -> None:
                 assert line.product_id.startswith("900") and len(line.product_id) == 6
                 assert line.name.startswith("Example ")
     executive, chef = customers["c_pena"], customers["c_chef"]
-    assert (executive.name, executive.company, executive.role) == ("Pena", "Ab Oy", "Executive")
+    assert (executive.name, executive.company, executive.role) == ("Frank", "Ab Oy", "Executive")
     assert executive.buyer_id == "ab-oy" and executive.age_group == "55_plus"
     assert executive.playful is False
     assert executive.preferences == [Preference(key="finnish_origin", level="prefer")]
@@ -59,7 +59,7 @@ def test_both_seeds_validate_and_match_demo_profiles() -> None:
 
 
 def test_overlay_wins_and_only_seeded_ids_are_recognised(tmp_path: Path) -> None:
-    original = pena()
+    original = frank()
     overlay = original.model_copy(deep=True)
     overlay.order_history[0].lines[0].product_id = "900999"
     (tmp_path / "c_pena.json").write_text(overlay.model_dump_json(), encoding="utf-8")
@@ -68,7 +68,7 @@ def test_overlay_wins_and_only_seeded_ids_are_recognised(tmp_path: Path) -> None
     store = MemoryStore()
     loaded = get_customer("c_pena", store, overlay_dir=tmp_path)
     assert loaded.order_history[0].lines[0].product_id == "900999"
-    assert pena() == original
+    assert frank() == original
     assert {c.customer_id for c in list_customers(store, overlay_dir=tmp_path)} == {
         "c_pena",
         "c_chef",
@@ -84,7 +84,7 @@ def test_overlay_must_validate_and_retain_ownership(tmp_path: Path) -> None:
     with pytest.raises(ValidationError):
         load_customers(overlay_dir=tmp_path)
     for changes in ({"customer_id": "other"}, {"buyer_id": "other"}):
-        path.write_text(pena().model_copy(update=changes).model_dump_json(), encoding="utf-8")
+        path.write_text(frank().model_copy(update=changes).model_dump_json(), encoding="utf-8")
         with pytest.raises(ValueError, match="retain customer and buyer ids"):
             load_customers(overlay_dir=tmp_path)
 
@@ -92,7 +92,7 @@ def test_overlay_must_validate_and_retain_ownership(tmp_path: Path) -> None:
 def test_loader_paths_and_newest_seeded_summary(tmp_path: Path) -> None:
     profiles = tmp_path / "profiles"
     profiles.mkdir()
-    customer = pena()
+    customer = frank()
     customer.order_history.reverse()  # The loader cannot assume input order.
     (profiles / "c_pena.json").write_text(customer.model_dump_json(), encoding="utf-8")
     store = MemoryStore()
@@ -107,7 +107,7 @@ def test_loader_paths_and_newest_seeded_summary(tmp_path: Path) -> None:
 
 
 def test_profile_fills_each_gap_and_keeps_inputs_isolated() -> None:
-    customer = pena()
+    customer = frank()
     customer.defaults.budget = 200.0
     customer.exclude_allergens = ["tree_nuts"]
     request = RequestCreate(customer_id="c_pena", text="Example coffee table")
@@ -123,10 +123,10 @@ def test_profile_fills_each_gap_and_keeps_inputs_isolated() -> None:
         "preferences.finnish_origin": {"key": "finnish_origin", "level": "prefer"},
         "exclude_allergens": ["tree_nuts"],
     }
-    assert all(gap.source == "profile" and "Pena's profile" in gap.note for gap in gaps)
+    assert all(gap.source == "profile" and "Frank's profile" in gap.note for gap in gaps)
     assert (
         next(g.note for g in gaps if g.field == "priority")
-        == "Priority quality, from Pena's profile"
+        == "Priority quality, from Frank's profile"
     )
     assert request.model_dump() == before_request and customer.model_dump() == before_customer
     resolved.preferences[0].level = "require"
@@ -135,7 +135,7 @@ def test_profile_fills_each_gap_and_keeps_inputs_isolated() -> None:
 
 @pytest.mark.parametrize("budget", [None, 0.0, 99.0])
 def test_explicit_request_values_including_schema_defaults_win(budget: float | None) -> None:
-    customer = pena()
+    customer = frank()
     customer.defaults.budget = 200.0
     customer.exclude_allergens = ["milk"]
     request = RequestCreate(
@@ -182,7 +182,7 @@ def test_preferences_merge_by_key_and_empty_allergens_use_profile() -> None:
 def test_buyer_mismatch_is_domain_error() -> None:
     request = RequestCreate(buyer_id="other", customer_id="c_pena", text="Example staples")
     with pytest.raises(GatewayError) as error:
-        apply_profile(request, pena())
+        apply_profile(request, frank())
     assert (error.value.status_code, error.value.code) == (422, "BUYER_MISMATCH")
 
 
@@ -204,7 +204,7 @@ def test_without_profile_records_only_missing_system_priority() -> None:
 def test_reorder_scaling_and_provenance(
     guests_now: int | None, scale: float, quantity: int
 ) -> None:
-    customer = pena()
+    customer = frank()
     before = customer.model_dump()
     based_on, lines = resolve_reorder(customer, "ph_pena_01", guests_now)
     past = customer.order_history[0]
@@ -230,7 +230,7 @@ def test_reorder_null_previous_guests_fractional_quantities_and_exact_rounding()
     based_on, lines = resolve_reorder(chef, "ph_chef_02", 80)
     assert based_on.guests_before is None and based_on.scale == 1.0
     assert [line.quantity_sales_units for line in lines] == [3, 2]
-    customer = pena()
+    customer = frank()
     customer.order_history[0].lines[0].quantity_sales_units = 6.0
     assert resolve_reorder(customer, "ph_pena_01", 5)[1][0].quantity_sales_units == 1
     customer.order_history[0].lines[0].quantity_sales_units = 1.5
@@ -241,16 +241,16 @@ def test_reorder_null_previous_guests_fractional_quantities_and_exact_rounding()
 def test_reorder_missing_cross_customer_and_invalid_guests() -> None:
     for order_ref in ("missing", "ph_chef_01"):
         with pytest.raises(GatewayError) as error:
-            resolve_reorder(pena(), order_ref, 30)
+            resolve_reorder(frank(), order_ref, 30)
         assert (error.value.status_code, error.value.code) == (404, "ORDER_NOT_FOUND")
     for guests in (0, -1):
         with pytest.raises(GatewayError) as error:
-            resolve_reorder(pena(), "ph_pena_01", guests)
+            resolve_reorder(frank(), "ph_pena_01", guests)
         assert (error.value.status_code, error.value.code) == (422, "INVALID_GUESTS")
 
 
 def test_latest_order_finds_newest_matching_event_and_handles_empty_history() -> None:
-    customer = pena()
+    customer = frank()
     customer.order_history.reverse()
     assert latest_order(customer).order_ref == "ph_pena_01"
     assert latest_order(customer, "staff_coffee").order_ref == "ph_pena_02"
@@ -362,7 +362,7 @@ async def test_seeded_order_can_remain_latest_and_same_date_appends_win(tmp_path
 
 
 def test_bad_seed_filename_is_rejected(tmp_path: Path) -> None:
-    (tmp_path / "wrong.json").write_text(pena().model_dump_json(), encoding="utf-8")
+    (tmp_path / "wrong.json").write_text(frank().model_dump_json(), encoding="utf-8")
     with pytest.raises(ValueError, match="file name"):
         load_customers(customers_dir=tmp_path, overlay_dir=None)
     assert (CUSTOMERS_DIR / "c_pena.json").is_file()

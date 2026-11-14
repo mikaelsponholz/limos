@@ -1,4 +1,4 @@
-These are invented demo people, companies and placeholder products. Pena and Ab Oy
+These are invented demo people, companies and placeholder products. Frank and Ab Oy
 are fictional demo identities, as are Alex Example and Bistro Example Oy. Every
 profile and history entry is simulated. History prices are placeholder EUR values.
 
