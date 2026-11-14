@@ -428,20 +428,37 @@ def cake_catalog():
         [
             product(
                 "990001",
-                names={"fi": "Keksitty täytekakku"},
+                names={"fi": "Example täytekakku"},
                 substitutions=[{"product": "990001", "substituteProduct": "990002"}],
             ),
-            product("990002", names={"fi": "Keksitty täytekakku varalla"}),
-            product("990003", names={"fi": "Keksitty peruna"}),
+            product("990002", names={"en": "Example coffee drink"}),
+            product("990003", names={"fi": "Example peruna"}),
+            product(
+                "990004",
+                names={"en": "Example oat drink iKaffe 1L"},
+                pack_size={"value": 1, "unit": "L"},
+            ),
         ]
     )
 
 
-def test_offline_finder_reorder_shortage_requires_a_cake_companion():
-    rows = [row for row in finder.find_cases(cake_catalog()) if row["case"] == "reorder_shortage"]
+@pytest.mark.parametrize("companion_unit", ["kg", "L", None])
+def test_offline_finder_reorder_shortage_requires_same_pack_unit_for_any_product_type(
+    companion_unit,
+):
+    catalog = cake_catalog()
+    companion = catalog.lookup("990002")
+    companion.pack_size = (
+        companion.pack_size.model_copy(update={"unit": companion_unit}) if companion_unit else None
+    )
+    rows = [row for row in finder.find_cases(catalog) if row["case"] == "reorder_shortage"]
+    if companion_unit != "kg":
+        assert rows == []
+        return
     assert len(rows) == 1
     assert rows[0]["product_id"] == "990001" and rows[0]["companion_product_id"] == "990002"
-    assert rows[0]["quantity_sales_units"] == 3 and rows[0]["status"] == "catalogue_candidate"
+    assert rows[0]["quantity_sales_units"] == 6 and rows[0]["status"] == "catalogue_candidate"
+    assert rows[0]["history_product_id"] == "900310" and rows[0]["unit"] == "kg"
     assert "observed" not in rows[0]
 
 
@@ -450,7 +467,7 @@ def test_offline_finder_reorder_shortage_requires_a_cake_companion():
     [
         (1, 100, True, True),
         (0, 100, True, True),
-        (3, 100, True, False),
+        (6, 100, True, False),
         (1, 0, True, False),
         (1, 100, False, False),
     ],
@@ -506,8 +523,18 @@ def test_pena_seed_override_uses_only_first_verified_live_case(tmp_path, live, s
             {
                 "live": live,
                 "cases": [
-                    {"case": "reorder_shortage", "status": status, "product_id": "990002"},
-                    {"case": "reorder_shortage", "status": status, "product_id": "990001"},
+                    {
+                        "case": "reorder_shortage",
+                        "status": status,
+                        "product_id": "990002",
+                        "history_product_id": "900310",
+                    },
+                    {
+                        "case": "reorder_shortage",
+                        "status": status,
+                        "product_id": "990001",
+                        "history_product_id": "900310",
+                    },
                 ],
             }
         )
@@ -516,9 +543,10 @@ def test_pena_seed_override_uses_only_first_verified_live_case(tmp_path, live, s
         cake_catalog(), customers_dir=seeds, out=tmp_path / "out", demo_cases=cases
     ) == (1, 2)
     customer = load_customers(customers_dir=tmp_path / "out", overlay_dir=None)["c_pena"]
-    assert {line.product_id for order in customer.order_history for line in order.lines} == {
-        expected
-    }
+    assert [line.product_id for order in customer.order_history for line in order.lines] == [
+        expected,
+        "990004",
+    ]
     assert (
         json.loads((seeds / "c_pena.json").read_bytes())["order_history"][0]["lines"][0][
             "product_id"

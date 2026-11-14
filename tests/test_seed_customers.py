@@ -33,6 +33,12 @@ def invented_catalog(path: Path) -> list[SlimRecord]:
         ),
         SlimRecord(product_id="900704", names=LocalizedText(fi="Example peruna"), sales_unit="ST"),
         SlimRecord(
+            product_id="900706",
+            names=LocalizedText(en="Example oat drink iKaffe 1L"),
+            sales_unit="ST",
+            pack_size=PackSize(value=1.0, unit="L"),
+        ),
+        SlimRecord(
             product_id="900700",
             names=LocalizedText(fi="Example juustokakku blocked"),
             sales_unit="ST",
@@ -76,7 +82,7 @@ def test_cli_resolves_overlay_offline_with_only_count_output(tmp_path: Path) -> 
     assert {p.name for p in out.iterdir()} == {"c_pena.json", "c_chef.json"}
     expected = {
         "900310": "900705",
-        "900311": "900705",
+        "900312": "900706",
         "900401": "900702",
         "900402": "900703",
         "900403": "900704",
@@ -94,6 +100,7 @@ def test_cli_resolves_overlay_offline_with_only_count_output(tmp_path: Path) -> 
     beetroot = resolved["c_chef"].order_history[0].lines[0]
     assert beetroot.quantity_text == "4 x 2 kg" and beetroot.sales_unit == "KI"
     assert resolved["c_pena"].order_history[0].lines[0].quantity_text == "2 ST"
+    assert resolved["c_pena"].order_history[0].lines[1].quantity_text == "6 x 1 L"
     # A rerun starts from committed seed ids, never the resolved overlay codes.
     assert seed_customers(catalog_path, out=out) == (2, 5)
     assert seed_bytes() == before
@@ -105,12 +112,14 @@ def test_custom_seed_directory_and_spec(tmp_path: Path) -> None:
     customer = load_customers(overlay_dir=None)["c_pena"]
     (seeds / "c_pena.json").write_text(customer.model_dump_json(), encoding="utf-8")
     spec = tmp_path / "queries.json"
-    spec.write_text('{"900310":"juustokakku", "900311":"täytekakku"}', encoding="utf-8")
+    spec.write_text('{"900310":"juustokakku", "900312":"Oatly iKaffe 1L"}', encoding="utf-8")
     catalog_path = tmp_path / "catalog.slim.json"
     invented_catalog(catalog_path)
     assert seed_customers(
         catalog_path, customers_dir=seeds, seed_spec=spec, out=tmp_path / "out"
     ) == (1, 2)
+    resolved = load_customers(customers_dir=seeds, overlay_dir=tmp_path / "out")["c_pena"]
+    assert [line.product_id for line in resolved.order_history[0].lines] == ["900701", "900706"]
 
 
 def test_missing_match_writes_nothing_and_cli_does_not_echo_input(tmp_path: Path) -> None:

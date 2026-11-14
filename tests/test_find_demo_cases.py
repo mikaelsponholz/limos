@@ -193,6 +193,7 @@ def test_live_failure_message_never_contains_transport_details(
     output = capsys.readouterr()
     assert output.err == ""
     assert output.out.strip() == (
-        "Could not check Valio. Check the connection and environment authentication."
+        "Could not check Valio. Check the connection and environment authentication (RuntimeError)."
     )
+    assert "Invented private" not in output.out
     assert not (tmp_path / ".runtime" / "demo_cases.json").exists()

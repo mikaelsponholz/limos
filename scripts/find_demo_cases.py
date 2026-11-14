@@ -11,15 +11,16 @@ import json
 import sys
 from collections.abc import Iterable
 from datetime import date, datetime
+from decimal import Decimal
 from fractions import Fraction
 from pathlib import Path
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from gateway.catalog.index import Catalog, tokenize
+from gateway.catalog.index import Catalog
 from gateway.catalog.models import SlimRecord
-from gateway.offers import build_offers
+from gateway.offers import OfferDataError, build_offers
 from gateway.policy import ItemContext
 from gateway.policy.engine import evaluate
 from gateway.policy.mandates import load_mandates
@@ -30,6 +31,12 @@ from gateway.valio.models import AmountKind, AvailabilityResponse, PriceResponse
 from scripts.seed_customers import SEED_SPEC
 
 ROOT = Path(__file__).resolve().parents[1]
+# Guests in the demo request: "same as last time for the wedding, 80 people, Saturday".
+REORDER_GUESTS = 80
+# substitute_scan: an original with at most this much exact stock counts as short, and its
+# substitute needs at least this much (or ample stock).
+SCAN_MAX_STOCK = 200
+SCAN_MIN_SUBSTITUTE_STOCK = 100
 NUTS = {"tree_nuts", "peanuts"}
 AGENT = "limos-runner"
 
@@ -52,7 +59,7 @@ def nut_free(record: SlimRecord) -> bool:
     )
 
 
-def find_cases(catalog: Catalog) -> list[dict]:
+def find_cases(catalog: Catalog, *, scan_substitutes: bool = False) -> list[dict]:
     """Deterministic shortlists; never infer stock, prices or safety from missing data."""
     rows: list[dict] = []
 
@@ -180,49 +187,77 @@ def find_cases(catalog: Catalog) -> list[dict]:
                 unit=item["unit"],
                 constraints=item["constraints"],
             )
-    # Use the same committed search term and scaling as Frank's seeded reorder.
+    # Frank's demo reorder: his latest order, resolved with the committed seed terms, for
+    # REORDER_GUESTS guests. A line whose product has a Valio substitute with the same
+    # pack unit is a candidate; --live checks that it is short and the substitute is not.
     seed_terms = json.loads(SEED_SPEC.read_bytes())
-    pena = json.loads((SEED_SPEC.parents[1] / "customers" / "c_pena.json").read_bytes())
-    past = pena["order_history"][0]
-    history_line = past["lines"][0]
-    cake_query = seed_terms[history_line["product_id"]]
-    cakes = [
-        record
-        for record in matches(cake_query)
-        if any(
-            tokenize(cake_query) <= tokenize(name)
-            for name in (record.names.fi, record.names.en)
-            if name
+    frank = json.loads((SEED_SPEC.parents[1] / "customers" / "c_pena.json").read_bytes())
+    past = max(frank["order_history"], key=lambda order: order["date"])
+    for history_line in past["lines"]:
+        record = next(
+            (
+                found
+                for found in catalog.search(
+                    seed_terms[history_line["product_id"]], exclude_sales_blocked=True
+                )
+                if (found.names.fi or found.names.en) and found.sales_unit
+            ),
+            None,
         )
-    ]
-    cake_ids = {record.product_id for record in cakes}
-    for record in cakes:
+        if record is None or record.pack_size is None:
+            continue
         for substitution in record.substitutions:
             companion = catalog.lookup(substitution.substitute_product)
             if (
                 substitution.product != record.product_id
                 or companion is None
                 or companion.product_id == record.product_id
-                or companion.product_id not in cake_ids
+                or companion.sales_block
+                or companion.pack_size is None
                 or companion.pack_size.unit != record.pack_size.unit
             ):
                 continue
             lot = Fraction(str(record.allowed_lot_size or 1)).numerator
-            scaled = Fraction(str(history_line["quantity_sales_units"])) * 40 / past["guests"]
+            scaled = (
+                Fraction(str(history_line["quantity_sales_units"]))
+                * REORDER_GUESTS
+                / past["guests"]
+            )
             units = -(-scaled // lot) * lot
             add(
                 "pena_reorder",
                 "reorder_shortage",
-                "cake",
+                history_line["name"],
                 record,
                 companion,
                 quantity=float(units) * record.pack_size.value,
                 quantity_sales_units=float(units),
                 unit=record.pack_size.unit,
+                history_product_id=history_line["product_id"],
             )
-            break
-        if sum(row["case"] == "reorder_shortage" for row in rows) >= 3:
-            break
+    # --scan-substitutes: every product with a same-unit Valio substitute. --live keeps those
+    # whose own stock is small and exact while the substitute has stock, for a reorder shortage.
+    for record in catalog.records() if scan_substitutes else ():
+        if record.sales_block or record.pack_size is None or not record.substitutions:
+            continue
+        for substitution in record.substitutions:
+            companion = catalog.lookup(substitution.substitute_product)
+            if (
+                substitution.product == record.product_id
+                and companion is not None
+                and companion.product_id != record.product_id
+                and not companion.sales_block
+                and companion.pack_size is not None
+                and companion.pack_size.unit == record.pack_size.unit
+            ):
+                add(
+                    "pena_reorder",
+                    "substitute_scan",
+                    record.names.en or record.names.fi or record.product_id,
+                    record,
+                    companion,
+                )
+                break
     return rows
 
 
@@ -270,144 +305,175 @@ async def verify_live(
     snapshot = SnapshotValio(prices, availability)
     mandates = load_mandates()
     for row in rows:
-        ids = [code for code in (row["product_id"], row["companion_product_id"]) if code]
-        row["status"] = "not_matched"
-        if any(code not in by_price or code not in by_stock for code in ids):
-            continue
-        row["observed"] = [
-            {
-                "product_id": code,
-                "price": by_price[code].model_dump(mode="json", by_alias=True),
-                "availability": by_stock[code].model_dump(mode="json", by_alias=True),
-            }
-            for code in ids
-        ]
-        if any(by_price[code].error or by_price[code].catalog_price is None for code in ids):
-            continue
-        stock = by_stock[ids[0]]
-        timely = all(
-            by_stock[code].deliverable
-            and any(
-                not line.sales_block
-                and line.available_amount > 0
-                and line.available_date
-                and datetime.fromisoformat(line.available_date).date() <= requested
-                for line in by_stock[code].schedule_lines
+        try:
+            ids = [code for code in (row["product_id"], row["companion_product_id"]) if code]
+            row["status"] = "not_matched"
+            if any(code not in by_price or code not in by_stock for code in ids):
+                continue
+            row["observed"] = [
+                {
+                    "product_id": code,
+                    "price": by_price[code].model_dump(mode="json", by_alias=True),
+                    "availability": by_stock[code].model_dump(mode="json", by_alias=True),
+                }
+                for code in ids
+            ]
+            if any(by_price[code].error or by_price[code].catalog_price is None for code in ids):
+                continue
+            stock = by_stock[ids[0]]
+            timely = all(
+                by_stock[code].deliverable
+                and any(
+                    not line.sales_block
+                    and line.available_amount > 0
+                    and line.available_date
+                    and datetime.fromisoformat(line.available_date).date() <= requested
+                    for line in by_stock[code].schedule_lines
+                )
+                for code in ids
             )
-            for code in ids
-        )
-        if row["case"] == "reorder_shortage":
-            offers = await build_offers(
-                OffersBody(
-                    buyer_id="ab-oy",
+            if row["case"] == "reorder_shortage":
+                offers = await build_offers(
+                    OffersBody(
+                        buyer_id="ab-oy",
+                        agent_id=AGENT,
+                        item_id="demo",
+                        product_ids=ids,
+                        quantity=row["quantity"],
+                        unit=row["unit"],
+                        requested_date=requested,
+                        constraints=[],
+                        exclude_allergens=[],
+                    ),
+                    catalog=catalog,
+                    valio=snapshot,
+                    now=datetime.now().astimezone(),
+                )
+                original, replacement = offers
+                if (
+                    original.available_amount is not None
+                    and original.available_amount < row["quantity_sales_units"]
+                    and "SALES_BLOCK" not in original.flags
+                    and replacement.logistic_model == "Stock"
+                    and replacement.quantity_covered.value >= row["quantity"]
+                    and replacement.delivery_date is not None
+                    and replacement.delivery_date <= requested
+                    and not {"PRICE_MISSING", "NOT_DELIVERABLE", "SALES_BLOCK"}
+                    & set(replacement.flags)
+                ):
+                    row["status"] = "verified"
+            elif row["case"] == "substitute_scan":
+                own = by_stock[ids[0]].normalized_amounts
+                other = by_stock[ids[1]].normalized_amounts
+                exact = [
+                    a.amount for a in own if a.kind == AmountKind.EXACT and a.amount is not None
+                ]
+                if exact and len(exact) == len(own) and sum(exact) <= SCAN_MAX_STOCK:
+                    spare = [
+                        a.amount
+                        for a in other
+                        if a.kind == AmountKind.EXACT and a.amount is not None
+                    ]
+                    ample = any(a.kind == AmountKind.AMPLE for a in other)
+                    if ample or sum(spare, Decimal(0)) >= SCAN_MIN_SUBSTITUTE_STOCK:
+                        row["status"] = "verified"
+                        row["stock"] = float(sum(exact))
+                        row["substitute_stock"] = "ample" if ample else float(sum(spare))
+            elif row["case"] == "valio_substitute":
+                replacement = by_stock[ids[1]]
+                if not stock.deliverable and replacement.deliverable:
+                    offer = (
+                        await build_offers(
+                            OffersBody(
+                                buyer_id="demo-catering",
+                                agent_id=AGENT,
+                                item_id="demo",
+                                product_ids=[ids[1]],
+                                quantity=row["quantity"],
+                                unit=row["unit"],
+                                requested_date=requested,
+                                constraints=["lactose_free"],
+                                exclude_allergens=[],
+                            ),
+                            catalog=catalog,
+                            valio=snapshot,
+                            now=datetime.now().astimezone(),
+                        )
+                    )[0]
+                    policy = evaluate(
+                        [offer],
+                        {"demo": ItemContext(constraints=["lactose_free"])},
+                        mandates["demo-catering"],
+                        AGENT,
+                    )
+                    if policy.outcome == "AUTO":
+                        row["status"] = "verified"
+            elif row["case"] in {"auto", "split_stock"}:
+                constraints = row.get("constraints", ["lactose_free"])
+                body = OffersBody(
+                    buyer_id="bistro-example",
                     agent_id=AGENT,
                     item_id="demo",
                     product_ids=ids,
                     quantity=row["quantity"],
                     unit=row["unit"],
                     requested_date=requested,
-                    constraints=[],
+                    constraints=constraints,
                     exclude_allergens=[],
-                ),
-                catalog=catalog,
-                valio=snapshot,
-                now=datetime.now().astimezone(),
-            )
-            original, replacement = offers
-            if (
-                original.available_amount is not None
-                and original.available_amount < row["quantity_sales_units"]
-                and "SALES_BLOCK" not in original.flags
-                and replacement.logistic_model == "Stock"
-                and replacement.quantity_covered.value >= row["quantity"]
-                and replacement.delivery_date is not None
-                and replacement.delivery_date <= requested
-                and not {"PRICE_MISSING", "NOT_DELIVERABLE", "SALES_BLOCK"} & set(replacement.flags)
-            ):
-                row["status"] = "verified"
-        elif row["case"] == "valio_substitute":
-            replacement = by_stock[ids[1]]
-            if not stock.deliverable and replacement.deliverable:
-                offer = (
-                    await build_offers(
-                        OffersBody(
-                            buyer_id="demo-catering",
-                            agent_id=AGENT,
-                            item_id="demo",
-                            product_ids=[ids[1]],
-                            quantity=row["quantity"],
-                            unit=row["unit"],
-                            requested_date=requested,
-                            constraints=["lactose_free"],
-                            exclude_allergens=[],
-                        ),
-                        catalog=catalog,
-                        valio=snapshot,
-                        now=datetime.now().astimezone(),
+                )
+                offers = await build_offers(
+                    body, catalog=catalog, valio=snapshot, now=datetime.now().astimezone()
+                )
+                if row["case"] == "auto":
+                    policy = evaluate(
+                        offers,
+                        {"demo": ItemContext(constraints=constraints)},
+                        mandates["bistro-example"],
+                        AGENT,
                     )
-                )[0]
-                policy = evaluate(
-                    [offer],
-                    {"demo": ItemContext(constraints=["lactose_free"])},
-                    mandates["demo-catering"],
-                    AGENT,
-                )
-                if policy.outcome == "AUTO":
+                    if policy.outcome == "AUTO":
+                        row["status"] = "verified"
+                elif (
+                    timely
+                    and 0 < offers[0].quantity_covered.value < row["quantity"]
+                    and offers[1].quantity_covered.value >= row["quantity"]
+                    and all(o.dietary_check.get("lactose_free") == "confirmed" for o in offers)
+                    and any(a.kind == AmountKind.EXACT for a in stock.normalized_amounts)
+                ):
                     row["status"] = "verified"
-        elif row["case"] in {"auto", "split_stock"}:
-            constraints = row.get("constraints", ["lactose_free"])
-            body = OffersBody(
-                buyer_id="bistro-example",
-                agent_id=AGENT,
-                item_id="demo",
-                product_ids=ids,
-                quantity=row["quantity"],
-                unit=row["unit"],
-                requested_date=requested,
-                constraints=constraints,
-                exclude_allergens=[],
-            )
-            offers = await build_offers(
-                body, catalog=catalog, valio=snapshot, now=datetime.now().astimezone()
-            )
-            if row["case"] == "auto":
-                policy = evaluate(
-                    offers,
-                    {"demo": ItemContext(constraints=constraints)},
-                    mandates["bistro-example"],
-                    AGENT,
-                )
-                if policy.outcome == "AUTO":
-                    row["status"] = "verified"
-            elif (
-                timely
-                and 0 < offers[0].quantity_covered.value < row["quantity"]
-                and offers[1].quantity_covered.value >= row["quantity"]
-                and all(o.dietary_check.get("lactose_free") == "confirmed" for o in offers)
-                and any(a.kind == AmountKind.EXACT for a in stock.normalized_amounts)
-            ):
+            elif timely:
                 row["status"] = "verified"
-        elif timely:
-            row["status"] = "verified"
+        except OfferDataError:
+            # Incomplete Valio data (for example no logistic model) rules out this row only.
+            row["status"] = "offer_data_invalid"
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--catalog", type=Path, default=ROOT / "data/valio/catalog.slim.json")
     parser.add_argument("--live", action="store_true")
+    parser.add_argument("--scan-substitutes", action="store_true")
     parser.add_argument("--date", type=date.fromisoformat, default=date(2026, 11, 20))
     args = parser.parse_args()
     try:
         catalog = Catalog.load(args.catalog)
-        rows = find_cases(catalog)
+        rows = (
+            find_cases(catalog, scan_substitutes=True)
+            if args.scan_substitutes
+            else find_cases(catalog)
+        )
     except (OSError, ValueError):
         print("Could not read the catalogue. Check its path and format.")
         return 1
     if args.live:
         try:
             asyncio.run(verify_live(rows, catalog, Settings(), args.date))
-        except Exception:
-            print("Could not check Valio. Check the connection and environment authentication.")
+        except Exception as error:
+            # The type only: a message could carry a URL or key.
+            print(
+                "Could not check Valio. Check the connection and environment authentication "
+                f"({type(error).__name__})."
+            )
             return 1
     destination = ROOT / ".runtime" / "demo_cases.json"
     try:

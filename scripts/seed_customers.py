@@ -12,6 +12,7 @@ if __package__ in (None, ""):
 from pydantic import TypeAdapter
 
 from gateway.catalog.index import Catalog
+from gateway.catalog.models import SlimRecord
 from gateway.customers import CUSTOMERS_DIR, OVERLAY_DIR, ROOT, load_customers
 from gateway.schemas import Customer
 
@@ -59,20 +60,23 @@ def resolve_customers(
     _check_destination(out, customers_dir)
     queries = TypeAdapter(dict[str, str]).validate_json(seed_spec.read_bytes())
     customers = load_customers(customers_dir, overlay_dir=None)
-    override = None
+    # A verified live shortage replaces only the history line it was found for.
+    overrides: dict[str, SlimRecord] = {}
     if demo_cases.is_file():
         cases = json.loads(demo_cases.read_bytes())
         if cases.get("live") is True:
-            override = next(
-                (
-                    catalog.lookup(row["product_id"])
-                    for row in cases.get("cases", [])
-                    if row.get("case") == "reorder_shortage" and row.get("status") == "verified"
-                ),
-                None,
-            )
-            if override and (override.sales_block or not override.sales_unit):
-                override = None
+            for row in cases.get("cases", []):
+                if row.get("case") != "reorder_shortage" or row.get("status") != "verified":
+                    continue
+                record = catalog.lookup(row["product_id"])
+                history_code = row.get("history_product_id")
+                if (
+                    record is not None
+                    and history_code
+                    and not record.sales_block
+                    and record.sales_unit
+                ):
+                    overrides.setdefault(history_code, record)
     resolved_customers: list[Customer] = []
     line_count = 0
     for customer in customers.values():
@@ -81,7 +85,9 @@ def resolve_customers(
                 query = queries.get(line.product_id)
                 if not query:
                     raise ValueError("Missing seed search term for a history line.")
-                product = (override if customer.customer_id == "c_pena" else None) or next(
+                product = (
+                    overrides.get(line.product_id) if customer.customer_id == "c_pena" else None
+                ) or next(
                     (
                         record
                         for record in catalog.search(query, exclude_sales_blocked=True)

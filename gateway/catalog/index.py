@@ -52,6 +52,9 @@ class Catalog:
         records = TypeAdapter(list[SlimRecord]).validate_json(Path(path).read_bytes())
         return cls(records)
 
+    def records(self) -> Iterable[SlimRecord]:
+        return self._records.values()
+
     def __len__(self) -> int:
         return len(self._records)
 
