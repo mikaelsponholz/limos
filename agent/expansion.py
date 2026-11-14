@@ -89,6 +89,8 @@ def expand_event(
             "quantity_per_serving and a schema unit. "
             + (
                 "Also give one or two short search_terms without preference words. "
+                "Include one Finnish search term whenever the ingredient has an obvious "
+                "Finnish name, so products without English names can be found. "
                 if with_search_terms
                 else ""
             )
@@ -236,6 +238,10 @@ def build_event_items(
                 target.search_terms = list(
                     dict.fromkeys([*target.search_terms, *ingredient.search_terms])
                 )[:2]
+                if _normalise(item.description_fi) != _normalise(item.description):
+                    target.search_terms = list(
+                        dict.fromkeys([target.search_terms[0], item.description_fi])
+                    )
             target.quantity += quantity
             target.uses[dish.dish_id] = target.uses.get(dish.dish_id, Fraction(0)) + quantity
     for remaining in requested.values():

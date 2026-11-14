@@ -1,6 +1,7 @@
 """Resolve simulated customer history offline, writing only a runtime overlay."""
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from gateway.customers import CUSTOMERS_DIR, OVERLAY_DIR, ROOT, load_customers
 from gateway.schemas import Customer
 
 SEED_SPEC = ROOT / "scripts" / "customer_seed_spec.json"
+DEMO_CASES = ROOT / ".runtime" / "demo_cases.json"
 
 
 def _check_destination(out: Path, customers_dir: Path) -> None:
@@ -33,10 +35,15 @@ def seed_customers(
     customers_dir: Path = CUSTOMERS_DIR,
     out: Path = OVERLAY_DIR,
     seed_spec: Path = SEED_SPEC,
+    demo_cases: Path = DEMO_CASES,
 ) -> tuple[int, int]:
     _check_destination(out, customers_dir)  # before the slow catalogue load
     return resolve_customers(
-        Catalog.load(catalog_path), customers_dir=customers_dir, out=out, seed_spec=seed_spec
+        Catalog.load(catalog_path),
+        customers_dir=customers_dir,
+        out=out,
+        seed_spec=seed_spec,
+        demo_cases=demo_cases,
     )
 
 
@@ -46,11 +53,26 @@ def resolve_customers(
     customers_dir: Path = CUSTOMERS_DIR,
     out: Path = OVERLAY_DIR,
     seed_spec: Path = SEED_SPEC,
+    demo_cases: Path = DEMO_CASES,
 ) -> tuple[int, int]:
     """Resolve the history against an already loaded catalogue (the gateway reuses its own)."""
     _check_destination(out, customers_dir)
     queries = TypeAdapter(dict[str, str]).validate_json(seed_spec.read_bytes())
     customers = load_customers(customers_dir, overlay_dir=None)
+    override = None
+    if demo_cases.is_file():
+        cases = json.loads(demo_cases.read_bytes())
+        if cases.get("live") is True:
+            override = next(
+                (
+                    catalog.lookup(row["product_id"])
+                    for row in cases.get("cases", [])
+                    if row.get("case") == "reorder_shortage" and row.get("status") == "verified"
+                ),
+                None,
+            )
+            if override and (override.sales_block or not override.sales_unit):
+                override = None
     resolved_customers: list[Customer] = []
     line_count = 0
     for customer in customers.values():
@@ -59,7 +81,7 @@ def resolve_customers(
                 query = queries.get(line.product_id)
                 if not query:
                     raise ValueError("Missing seed search term for a history line.")
-                product = next(
+                product = (override if customer.customer_id == "c_pena" else None) or next(
                     (
                         record
                         for record in catalog.search(query, exclude_sales_blocked=True)

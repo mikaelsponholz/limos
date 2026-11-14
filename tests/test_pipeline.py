@@ -191,7 +191,9 @@ def test_absent_item_has_zero_coverage_rule_and_explanation(tmp_path):
         partial = next(
             rule for rule in detail.quote.policy.rules_fired if rule.rule_id == "PARTIAL_QUANTITY"
         )
-        assert partial.item_id == "it_2" and "covers 0" in partial.description
+        assert partial.item_id == "it_2" and partial.description == (
+            "No suitable product found for the unfindable; a person needs to choose one."
+        )
         assert "unfindable" in partial.description
         assert "unfindable" in detail.quote.agent_explanation
         assert "NO_USABLE_OFFER" in codes(detail)
@@ -373,7 +375,9 @@ def test_birthday_full_stock_risk_single_candidate_and_absent_item(tmp_path):
             allergens={"free_from": nuts, "data_available": True},
         ),
     ]
-    with environment(tmp_path, records, [picks("990001", "990003"), EXPLANATION]) as client:
+    recorded_pick = picks("990001", "990003")
+    recorded_pick["choices"][0]["suitable_ids"] = ["990002"]
+    with environment(tmp_path, records, [recorded_pick, EXPLANATION]) as client:
         detail = start(
             client,
             items=[item(), item("carrots"), item("unfindable")],

@@ -11,12 +11,13 @@ import json
 import sys
 from collections.abc import Iterable
 from datetime import date, datetime
+from fractions import Fraction
 from pathlib import Path
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from gateway.catalog.index import Catalog
+from gateway.catalog.index import Catalog, tokenize
 from gateway.catalog.models import SlimRecord
 from gateway.offers import build_offers
 from gateway.policy import ItemContext
@@ -26,6 +27,7 @@ from gateway.schemas import OffersBody
 from gateway.settings import Settings
 from gateway.valio.client import ValioClient
 from gateway.valio.models import AmountKind, AvailabilityResponse, PriceResponse
+from scripts.seed_customers import SEED_SPEC
 
 ROOT = Path(__file__).resolve().parents[1]
 NUTS = {"tree_nuts", "peanuts"}
@@ -178,6 +180,49 @@ def find_cases(catalog: Catalog) -> list[dict]:
                 unit=item["unit"],
                 constraints=item["constraints"],
             )
+    # Use the same committed search term and scaling as Pena's seeded reorder.
+    seed_terms = json.loads(SEED_SPEC.read_bytes())
+    pena = json.loads((SEED_SPEC.parents[1] / "customers" / "c_pena.json").read_bytes())
+    past = pena["order_history"][0]
+    history_line = past["lines"][0]
+    cake_query = seed_terms[history_line["product_id"]]
+    cakes = [
+        record
+        for record in matches(cake_query)
+        if any(
+            tokenize(cake_query) <= tokenize(name)
+            for name in (record.names.fi, record.names.en)
+            if name
+        )
+    ]
+    cake_ids = {record.product_id for record in cakes}
+    for record in cakes:
+        for substitution in record.substitutions:
+            companion = catalog.lookup(substitution.substitute_product)
+            if (
+                substitution.product != record.product_id
+                or companion is None
+                or companion.product_id == record.product_id
+                or companion.product_id not in cake_ids
+                or companion.pack_size.unit != record.pack_size.unit
+            ):
+                continue
+            lot = Fraction(str(record.allowed_lot_size or 1)).numerator
+            scaled = Fraction(str(history_line["quantity_sales_units"])) * 40 / past["guests"]
+            units = -(-scaled // lot) * lot
+            add(
+                "pena_reorder",
+                "reorder_shortage",
+                "cake",
+                record,
+                companion,
+                quantity=float(units) * record.pack_size.value,
+                quantity_sales_units=float(units),
+                unit=record.pack_size.unit,
+            )
+            break
+        if sum(row["case"] == "reorder_shortage" for row in rows) >= 3:
+            break
     return rows
 
 
@@ -251,7 +296,36 @@ async def verify_live(
             )
             for code in ids
         )
-        if row["case"] == "valio_substitute":
+        if row["case"] == "reorder_shortage":
+            offers = await build_offers(
+                OffersBody(
+                    buyer_id="ab-oy",
+                    agent_id=AGENT,
+                    item_id="demo",
+                    product_ids=ids,
+                    quantity=row["quantity"],
+                    unit=row["unit"],
+                    requested_date=requested,
+                    constraints=[],
+                    exclude_allergens=[],
+                ),
+                catalog=catalog,
+                valio=snapshot,
+                now=datetime.now().astimezone(),
+            )
+            original, replacement = offers
+            if (
+                original.available_amount is not None
+                and original.available_amount < row["quantity_sales_units"]
+                and "SALES_BLOCK" not in original.flags
+                and replacement.logistic_model == "Stock"
+                and replacement.quantity_covered.value >= row["quantity"]
+                and replacement.delivery_date is not None
+                and replacement.delivery_date <= requested
+                and not {"PRICE_MISSING", "NOT_DELIVERABLE", "SALES_BLOCK"} & set(replacement.flags)
+            ):
+                row["status"] = "verified"
+        elif row["case"] == "valio_substitute":
             replacement = by_stock[ids[1]]
             if not stock.deliverable and replacement.deliverable:
                 offer = (

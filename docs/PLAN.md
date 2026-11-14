@@ -369,6 +369,7 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 - Johannes: contract v0.6 (`QuoteLine` substitute fields) and the preset fixture values (customers and buyers).
 - Johannes: agree contract v0.3 (customers, question, suggestions, per-line deadlines) and the shopping-list UI requirements in section 8b.
 - Mikael: pipeline live run 2026-11-14 (memory store): all six cases end in a quote waiting for approval. Quality gaps: the pick misses for many items (12 `MISSING_PICK` in two company lunch runs, so the fallback takes the first search hit), weak candidates reach the quote ("egg" becomes egg noodles, "cheese" Roquefort for lactose-free, "salad greens" potato salad, "fish stock" dashi powder), approval options can be nonsense (chilli paste for sugar paste; liquorice and pudding for Pena's cake after re-search), salmon fillet has no usable offer, every `PACK_SIZE_UNKNOWN` line also fires `PARTIAL_QUANTITY` with 0 coverage, and the chef's suggestions call proposed nothing (`SUGGESTIONS_PROPOSED` count 0, no drop reasons).
+- Known limit (pick-quality fix, accepted 2026-11-14): when a moved default delivery date re-prices offers and the original product's data then turns out incomplete, an accepted agent substitute is dropped and the item shows "not found, needs a human". Safe direction: it never orders without approval. Valio substitutes are not affected.
 
 - Organisers: is a past `closingTime` for Terminal products intended?
 - Organisers: does availability change during the event?

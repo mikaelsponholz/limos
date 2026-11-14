@@ -20,6 +20,8 @@ class ItemPlan:
     offers: list[Offer]
     sources: dict[str, Literal["valio", "agent"]] = field(default_factory=dict)
     lots: Mapping[str, float] = field(default_factory=dict)
+    suitable_ids: frozenset[str] | None = None
+    substitute_origins: Mapping[str, str] = field(default_factory=dict)
 
 
 def hard_safe(offer: Offer, context: ItemContext) -> bool:
@@ -50,13 +52,16 @@ def plan_item(
     *,
     context: ItemContext | None = None,
     lots: Mapping[str, float] | None = None,
+    suitable_ids: Sequence[str] | None = None,
+    substitute_origins: Mapping[str, str] | None = None,
 ) -> ItemPlan:
     """Keep preference order, prefer timely delivery, and round remaining need by lot."""
     if not offers:
         raise ValueError("An original offered product is required.")
     context = context or ItemContext(constraints=item.constraints)
     original = offers[0].product_id
-    pool = list(offers)
+    allowed = frozenset(suitable_ids) if suitable_ids is not None else None
+    pool = [offer for offer in offers if allowed is None or offer.product_id in allowed]
     sources: dict[str, Literal["valio", "agent"]] = {}
     groups: list[tuple[Literal["valio", "agent"], Sequence[Offer]]] = [
         ("valio", valio_substitutes),
@@ -64,15 +69,23 @@ def plan_item(
     ]
     for source, substitutes in groups:
         for offer in substitutes:
+            if allowed is not None and offer.product_id not in allowed:
+                continue
             if offer.product_id not in {entry.product_id for entry in pool}:
                 pool.append(offer)
                 sources[offer.product_id] = source
     safe = [offer for offer in pool if usable(offer, context)]
+    if suitable_ids is not None:
+        rank = {code: index for index, code in enumerate(suitable_ids)}
+        safe.sort(key=lambda offer: rank[offer.product_id])
     timely = [
         offer for offer in safe if offer.available_date and offer.available_date <= requested_date
     ]
     ordered = [*timely, *[offer for offer in safe if offer not in timely]]
-    chosen = (timely or safe or [offer for offer in offers if hard_safe(offer, context)])[0:1]
+    fallback_pool = offers if allowed is None else pool
+    chosen = (timely or safe or [offer for offer in fallback_pool if hard_safe(offer, context)])[
+        0:1
+    ]
     if not chosen:
         raise ValueError("No product passes the hard filters.")
     first = chosen[0]
@@ -91,7 +104,9 @@ def plan_item(
             item_id=item.item_id,
             product_id=offer.product_id,
             quantity_sales_units=float(units),
-            substitute_for=original if source else None,
+            substitute_for=(substitute_origins or {}).get(offer.product_id, original)
+            if source
+            else None,
             substitute_source=source,
         )
 
@@ -169,7 +184,17 @@ def plan_item(
         and offer.dietary_check.get(key) != "confirmed"
     ]
     decisions.extend(facts)
-    return ItemPlan(recommended, alternatives, decisions, facts, pool, sources, lots or {})
+    return ItemPlan(
+        recommended,
+        alternatives,
+        decisions,
+        facts,
+        pool,
+        sources,
+        lots or {},
+        allowed,
+        substitute_origins or {},
+    )
 
 
 def cheaper_option(
@@ -203,7 +228,12 @@ def cheaper_option(
         for index in sorted(pending):
             old = quote.lines[index]
             plan = by_item[old.item_id]
-            pool = [offer for offer in plan.offers if usable(offer, contexts[old.item_id])]
+            pool = [
+                offer
+                for offer in plan.offers
+                if usable(offer, contexts[old.item_id])
+                and (plan.suitable_ids is None or offer.product_id in plan.suitable_ids)
+            ]
             timely = [o for o in pool if o.available_date and o.available_date <= requested]
             pool = timely or pool
             occupied = {
@@ -247,7 +277,11 @@ def cheaper_option(
                     item_id=old.item_id,
                     product_id=offer.product_id,
                     quantity_sales_units=float(units),
-                    substitute_for=plan.offers[0].product_id if source else None,
+                    substitute_for=plan.substitute_origins.get(
+                        offer.product_id, old.substitute_for or plan.offers[0].product_id
+                    )
+                    if source
+                    else None,
                     substitute_source=source,
                 )
                 candidates.append((cost, offer.product_id, replacement, units * per_unit))
@@ -301,8 +335,12 @@ def option_phrase(
         formatted = f"{weekdays[day.weekday()]} {day.day} {months[day.month - 1]}"
         return f"wait for {offer.name}, delivered {formatted}"
     if line.substitute_source == "valio":
-        original = next(offer for offer in offers if offer.product_id == line.substitute_for)
-        if {"NOT_DELIVERABLE", "SALES_BLOCK", "PRICE_MISSING"} & set(original.flags):
+        original = next(
+            (offer for offer in offers if offer.product_id == line.substitute_for), None
+        )
+        if original is None or {"NOT_DELIVERABLE", "SALES_BLOCK", "PRICE_MISSING"} & set(
+            original.flags
+        ):
             return f"use Valio's substitute for the {item.description}"
     if line.substitute_source == "agent":
         return f"use a suggested substitute for the {item.description}"
@@ -317,6 +355,10 @@ def quote_options(
     changed: set[int] = set()
     for index, plan in enumerate(plans):
         for alternative in plan.alternatives:
+            if plan.suitable_ids is not None and any(
+                line.product_id not in plan.suitable_ids for line in alternative
+            ):
+                continue
             if len(variants) == 3:
                 break
             variant = [entry.recommended for entry in plans]

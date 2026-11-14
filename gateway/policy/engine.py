@@ -248,14 +248,22 @@ def evaluate(
     for item_id, item_lines in sorted(by_item.items()):
         need_unit, need = _quantity(item_lines[0].quantity_requested)
         covered = Decimal(0)
+        unknown = False
         for line in item_lines:
             unit, amount = _quantity(line.quantity_covered)
-            if unit != need_unit or _quantity(line.quantity_requested) != (need_unit, need):
+            if _quantity(line.quantity_requested) != (need_unit, need):
+                raise ValueError(
+                    f"Inconsistent requested or covered quantities for item: {item_id}."
+                )
+            if "PACK_SIZE_UNKNOWN" in line.flags:
+                unknown = True
+                continue
+            if unit != need_unit:
                 raise ValueError(
                     f"Inconsistent requested or covered quantities for item: {item_id}."
                 )
             covered += amount
-        if covered < need:
+        if not unknown and covered < need:
             names = ", ".join(sorted({line.name for line in item_lines}))
             fire(
                 "PARTIAL_QUANTITY",
@@ -271,7 +279,7 @@ def evaluate(
                 name = (item_descriptions or {}).get(item_id, item_id)
                 fire(
                     "PARTIAL_QUANTITY",
-                    f"{name} covers 0 {unit} of the requested {need:g} {unit} for item {item_id}.",
+                    f"No suitable product found for the {name}; a person needs to choose one.",
                     item_id=item_id,
                 )
 

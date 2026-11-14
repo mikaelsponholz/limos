@@ -70,3 +70,10 @@ How Limos was built, step by step. Each phase in `docs/PLAN.md` runs through the
 | 2 | ENGINE | Up to three priced suggestions for playful customers while a quote waits for approval; accepting one re-quotes under the rules | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 0 | 971 | 48afee2 |
 | 3a | ENGINE | The policy decision step names the mandate that allowed or stopped the order (added when step 3's build stopped for it) | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 0 | 974 | 4147920 |
 | 3 | TEST | `scripts/find_demo_cases.py`, presets linked to their customers, invented recordings per preset, one test per preset and Pena's reorder | Codex gpt-6.1-sol | Gemini 3.8 Flash, standard | 1 (first build stopped correctly for 3a) | 984 | 661af57 |
+
+## Fixes after Phase 4
+
+| Step | Tag | What | Builder | Reviewer | Fix rounds | Tests | Commit |
+|---|---|---|---|---|---|---|---|
+| F2 | ENGINE | Our own agent as a code-orchestrated pipeline (`AGENT_MODE`), incomplete data skipped, default date from Valio, error codes logged | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 0 | 1027 | a189e53 |
+| F3 | ENGINE | Relevant products only: plural-aware search, pick judges suitability, alternatives only from suitable products, complete picks with a strict fallback, no PARTIAL_QUANTITY on unknown pack sizes, a reorder shortage demo case | Codex gpt-6.1-sol, escalated to Claude | Codex read-only (Gemini blocked) | 2 + escalation, one finding accepted as known limit | 1076 | (this commit) |

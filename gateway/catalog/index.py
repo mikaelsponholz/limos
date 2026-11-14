@@ -11,8 +11,19 @@ from pydantic import TypeAdapter
 from gateway.catalog.models import SlimRecord
 
 
+def normalize_token(token: str) -> str:
+    if len(token) <= 3 or token in {"glass", "swiss", "asparagus", "couscous", "hummus"}:
+        return token
+    if token.endswith(("sses", "shes", "ches", "xes", "zes", "oes")):
+        return token[:-2]
+    return token[:-1] if token.endswith("s") else token
+
+
 def tokenize(text: str) -> set[str]:
-    return set(re.findall(r"[^\W_]+", unicodedata.normalize("NFC", text).casefold()))
+    return {
+        normalize_token(token)
+        for token in re.findall(r"[^\W_]+", unicodedata.normalize("NFC", text).casefold())
+    }
 
 
 class Catalog:
@@ -20,11 +31,15 @@ class Catalog:
         self._records: dict[str, SlimRecord] = {}
         self._names: dict[str, set[str]] = {}
         self._ingredients: dict[str, set[str]] = {}
+        self._name_tokens: dict[str, list[set[str]]] = {}
         for record in records:
             code = record.product_id
             if code in self._records:
                 raise ValueError(f"Duplicate catalogue product id: {code}")
             self._records[code] = record
+            self._name_tokens[code] = [
+                tokenize(name) for name in (record.names.fi, record.names.en) if name
+            ]
             for token in tokenize(" ".join(filter(None, (record.names.fi, record.names.en)))):
                 self._names.setdefault(token, set()).add(code)
             for token in tokenize(
@@ -72,6 +87,10 @@ class Catalog:
         candidates.sort(
             key=lambda code: (
                 -(name_hits.get(code, 0) * (len(tokens) + 1) + ingredient_hits.get(code, 0)),
+                min(
+                    (len(name - tokens) for name in self._name_tokens[code] if name & tokens),
+                    default=sum(len(name) for name in self._name_tokens[code]),
+                ),
                 code,
             )
         )
