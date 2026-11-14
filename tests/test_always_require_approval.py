@@ -35,7 +35,7 @@ def client(tmp_path: Path) -> Iterator[TestClient]:
         ),
         product("900902", names={"en": "Invented butter"}),
         product("900903", names={"en": "Invented potatoes"}, country_of_origin="fi"),
-        product("900904", names={"en": "Invented eggs"}, pack_size={"value": 30, "unit": "pcs"}),
+        product("900904", names={"en": "Invented eggs"}, pack_size={"value": 5, "unit": "kg"}),
     ]
     ids = count(1)
     app = create_app(

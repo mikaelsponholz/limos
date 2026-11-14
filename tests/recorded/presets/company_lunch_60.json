@@ -1,0 +1,669 @@
+{
+  "simulated": true,
+  "catalog": [
+    {
+      "product_id": "900831",
+      "names": {
+        "en": "Invented salmon"
+      },
+      "vendor": "Invented Pantry",
+      "country_of_origin": "fi",
+      "allergens": {
+        "free_from": [
+          "tree_nuts",
+          "peanuts"
+        ],
+        "data_available": true
+      },
+      "claims": [
+        "lactose_free"
+      ],
+      "sales_unit": "ST",
+      "pack_size": {
+        "value": 1.0,
+        "unit": "kg"
+      }
+    },
+    {
+      "product_id": "900832",
+      "names": {
+        "en": "Invented salmon cheaper"
+      },
+      "vendor": "Invented Pantry",
+      "country_of_origin": "fi",
+      "allergens": {
+        "free_from": [
+          "tree_nuts",
+          "peanuts"
+        ],
+        "data_available": true
+      },
+      "claims": [
+        "lactose_free"
+      ],
+      "sales_unit": "ST",
+      "pack_size": {
+        "value": 1.0,
+        "unit": "kg"
+      }
+    },
+    {
+      "product_id": "900833",
+      "names": {
+        "en": "Invented salmon imported"
+      },
+      "vendor": "Invented Pantry",
+      "country_of_origin": "se",
+      "allergens": {
+        "free_from": [
+          "tree_nuts",
+          "peanuts"
+        ],
+        "data_available": true
+      },
+      "claims": [
+        "lactose_free"
+      ],
+      "sales_unit": "ST",
+      "pack_size": {
+        "value": 1.0,
+        "unit": "kg"
+      }
+    },
+    {
+      "product_id": "900834",
+      "names": {
+        "en": "Invented rye bread with butter"
+      },
+      "vendor": "Invented Pantry",
+      "country_of_origin": "fi",
+      "allergens": {
+        "free_from": [
+          "tree_nuts",
+          "peanuts"
+        ],
+        "data_available": true
+      },
+      "claims": [
+        "lactose_free"
+      ],
+      "sales_unit": "ST",
+      "pack_size": {
+        "value": 1.0,
+        "unit": "kg"
+      }
+    },
+    {
+      "product_id": "900835",
+      "names": {
+        "en": "Invented green salad"
+      },
+      "vendor": "Invented Pantry",
+      "country_of_origin": "fi",
+      "allergens": {
+        "free_from": [
+          "tree_nuts",
+          "peanuts"
+        ],
+        "data_available": true
+      },
+      "claims": [
+        "lactose_free"
+      ],
+      "sales_unit": "ST",
+      "pack_size": {
+        "value": 1.0,
+        "unit": "kg"
+      }
+    },
+    {
+      "product_id": "900310",
+      "names": {
+        "en": "Invented layer cake board"
+      },
+      "vendor": "Invented Pantry",
+      "country_of_origin": "fi",
+      "allergens": {
+        "free_from": [
+          "tree_nuts",
+          "peanuts"
+        ],
+        "data_available": true
+      },
+      "claims": [
+        "lactose_free"
+      ],
+      "sales_unit": "ST",
+      "pack_size": {
+        "value": 1.0,
+        "unit": "pcs"
+      }
+    },
+    {
+      "product_id": "900311",
+      "names": {
+        "en": "Invented layer cake staff"
+      },
+      "vendor": "Invented Pantry",
+      "country_of_origin": "fi",
+      "allergens": {
+        "free_from": [
+          "tree_nuts",
+          "peanuts"
+        ],
+        "data_available": true
+      },
+      "claims": [
+        "lactose_free"
+      ],
+      "sales_unit": "ST",
+      "pack_size": {
+        "value": 1.0,
+        "unit": "pcs"
+      }
+    }
+  ],
+  "valio": {
+    "price": {
+      "customerId": "ab-oy",
+      "currency": "EUR",
+      "pricingDate": "2026-11-18",
+      "products": [
+        {
+          "productId": "900831",
+          "quantity": "1",
+          "catalogPrice": {
+            "value": "25",
+            "valueWithTax": "28.38",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonPrice": {
+            "value": "25",
+            "valueWithTax": "28.38",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonUnit": "KG",
+          "tax": {
+            "taxRate": "13.5",
+            "taxValue": "3.38"
+          },
+          "listPrice": {
+            "value": "25",
+            "valueWithTax": "28.38",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "netPriceFound": true,
+          "error": false
+        },
+        {
+          "productId": "900832",
+          "quantity": "1",
+          "catalogPrice": {
+            "value": "20",
+            "valueWithTax": "22.70",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonPrice": {
+            "value": "2E+1",
+            "valueWithTax": "22.7",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonUnit": "KG",
+          "tax": {
+            "taxRate": "13.5",
+            "taxValue": "2.70"
+          },
+          "listPrice": {
+            "value": "20",
+            "valueWithTax": "22.70",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "netPriceFound": true,
+          "error": false
+        },
+        {
+          "productId": "900833",
+          "quantity": "1",
+          "catalogPrice": {
+            "value": "40",
+            "valueWithTax": "45.40",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonPrice": {
+            "value": "4E+1",
+            "valueWithTax": "45.4",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonUnit": "KG",
+          "tax": {
+            "taxRate": "13.5",
+            "taxValue": "5.40"
+          },
+          "listPrice": {
+            "value": "40",
+            "valueWithTax": "45.40",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "netPriceFound": true,
+          "error": false
+        },
+        {
+          "productId": "900834",
+          "quantity": "1",
+          "catalogPrice": {
+            "value": "8",
+            "valueWithTax": "9.08",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonPrice": {
+            "value": "8",
+            "valueWithTax": "9.08",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonUnit": "KG",
+          "tax": {
+            "taxRate": "13.5",
+            "taxValue": "1.08"
+          },
+          "listPrice": {
+            "value": "8",
+            "valueWithTax": "9.08",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "netPriceFound": true,
+          "error": false
+        },
+        {
+          "productId": "900835",
+          "quantity": "1",
+          "catalogPrice": {
+            "value": "10",
+            "valueWithTax": "11.35",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonPrice": {
+            "value": "1E+1",
+            "valueWithTax": "11.35",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonUnit": "KG",
+          "tax": {
+            "taxRate": "13.5",
+            "taxValue": "1.35"
+          },
+          "listPrice": {
+            "value": "10",
+            "valueWithTax": "11.35",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "netPriceFound": true,
+          "error": false
+        },
+        {
+          "productId": "900310",
+          "quantity": "1",
+          "catalogPrice": {
+            "value": "38.5",
+            "valueWithTax": "43.70",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonPrice": {
+            "value": "38.5",
+            "valueWithTax": "43.7",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonUnit": "KG",
+          "tax": {
+            "taxRate": "13.5",
+            "taxValue": "5.20"
+          },
+          "listPrice": {
+            "value": "38.5",
+            "valueWithTax": "43.70",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "netPriceFound": true,
+          "error": false
+        },
+        {
+          "productId": "900311",
+          "quantity": "1",
+          "catalogPrice": {
+            "value": "32",
+            "valueWithTax": "36.32",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonPrice": {
+            "value": "32",
+            "valueWithTax": "36.32",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonUnit": "KG",
+          "tax": {
+            "taxRate": "13.5",
+            "taxValue": "4.32"
+          },
+          "listPrice": {
+            "value": "32",
+            "valueWithTax": "36.32",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "netPriceFound": true,
+          "error": false
+        }
+      ]
+    },
+    "availability": {
+      "timeNow": "2026-11-14T09:00:00+02:00",
+      "requestedDate": "2026-11-18",
+      "products": [
+        {
+          "productId": "900831",
+          "closingTime": "2026-11-19T17:00:00+02:00",
+          "salesBlock": false,
+          "logisticModel": "Stock",
+          "scheduleLines": [
+            {
+              "salesBlock": false,
+              "availableAmount": "100",
+              "availableDate": "2026-11-16",
+              "salesUnit": "ST"
+            }
+          ]
+        },
+        {
+          "productId": "900832",
+          "closingTime": "2026-11-19T17:00:00+02:00",
+          "salesBlock": false,
+          "logisticModel": "Stock",
+          "scheduleLines": [
+            {
+              "salesBlock": false,
+              "availableAmount": "100",
+              "availableDate": "2026-11-16",
+              "salesUnit": "ST"
+            }
+          ]
+        },
+        {
+          "productId": "900833",
+          "closingTime": "2026-11-19T17:00:00+02:00",
+          "salesBlock": false,
+          "logisticModel": "Stock",
+          "scheduleLines": [
+            {
+              "salesBlock": false,
+              "availableAmount": "100",
+              "availableDate": "2026-11-16",
+              "salesUnit": "ST"
+            }
+          ]
+        },
+        {
+          "productId": "900834",
+          "closingTime": "2026-11-19T17:00:00+02:00",
+          "salesBlock": false,
+          "logisticModel": "Stock",
+          "scheduleLines": [
+            {
+              "salesBlock": false,
+              "availableAmount": "100",
+              "availableDate": "2026-11-16",
+              "salesUnit": "ST"
+            }
+          ]
+        },
+        {
+          "productId": "900835",
+          "closingTime": "2026-11-19T17:00:00+02:00",
+          "salesBlock": false,
+          "logisticModel": "Stock",
+          "scheduleLines": [
+            {
+              "salesBlock": false,
+              "availableAmount": "100",
+              "availableDate": "2026-11-16",
+              "salesUnit": "ST"
+            }
+          ]
+        },
+        {
+          "productId": "900310",
+          "closingTime": "2026-11-19T17:00:00+02:00",
+          "salesBlock": false,
+          "logisticModel": "Stock",
+          "scheduleLines": [
+            {
+              "salesBlock": false,
+              "availableAmount": "100",
+              "availableDate": "2026-11-16",
+              "salesUnit": "ST"
+            }
+          ]
+        },
+        {
+          "productId": "900311",
+          "closingTime": "2026-11-19T17:00:00+02:00",
+          "salesBlock": false,
+          "logisticModel": "Stock",
+          "scheduleLines": [
+            {
+              "salesBlock": false,
+              "availableAmount": "100",
+              "availableDate": "2026-11-16",
+              "salesUnit": "ST"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "llm": {
+    "structured_outputs": [
+      {
+        "event_type": "company_lunch",
+        "guests": 60,
+        "deliver_by": "2026-11-18",
+        "budget": 300,
+        "preferences": [
+          {
+            "key": "finnish_origin",
+            "level": "require"
+          }
+        ],
+        "exclude_allergens": []
+      },
+      {
+        "dishes": [
+          {
+            "name": "Salmon soup",
+            "ingredients": [
+              {
+                "description": "salmon",
+                "description_fi": "salmon",
+                "quantity_per_serving": 0.15,
+                "unit": "kg"
+              }
+            ]
+          },
+          {
+            "name": "Rye bread with butter",
+            "ingredients": [
+              {
+                "description": "rye bread with butter",
+                "description_fi": "rye bread with butter",
+                "quantity_per_serving": 0.05,
+                "unit": "kg"
+              }
+            ]
+          },
+          {
+            "name": "Green salad",
+            "ingredients": [
+              {
+                "description": "green salad",
+                "description_fi": "green salad",
+                "quantity_per_serving": 0.06,
+                "unit": "kg"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "text": "The selected products cover the requested items. The quote is ready for review."
+      }
+    ],
+    "tool_responses": [
+      [
+        {
+          "name": "search_products",
+          "arguments": {
+            "item_id": "it_1",
+            "query": "salmon"
+          }
+        }
+      ],
+      [
+        {
+          "name": "check_offers",
+          "arguments": {
+            "item_id": "it_1",
+            "product_ids": [
+              "900831",
+              "900832",
+              "900833"
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "name": "search_products",
+          "arguments": {
+            "item_id": "it_2",
+            "query": "rye bread"
+          }
+        }
+      ],
+      [
+        {
+          "name": "check_offers",
+          "arguments": {
+            "item_id": "it_2",
+            "product_ids": [
+              "900834"
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "name": "search_products",
+          "arguments": {
+            "item_id": "it_3",
+            "query": "green salad"
+          }
+        }
+      ],
+      [
+        {
+          "name": "check_offers",
+          "arguments": {
+            "item_id": "it_3",
+            "product_ids": [
+              "900835"
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "name": "request_quote",
+          "arguments": {
+            "choices": [
+              {
+                "item_id": "it_1",
+                "product_id": "900831"
+              },
+              {
+                "item_id": "it_2",
+                "product_id": "900834"
+              },
+              {
+                "item_id": "it_3",
+                "product_id": "900835"
+              }
+            ]
+          }
+        }
+      ],
+      "The quote is ready."
+    ]
+  },
+  "reorder": {
+    "request": {
+      "customer_id": "c_pena",
+      "text": "Same as last time for the board meeting, but for 75 people. Deliver by 20 November 2026."
+    },
+    "llm": {
+      "structured_outputs": [
+        {
+          "guests": 75,
+          "deliver_by": "2026-11-20",
+          "reorder": {
+            "repeat": true,
+            "event_type": "company_meeting",
+            "title_words": [
+              "board",
+              "meeting"
+            ]
+          }
+        }
+      ],
+      "tool_responses": []
+    }
+  }
+}

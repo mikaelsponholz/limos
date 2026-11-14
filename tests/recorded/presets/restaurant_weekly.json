@@ -1,0 +1,410 @@
+{
+  "simulated": true,
+  "catalog": [
+    {
+      "product_id": "900801",
+      "names": {
+        "en": "Invented lactose-free milk"
+      },
+      "vendor": "Invented Pantry",
+      "country_of_origin": "fi",
+      "allergens": {
+        "free_from": [
+          "tree_nuts",
+          "peanuts",
+          "lactose"
+        ],
+        "data_available": true
+      },
+      "claims": [],
+      "sales_unit": "ST",
+      "pack_size": {
+        "value": 1.0,
+        "unit": "L"
+      }
+    },
+    {
+      "product_id": "900802",
+      "names": {
+        "en": "Invented butter"
+      },
+      "vendor": "Invented Pantry",
+      "country_of_origin": "fi",
+      "allergens": {
+        "free_from": [
+          "tree_nuts",
+          "peanuts"
+        ],
+        "data_available": true
+      },
+      "claims": [
+        "lactose_free"
+      ],
+      "sales_unit": "ST",
+      "pack_size": {
+        "value": 1.0,
+        "unit": "kg"
+      }
+    },
+    {
+      "product_id": "900803",
+      "names": {
+        "en": "Invented potatoes"
+      },
+      "vendor": "Invented Pantry",
+      "country_of_origin": "fi",
+      "allergens": {
+        "free_from": [
+          "tree_nuts",
+          "peanuts"
+        ],
+        "data_available": true
+      },
+      "claims": [
+        "lactose_free"
+      ],
+      "sales_unit": "ST",
+      "pack_size": {
+        "value": 5.0,
+        "unit": "kg"
+      }
+    },
+    {
+      "product_id": "900804",
+      "names": {
+        "en": "Invented eggs"
+      },
+      "vendor": "Invented Pantry",
+      "country_of_origin": "fi",
+      "allergens": {
+        "free_from": [
+          "tree_nuts",
+          "peanuts"
+        ],
+        "data_available": true
+      },
+      "claims": [
+        "lactose_free"
+      ],
+      "sales_unit": "ST",
+      "pack_size": {
+        "value": 5,
+        "unit": "kg"
+      }
+    }
+  ],
+  "valio": {
+    "price": {
+      "customerId": "bistro-example",
+      "currency": "EUR",
+      "pricingDate": "2026-11-17",
+      "products": [
+        {
+          "productId": "900801",
+          "quantity": "1",
+          "catalogPrice": {
+            "value": "1",
+            "valueWithTax": "1.14",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonPrice": {
+            "value": "1",
+            "valueWithTax": "1.14",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonUnit": "L",
+          "tax": {
+            "taxRate": "13.5",
+            "taxValue": "0.14"
+          },
+          "listPrice": {
+            "value": "1",
+            "valueWithTax": "1.14",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "netPriceFound": true,
+          "error": false
+        },
+        {
+          "productId": "900802",
+          "quantity": "1",
+          "catalogPrice": {
+            "value": "6",
+            "valueWithTax": "6.81",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonPrice": {
+            "value": "6",
+            "valueWithTax": "6.81",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonUnit": "KG",
+          "tax": {
+            "taxRate": "13.5",
+            "taxValue": "0.81"
+          },
+          "listPrice": {
+            "value": "6",
+            "valueWithTax": "6.81",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "netPriceFound": true,
+          "error": false
+        },
+        {
+          "productId": "900803",
+          "quantity": "1",
+          "catalogPrice": {
+            "value": "5",
+            "valueWithTax": "5.68",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonPrice": {
+            "value": "1",
+            "valueWithTax": "1.136",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonUnit": "KG",
+          "tax": {
+            "taxRate": "13.5",
+            "taxValue": "0.68"
+          },
+          "listPrice": {
+            "value": "5",
+            "valueWithTax": "5.68",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "netPriceFound": true,
+          "error": false
+        },
+        {
+          "productId": "900804",
+          "quantity": "1",
+          "catalogPrice": {
+            "value": "8",
+            "valueWithTax": "9.08",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonPrice": {
+            "value": "1.6",
+            "valueWithTax": "1.816",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonUnit": "KG",
+          "tax": {
+            "taxRate": "13.5",
+            "taxValue": "1.08"
+          },
+          "listPrice": {
+            "value": "8",
+            "valueWithTax": "9.08",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "netPriceFound": true,
+          "error": false
+        }
+      ]
+    },
+    "availability": {
+      "timeNow": "2026-11-14T09:00:00+02:00",
+      "requestedDate": "2026-11-17",
+      "products": [
+        {
+          "productId": "900801",
+          "closingTime": "2026-11-19T17:00:00+02:00",
+          "salesBlock": false,
+          "logisticModel": "Stock",
+          "scheduleLines": [
+            {
+              "salesBlock": false,
+              "availableAmount": "100",
+              "availableDate": "2026-11-16",
+              "salesUnit": "ST"
+            }
+          ]
+        },
+        {
+          "productId": "900802",
+          "closingTime": "2026-11-19T17:00:00+02:00",
+          "salesBlock": false,
+          "logisticModel": "Stock",
+          "scheduleLines": [
+            {
+              "salesBlock": false,
+              "availableAmount": "100",
+              "availableDate": "2026-11-16",
+              "salesUnit": "ST"
+            }
+          ]
+        },
+        {
+          "productId": "900803",
+          "closingTime": "2026-11-19T17:00:00+02:00",
+          "salesBlock": false,
+          "logisticModel": "Stock",
+          "scheduleLines": [
+            {
+              "salesBlock": false,
+              "availableAmount": "100",
+              "availableDate": "2026-11-16",
+              "salesUnit": "ST"
+            }
+          ]
+        },
+        {
+          "productId": "900804",
+          "closingTime": "2026-11-19T17:00:00+02:00",
+          "salesBlock": false,
+          "logisticModel": "Stock",
+          "scheduleLines": [
+            {
+              "salesBlock": false,
+              "availableAmount": "100",
+              "availableDate": "2026-11-16",
+              "salesUnit": "ST"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "llm": {
+    "structured_outputs": [
+      {
+        "text": "The selected products cover the requested items. The quote is ready for review."
+      }
+    ],
+    "tool_responses": [
+      [
+        {
+          "name": "search_products",
+          "arguments": {
+            "item_id": "it_1",
+            "query": "milk"
+          }
+        }
+      ],
+      [
+        {
+          "name": "check_offers",
+          "arguments": {
+            "item_id": "it_1",
+            "product_ids": [
+              "900801"
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "name": "search_products",
+          "arguments": {
+            "item_id": "it_2",
+            "query": "butter"
+          }
+        }
+      ],
+      [
+        {
+          "name": "check_offers",
+          "arguments": {
+            "item_id": "it_2",
+            "product_ids": [
+              "900802"
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "name": "search_products",
+          "arguments": {
+            "item_id": "it_3",
+            "query": "potatoes"
+          }
+        }
+      ],
+      [
+        {
+          "name": "check_offers",
+          "arguments": {
+            "item_id": "it_3",
+            "product_ids": [
+              "900803"
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "name": "search_products",
+          "arguments": {
+            "item_id": "it_4",
+            "query": "eggs"
+          }
+        }
+      ],
+      [
+        {
+          "name": "check_offers",
+          "arguments": {
+            "item_id": "it_4",
+            "product_ids": [
+              "900804"
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "name": "request_quote",
+          "arguments": {
+            "choices": [
+              {
+                "item_id": "it_1",
+                "product_id": "900801"
+              },
+              {
+                "item_id": "it_2",
+                "product_id": "900802"
+              },
+              {
+                "item_id": "it_3",
+                "product_id": "900803"
+              },
+              {
+                "item_id": "it_4",
+                "product_id": "900804"
+              }
+            ]
+          }
+        }
+      ],
+      "The quote is ready."
+    ]
+  }
+}
