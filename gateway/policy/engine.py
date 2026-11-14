@@ -53,6 +53,7 @@ _APPROVAL_RULES: tuple[RuleId, ...] = (
     "OVERBUY",
     "PACK_SIZE_UNKNOWN",
     "TERMINAL_LOW_RELIABILITY",
+    "APPROVAL_ALWAYS_REQUIRED",
 )
 _RULE_ORDER = {rule: index for index, rule in enumerate(_BLOCK_RULES + _APPROVAL_RULES)}
 _FLAG_RULES: tuple[tuple[OfferFlag, RuleId, str], ...] = (
@@ -249,6 +250,11 @@ def evaluate(
                 f"for item {item_id}.",
                 item_id=item_id,
             )
+
+    if mandate.always_require_approval and not any(
+        rule.outcome == "BLOCK" for rule in fired.values()
+    ):
+        fire("APPROVAL_ALWAYS_REQUIRED", "This buyer approves every order personally.")
 
     rules = sorted(
         fired.values(),

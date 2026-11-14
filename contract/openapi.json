@@ -261,6 +261,7 @@
                 "PACK_SIZE_UNKNOWN",
                 "TERMINAL_LOW_RELIABILITY",
                 "PRICE_CHANGED",
+                "APPROVAL_ALWAYS_REQUIRED",
                 "CUTOFF_PASSED"
               ],
               "type": "string"
@@ -910,6 +911,7 @@
               "PACK_SIZE_UNKNOWN",
               "TERMINAL_LOW_RELIABILITY",
               "PRICE_CHANGED",
+              "APPROVAL_ALWAYS_REQUIRED",
               "CUTOFF_PASSED"
             ],
             "title": "Rule Id",
@@ -1234,6 +1236,11 @@
       "Mandate": {
         "additionalProperties": false,
         "properties": {
+          "always_require_approval": {
+            "default": false,
+            "title": "Always Require Approval",
+            "type": "boolean"
+          },
           "auto_limit": {
             "title": "Auto Limit",
             "type": "number"
@@ -3586,7 +3593,7 @@
   },
   "info": {
     "title": "Limos",
-    "version": "0.4"
+    "version": "0.5"
   },
   "openapi": "3.1.0",
   "paths": {

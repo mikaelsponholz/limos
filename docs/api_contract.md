@@ -1,4 +1,4 @@
-# Limos API contract (v0.4)
+# Limos API contract (v0.5)
 
 Contract between the **web** (Johannes) and the **backend** (gateway + Gemini agent, Mikael). v0.2 merged Johannes's v0.1 with Mikael's contract. v0.3 adds customer profiles, reorder, one clarifying question, optional suggestions and per-line delivery and order deadlines (Valio mentor requirements, 2026-11-14). Every earlier field keeps its name and meaning, and new fields are additions. Change it only by agreement, and bump the version.
 
@@ -14,6 +14,11 @@ Three kinds of endpoints:
 - **Buyer side**: the kitchen user starts a request and follows it.
 - **Approver side**: a human approves or rejects. Never callable by an agent, and not exposed over MCP.
 - **Gateway tools**: what any buying agent calls (our Gemini agent, Claude Desktop over MCP, a plain script).
+
+## Changes from v0.4 to v0.5
+
+- `Mandate` gains `always_require_approval: bool`, default `false`. It is enabled for `ab-oy` only.
+- New rule id `APPROVAL_ALWAYS_REQUIRED` requires human approval on every quote when the mandate setting is enabled. It follows more specific approval reasons and is never listed on a `BLOCK` quote. Existing approval, hash binding, re-check and ordering behaviour is unchanged.
 
 ## Changes from v0.3 to v0.4
 
@@ -120,11 +125,13 @@ Three kinds of endpoints:
   "rules_fired": [
     {"rule_id": "SPLIT_DELIVERY", "description": "Whipping cream is split across two products because only 4 of 6.3 l are in stock.", "outcome": "NEEDS_APPROVAL", "item_id": "it_cream", "product_id": "900202"}
   ],
-  "mandate": {"buyer_id": "demo-catering", "auto_limit": 1500, "line_limit": 250, "hard_cap": 5000, "max_overbuy_percent": 25, "waste_percent": 5}
+  "mandate": {"buyer_id": "demo-catering", "auto_limit": 1500, "line_limit": 250, "hard_cap": 5000, "max_overbuy_percent": 25, "waste_percent": 5, "always_require_approval": false}
 }
 ```
 
 `outcome`: `AUTO`, `NEEDS_APPROVAL`, `BLOCK`. The strictest fired rule decides. `rules_fired` is empty for `AUTO`. Rule ids and meanings: `docs/PLAN.md` section 4 (later `docs/POLICY.md`). Fixture: `policy-decision.json`.
+
+The `Mandate` object contains the buyer id, limits and `always_require_approval: bool` (default `false`). When enabled, `APPROVAL_ALWAYS_REQUIRED` fires with `NEEDS_APPROVAL` and the description "This buyer approves every order personally." It is listed after more specific approval rules and omitted if any rule blocks the quote. Policy reads only the mandate, never customer profiles or history.
 
 ### `Quote`
 

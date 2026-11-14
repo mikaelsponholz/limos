@@ -1,4 +1,4 @@
-"""Public API contract v0.4. Money and quantities serialize as JSON numbers."""
+"""Public API contract v0.5. Money and quantities serialize as JSON numbers."""
 
 from datetime import date
 from typing import Literal, Self
@@ -17,7 +17,7 @@ from gateway.catalog.models import AllergenCode as AllergenCode
 from gateway.catalog.models import ClaimCode as ClaimCode
 from gateway.catalog.models import LabelCode as LabelCode
 
-CONTRACT_VERSION = "0.4"
+CONTRACT_VERSION = "0.5"
 
 PreferenceKey = Literal[
     "lactose_free", "gluten_free", "finnish_origin", "organic", "vegetarian", "vegan", "low_carbon"
@@ -71,6 +71,7 @@ RuleId = Literal[
     "PACK_SIZE_UNKNOWN",
     "TERMINAL_LOW_RELIABILITY",
     "PRICE_CHANGED",
+    "APPROVAL_ALWAYS_REQUIRED",
     "CUTOFF_PASSED",
 ]
 RequestStatus = Literal[
@@ -434,6 +435,7 @@ class Mandate(ContractModel):
     hard_cap: float
     max_overbuy_percent: float
     waste_percent: float
+    always_require_approval: bool = False
 
 
 class PolicyDecision(ContractModel):

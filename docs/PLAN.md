@@ -155,9 +155,10 @@ Pure Python in `gateway/policy/`, with no LLM calls. Mandates per buyer live in 
 | `PACK_SIZE_UNKNOWN` | Can't convert need to sales units | NEEDS_APPROVAL |
 | `TERMINAL_LOW_RELIABILITY` | Terminal product with reliability under 0.90 | NEEDS_APPROVAL |
 | `PRICE_CHANGED` | A re-quote changed a locked price | NEEDS_APPROVAL |
+| `APPROVAL_ALWAYS_REQUIRED` | The buyer's mandate has `always_require_approval` on (Ab Oy, for Pena); listed after any more specific reason, never on a BLOCK | NEEDS_APPROVAL |
 | `CUTOFF_PASSED` | `closingTime` in the past | flag only (see findings) |
 
-Placeholder mandate (per buyer, editable): auto limit €1 500 net, line limit €250, hard cap €5 000, max overbuy 25 %, waste 5 %, allowed agents.
+Placeholder mandate (per buyer, editable): auto limit €1 500 net, line limit €250, hard cap €5 000, max overbuy 25 %, waste 5 %, allowed agents, `always_require_approval` (on for Ab Oy only).
 
 **Quote rules (code):** `expires_at` = now + 30 min, never past a future `closingTime`. `content_hash` = SHA-256 over the canonical JSON of lines, totals, delivery date and expiry. An approval stores the hash it approved; `place_order` refuses a quote that is expired, changed, or `NEEDS_APPROVAL` without a matching approval. The same idempotency key returns the same order.
 
@@ -215,7 +216,7 @@ Requirements from the Valio mentors (2026-11-14). Seeded in `customers/` as JSON
 
 | Customer | Who | Profile | History |
 |---|---|---|---|
-| `c_pena` | Pena, executive at Ab Oy, `55_plus` | Not playful. Prefers Finnish, priority quality, typical 30 guests | Layer cakes for board meetings, a staff coffee table |
+| `c_pena` | Pena, executive at Ab Oy, `55_plus` | Not playful. Prefers Finnish, priority quality, typical 30 guests. Approves every order himself (one tap), even within the mandate | Layer cakes for board meetings, a staff coffee table |
 | `c_chef` | A younger chef at an invented bistro, `under_35` | Playful. Prefers organic and low carbon, priority balanced | Weekly staples, a tasting menu evening |
 
 - Recognition is picking the customer in the UI; there is no sign-in. The profile and history load with every request for that customer.
@@ -343,6 +344,7 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 - 2026-11-14: `PRICE_MISSING` fires only when Valio returns an error or no `catalogPrice`. `netPriceFound=false` is normal in the Junction API (no customer-specific net price), and the catalogue price is a confirmed price (Johannes, b278d89).
 - 2026-11-14: PostgresStore (Johannes, b824823) is merged. The gateway never migrates on start unless `MIGRATE_ON_START=true`, which only the Aiven deployment sets explicitly. Otherwise migrations run with `uv run python -m scripts.migrate_db`. A decided approval can't change status, be deleted or be truncated (migration 002). Deleting quotes is still possible, listed as a known limitation. The table owner can disable the triggers; in production the gateway uses a separate role without owner rights (README production step).
 - 2026-11-14: Allergen gap (agreed with Johannes): the gateway always applies the buyer's own customer profile rules (excluded allergens, required dietary keys) to every quote, including standalone MCP and script quotes. `QuoteBody` gains optional `exclude_allergens` and `constraints` that can only add restrictions. Contract v0.4.
+- 2026-11-14: Pena's orders always need his approval (one tap), even within the mandate: Ab Oy's mandate sets `always_require_approval`, which fires `APPROVAL_ALWAYS_REQUIRED` (NEEDS_APPROVAL) on every quote that isn't blocked. The chef's bistro keeps AUTO within its mandate. Policy reads only the mandate, never the customer profile or history. Contract v0.5 (mandate field and rule id); the web needs a label for the new rule.
 - 2026-11-13: MCP server is its own phase right after the thin end-to-end flow.
 - 2026-11-13: Storage capacity rule is an add-on phase. Menu photo is stretch.
 - 2026-11-13: Pitch is time saving, without speed promises.

@@ -22,6 +22,7 @@
     "line_limit": 250,
     "hard_cap": 5000,
     "max_overbuy_percent": 25,
-    "waste_percent": 5
+    "waste_percent": 5,
+    "always_require_approval": false
   }
 }

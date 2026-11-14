@@ -374,7 +374,8 @@
         "line_limit": 250,
         "hard_cap": 5000,
         "max_overbuy_percent": 25,
-        "waste_percent": 5
+        "waste_percent": 5,
+        "always_require_approval": false
       }
     },
     "agent_explanation": "Butter and cream are lactose-free and Finnish, as required. Only 2 of the 2 l cream cartons are in stock, so I added three 1 l cartons of the same cream. The organic cucumber can't be delivered, so I used Valio's approved Finnish cucumber instead. Everything arrives on 16 November, before the 20 November deadline. Organic was preferred, but the organic butter costs 71 % more per kg, so I chose the Finnish one.",
@@ -884,7 +885,8 @@
           "line_limit": 250,
           "hard_cap": 5000,
           "max_overbuy_percent": 25,
-          "waste_percent": 5
+          "waste_percent": 5,
+          "always_require_approval": false
         }
       },
       "agent_explanation": "Butter and cream are lactose-free and Finnish, as required. Only 2 of the 2 l cream cartons are in stock, so I added three 1 l cartons of the same cream. The organic cucumber can't be delivered, so I used Valio's approved Finnish cucumber instead. Everything arrives on 16 November, before the 20 November deadline. Organic was preferred, but the organic butter costs 71 % more per kg, so I chose the Finnish one.",
@@ -1188,7 +1190,8 @@
           "line_limit": 250,
           "hard_cap": 5000,
           "max_overbuy_percent": 25,
-          "waste_percent": 5
+          "waste_percent": 5,
+          "always_require_approval": false
         }
       },
       "agent_explanation": "Same as the recommended option, but all cream comes as seven 1 l cartons from the supplier, so there is no split. It costs 1.40 EUR more and the amount in stock is not reported for this product.",

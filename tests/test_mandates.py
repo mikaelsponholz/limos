@@ -23,6 +23,7 @@ def test_configured_buyer_and_contract_view(buyer_id: str) -> None:
         hard_cap=5000.0,
         max_overbuy_percent=25.0,
         waste_percent=5.0,
+        always_require_approval=(buyer_id == "ab-oy"),
     )
     assert type(entry.contract) is Mandate
     assert entry.allowed_agents == ("limos-gemini", "limos-runner", "limos-mcp", "limos-script")
