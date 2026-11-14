@@ -58,7 +58,30 @@ class Resources:
                 raise GatewayError(
                     503, "CATALOG_UNAVAILABLE", "Catalogue is not available."
                 ) from None
+            self._seed_history(cast(Catalog, self.state.catalog))
         return cast(Catalog, self.state.catalog)
+
+    def _seed_history(self, catalog: Catalog) -> None:
+        """Resolve the seeded customer history if no overlay exists yet.
+
+        A hosted container prepares its data in a background process; if that process
+        could not write the overlay, the gateway resolves it here with the catalogue it
+        already holds, so no second copy is loaded. Logs counts and error types only.
+        """
+        customers_dir = cast(Path, self.state.customers_dir)
+        overlay_dir = cast(Path, self.state.customer_overlay_dir)
+        if all((overlay_dir / p.name).is_file() for p in customers_dir.glob("*.json")):
+            return
+        from scripts.seed_customers import resolve_customers
+
+        try:
+            customers, lines = resolve_customers(
+                catalog, customers_dir=customers_dir, out=overlay_dir
+            )
+        except Exception as error:  # noqa: BLE001 - the catalogue stays usable either way
+            print(f"Customer history not resolved: {type(error).__name__}", flush=True)
+            return
+        print(f"Customer history resolved: {customers} customers, {lines} lines", flush=True)
 
     @property
     def valio(self) -> OfferValio:
@@ -101,6 +124,13 @@ class Resources:
 
     @property
     def customer_paths(self) -> dict[str, Path]:
+        # Resolving the seeded history needs the catalogue; load it once it exists so a
+        # customer view never shows the placeholder codes. Without it, show them as is.
+        if self.state.catalog is None:
+            try:
+                _ = self.catalog
+            except GatewayError:
+                pass
         return {
             "customers_dir": cast(Path, self.state.customers_dir),
             "overlay_dir": cast(Path, self.state.customer_overlay_dir),

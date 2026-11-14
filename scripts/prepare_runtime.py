@@ -75,8 +75,9 @@ def main() -> int:
 def seed(catalog: Path) -> int:
     try:
         customers, lines = seed_customers(catalog)
-    except (OSError, ValueError):
-        print("Customer seeding failed; check the seed terms against the catalogue.", flush=True)
+    except (OSError, ValueError) as error:
+        # The type alone says which step broke; messages can contain supplier data.
+        print(f"Customer seeding failed ({type(error).__name__}).", flush=True)
         return 1
     print(f"Customers seeded: {customers}, history lines: {lines}", flush=True)
     return 0

@@ -17,13 +17,7 @@ from gateway.schemas import Customer
 SEED_SPEC = ROOT / "scripts" / "customer_seed_spec.json"
 
 
-def seed_customers(
-    catalog_path: Path,
-    *,
-    customers_dir: Path = CUSTOMERS_DIR,
-    out: Path = OVERLAY_DIR,
-    seed_spec: Path = SEED_SPEC,
-) -> tuple[int, int]:
+def _check_destination(out: Path, customers_dir: Path) -> None:
     destination = out.resolve()
     if any(
         destination.is_relative_to(folder.resolve()) for folder in (CUSTOMERS_DIR, customers_dir)
@@ -31,7 +25,30 @@ def seed_customers(
         raise ValueError(
             "The overlay destination must be outside the committed customers directory."
         )
-    catalog = Catalog.load(catalog_path)
+
+
+def seed_customers(
+    catalog_path: Path,
+    *,
+    customers_dir: Path = CUSTOMERS_DIR,
+    out: Path = OVERLAY_DIR,
+    seed_spec: Path = SEED_SPEC,
+) -> tuple[int, int]:
+    _check_destination(out, customers_dir)  # before the slow catalogue load
+    return resolve_customers(
+        Catalog.load(catalog_path), customers_dir=customers_dir, out=out, seed_spec=seed_spec
+    )
+
+
+def resolve_customers(
+    catalog: Catalog,
+    *,
+    customers_dir: Path = CUSTOMERS_DIR,
+    out: Path = OVERLAY_DIR,
+    seed_spec: Path = SEED_SPEC,
+) -> tuple[int, int]:
+    """Resolve the history against an already loaded catalogue (the gateway reuses its own)."""
+    _check_destination(out, customers_dir)
     queries = TypeAdapter(dict[str, str]).validate_json(seed_spec.read_bytes())
     customers = load_customers(customers_dir, overlay_dir=None)
     resolved_customers: list[Customer] = []
