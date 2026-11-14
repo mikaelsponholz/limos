@@ -348,8 +348,8 @@ function ListView({
             </Link>
           </div>
         )}
-        {/* Two columns built the same way (label, big value, small line) so they line up row by row; the action sits on the right. */}
-        <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-start gap-5 sm:gap-6">
+        {/* Two columns built the same way (label, big value, small line), bottom aligned with the action on the right. */}
+        <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-5 sm:gap-6">
           <div>
             <p className="m-0 text-[15px] text-petrol-tint">Total incl. VAT</p>
             <p className="m-0 text-[40px] leading-[1.15] font-semibold tabular-nums">{eur(q.total_with_tax)}</p>
@@ -365,11 +365,11 @@ function ListView({
             )}
           </div>
           {req.status === "WAITING_APPROVAL" && !blocked && req.approval_id && (
-            <button type="button" onClick={onApprove} disabled={busy} className="w-full sm:w-auto sm:self-center shrink-0 min-h-14 px-7 rounded-md bg-lime text-petrol-dark text-[18px] font-semibold disabled:opacity-60">
+            <button type="button" onClick={onApprove} disabled={busy} className="w-full sm:w-auto shrink-0 min-h-14 px-7 rounded-md bg-lime text-petrol-dark text-[18px] font-semibold disabled:opacity-60">
               Approve order
             </button>
           )}
-          {blocked && <p className="m-0 sm:self-center text-[18px] font-semibold">Can&apos;t be ordered</p>}
+          {blocked && <p className="m-0 text-[18px] font-semibold">Can&apos;t be ordered</p>}
         </div>
       </section>
 
