@@ -1,0 +1,15 @@
+# Never send secrets, Valio data or local state to an image build.
+.env
+.env.*
+!.env.example
+data/
+.runtime/
+.limos-store.json*
+.venv/
+**/__pycache__/
+.pytest_cache/
+.pytest-tmp/
+.mypy_cache/
+.ruff_cache/
+web/
+.git/

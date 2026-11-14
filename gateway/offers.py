@@ -157,9 +157,10 @@ def _money(value: Decimal) -> float:
 def _prices(
     price: ProductPrice | None, units: Decimal, unit: str
 ) -> tuple[float, float, ComparisonPrice, float, float, float, bool]:
-    missing = (
-        price is None or price.error or not price.net_price_found or price.catalog_price is None
-    )
+    # netPriceFound is false for most products in the Junction API (no customer-specific
+    # net price), but catalogPrice is still the confirmed price, so only a missing catalogue
+    # price or an error counts as missing.
+    missing = price is None or price.error or price.catalog_price is None
     comparison_unit: Literal["KG", "L"] = "L" if unit == "L" else "KG"
     if price is not None and price.comparison_unit in {"KG", "L"}:
         comparison_unit = cast(Literal["KG", "L"], price.comparison_unit)

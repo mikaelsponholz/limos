@@ -329,7 +329,7 @@ async def test_deadline_and_cutoff(closing: str | None, passed: bool) -> None:
 
 @pytest.mark.parametrize(
     "prices",
-    [[], [price(error=True)], [price(netPriceFound=False)], [price(catalogPrice=None)]],
+    [[], [price(error=True)], [price(catalogPrice=None)]],
 )
 async def test_missing_price_uses_numeric_zeroes(prices: list[ProductPrice]) -> None:
     result = await offer(prices=prices)
@@ -337,6 +337,13 @@ async def test_missing_price_uses_numeric_zeroes(prices: list[ProductPrice]) -> 
     assert result.unit_price == result.list_price == result.comparison_price.value == 0
     assert result.line_total == result.line_total_with_tax == result.tax_rate == 0
     assert "EUR/" not in result.reason
+
+
+async def test_catalogue_price_counts_without_customer_net_price() -> None:
+    # The Junction API sends netPriceFound=false for most products, with a catalogue price.
+    result = await offer(prices=[price(netPriceFound=False)])
+    assert "PRICE_MISSING" not in result.flags
+    assert result.unit_price > 0 and result.line_total > 0
 
 
 async def test_prices_preserve_values_and_round_line_totals_to_cents() -> None:

@@ -18,6 +18,9 @@ def create_store(settings: Settings, *, path: str | Path = Path(".runtime/store.
         case "file":
             return FileStore(path)
         case "postgres":
-            raise NotImplementedError("Postgres store is not available yet.")
+            # Imported here so memory and file stores never need psycopg.
+            from gateway.store.postgres import PostgresStore
+
+            return PostgresStore(settings.database_url)
         case _:
             raise ValueError(f"Unknown store implementation: {settings.store}.")

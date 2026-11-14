@@ -2,6 +2,13 @@
 node_modules/
 .next/
 .DS_Store
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Challenge data: never commit
 data/
 .agent/
 .runtime/
@@ -12,3 +19,7 @@ __pycache__/
 .ruff_cache/
 !.env.example
 .pytest-tmp/
+
+# Local file store (STORE=file)
+.limos-store.json
+.limos-store.json.tmp

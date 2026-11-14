@@ -13,5 +13,10 @@ async def health(settings: Annotated[Settings, Depends(get_settings)]) -> Health
     return Health(
         status="ok",
         valio_api="ok" if settings.valio_api_key else "unconfigured",
-        database="ok" if settings.store in {"memory", "file"} else "unconfigured",
+        database=(
+            "ok"
+            if settings.store in {"memory", "file"}
+            or (settings.store == "postgres" and settings.database_url)
+            else "unconfigured"
+        ),
     )

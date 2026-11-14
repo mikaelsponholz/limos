@@ -16,11 +16,47 @@ from gateway.store import FileStore, MemoryStore, Store, create_store
 from tests.engine_support import AGENT, BUYER, Engine, mandate, request_detail
 from tests.test_offers import NOW, REQUESTED
 
+KINDS = ["memory", "file", "postgres"]
 
-@pytest.mark.parametrize("kind", ["memory", "file"])
-async def test_store_round_trip_and_buyer_isolation(kind: str, tmp_path: Path) -> None:
+
+@pytest.fixture
+def fx(request: pytest.FixtureRequest) -> pytest.FixtureRequest:
+    """Pytest's request under another name; some tests use `request` for a RequestDetail."""
+    return request
+
+
+def make_store(kind: str, path: Path, request: pytest.FixtureRequest) -> Store:
+    """Memory and file as before; postgres in a throwaway schema when DATABASE_URL is set."""
+    if kind != "postgres":
+        return create_store(Settings(store=kind), path=path)
+    from gateway.store.postgres import PostgresStore
+
+    url, schema = request.getfixturevalue("pg_schema")
+    store = PostgresStore(url, schema=schema)
+    request.addfinalizer(store.close)
+    return store
+
+
+def reopen(kind: str, store: Store, path: Path, request: pytest.FixtureRequest) -> Store:
+    """A second store over the same data, as after a restart."""
+    if kind == "file":
+        return FileStore(path)
+    if kind == "postgres":
+        from gateway.store.postgres import PostgresStore
+
+        url, schema = request.getfixturevalue("pg_schema")
+        again = PostgresStore(url, schema=schema)
+        request.addfinalizer(again.close)
+        return again
+    return store
+
+
+@pytest.mark.parametrize("kind", KINDS)
+async def test_store_round_trip_and_buyer_isolation(
+    kind: str, tmp_path: Path, fx: pytest.FixtureRequest
+) -> None:
     path = tmp_path / "invented-store.json"
-    store = create_store(Settings(store=kind), path=path)
+    store = make_store(kind, path, fx)
     engine = Engine(store)
     request = request_detail()
     store.save_request(request)
@@ -78,8 +114,7 @@ async def test_store_round_trip_and_buyer_isolation(kind: str, tmp_path: Path) -
     store.append_past_order("invented-customer", BUYER, past)
     before = get_audit(store, request.request_id, BUYER)
     assert before.chain_valid
-    if kind == "file":
-        store = FileStore(path)
+    store = reopen(kind, store, path, fx)
     assert store.get_request(request.request_id, BUYER) == request
     assert store.list_requests(BUYER) == [request]
     stored_quote = store.get_quote(quote.quote_id, BUYER)
@@ -109,10 +144,12 @@ async def test_store_round_trip_and_buyer_isolation(kind: str, tmp_path: Path) -
     assert not hasattr(store, "update_step") and not hasattr(store, "delete_step")
 
 
-@pytest.mark.parametrize("kind", ["memory", "file"])
-async def test_transaction_rolls_back_all_mutations(kind: str, tmp_path: Path) -> None:
+@pytest.mark.parametrize("kind", KINDS)
+async def test_transaction_rolls_back_all_mutations(
+    kind: str, tmp_path: Path, fx: pytest.FixtureRequest
+) -> None:
     path = tmp_path / "invented-store.json"
-    store = create_store(Settings(store=kind), path=path)
+    store = make_store(kind, path, fx)
     engine = Engine(store)
     quote = await engine.quote()
     before = get_audit(store, quote.request_id, BUYER)
@@ -122,8 +159,7 @@ async def test_transaction_rolls_back_all_mutations(kind: str, tmp_path: Path) -
             store.save_quote(changed)
             append_step(store, quote.request_id, "human", "REJECTED", "Rejected", {}, None, NOW)
             raise RuntimeError("Invented failure")
-    if kind == "file":
-        store = FileStore(path)
+    store = reopen(kind, store, path, fx)
     assert store.get_quote(quote.quote_id, BUYER) == quote
     assert get_audit(store, quote.request_id, BUYER) == before
 
@@ -161,8 +197,8 @@ async def test_file_write_failure_rolls_back_memory_and_preserves_disk(
 def test_factory_selection_and_clear_unavailable_errors(tmp_path: Path) -> None:
     assert isinstance(create_store(Settings(store="memory")), MemoryStore)
     assert isinstance(create_store(Settings(store="file"), path=tmp_path / "store.json"), FileStore)
-    with pytest.raises(NotImplementedError, match="not available yet"):
-        create_store(Settings(store="postgres"))
+    with pytest.raises(ValueError, match="needs DATABASE_URL"):
+        create_store(Settings(store="postgres", database_url=""))
     with pytest.raises(ValueError, match="Unknown store"):
         create_store(Settings(store="invalid"))
 
@@ -190,8 +226,11 @@ async def test_audit_exact_hash_links_and_tamper_detection(tmp_path: Path) -> No
     assert get_audit(reloaded, quote.request_id, BUYER).chain_valid is False
 
 
-def test_append_step_on_stored_request_and_concurrent_sequence() -> None:
-    store: Store = MemoryStore()
+@pytest.mark.parametrize("kind", ["memory", "postgres"])
+def test_append_step_on_stored_request_and_concurrent_sequence(
+    kind: str, tmp_path: Path, fx: pytest.FixtureRequest
+) -> None:
+    store = make_store(kind, tmp_path / "invented-store.json", fx)
     request = request_detail()
     store.save_request(request)
     with ThreadPoolExecutor(max_workers=8) as pool:
