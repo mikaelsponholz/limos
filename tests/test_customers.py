@@ -2,6 +2,7 @@
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -38,7 +39,9 @@ def test_both_seeds_validate_and_match_demo_profiles() -> None:
         )
         for order in customer.order_history:
             assert order.simulated is True and order.source == "seeded"
-            assert sum(line.line_total for line in order.lines) == order.total
+            assert sum(Decimal(str(line.line_total)) for line in order.lines) == Decimal(
+                str(order.total)
+            )
             for line in order.lines:
                 assert line.product_id.startswith("900") and len(line.product_id) == 6
                 assert line.name.startswith("Example ")
@@ -57,6 +60,7 @@ def test_both_seeds_validate_and_match_demo_profiles() -> None:
     ] == [
         ("900310", 2),
         ("900312", 6),
+        ("900313", 2),
     ]
     assert chef.buyer_id == "bistro-example" and chef.age_group == "under_35" and chef.playful
     assert "Example" in chef.name and "Example" in chef.company and chef.role == "Chef"
@@ -206,7 +210,12 @@ def test_without_profile_records_only_missing_system_priority() -> None:
 
 @pytest.mark.parametrize(
     ("guests_now", "scale", "quantities"),
-    [(80, 80 / 30, [6, 16]), (10, 1 / 3, [1, 2]), (30, 1.0, [2, 6]), (None, 1.0, [2, 6])],
+    [
+        (80, 80 / 30, [6, 16, 6]),
+        (10, 1 / 3, [1, 2, 1]),
+        (30, 1.0, [2, 6, 2]),
+        (None, 1.0, [2, 6, 2]),
+    ],
 )
 def test_reorder_scaling_and_provenance(
     guests_now: int | None, scale: float, quantities: list[int]
@@ -223,7 +232,7 @@ def test_reorder_scaling_and_provenance(
         "guests_now": guests_now,
         "scale": scale,
     }
-    assert len(lines) == 2
+    assert len(lines) == 3
     assert [line.quantity_sales_units for line in lines] == quantities
     assert [(line.product_id, line.name, line.sales_unit) for line in lines] == [
         (line.product_id, line.name, line.sales_unit) for line in past.lines

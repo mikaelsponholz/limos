@@ -43,9 +43,18 @@
           "quantity_text": "6 x 1 l",
           "unit_price": 2.5,
           "line_total": 15.0
+        },
+        {
+          "product_id": "900313",
+          "name": "Example green peppercorns 13 g",
+          "quantity_sales_units": 2,
+          "sales_unit": "ST",
+          "quantity_text": "2 x 13 g",
+          "unit_price": 14.98,
+          "line_total": 29.96
         }
       ],
-      "total": 92.0,
+      "total": 121.96,
       "source": "seeded",
       "simulated": true
     }

@@ -1,4 +1,4 @@
-"""Frank's two-line seed uses invented catalogues and isolated runtime files only."""
+"""Frank's three-line seed uses invented catalogues and isolated runtime files only."""
 
 import json
 from pathlib import Path
@@ -15,6 +15,12 @@ from tests.test_offers import product
 def oat_catalog(*, lot: float | None = None, companion: str = "same_unit") -> Catalog:
     records = [
         product("990101", names={"fi": "Example juustokakku"}),
+        product(
+            "990104",
+            names={"fi": "Santa Maria Viherpippuri Kokonainen 13 g"},
+            sales_unit="ST",
+            pack_size={"value": 0.013, "unit": "kg"},
+        ),
         product(
             "990102",
             names={"en": "Example oat drink iKaffe 1L"},
@@ -61,7 +67,7 @@ def test_verified_override_replaces_only_matching_history_line(
 
     assert resolve_customers(oat_catalog(), customers_dir=seeds, out=out, demo_cases=cases) == (
         1,
-        2,
+        3,
     )
 
     customer = load_customers(customers_dir=seeds, overlay_dir=out)["c_pena"]
@@ -69,11 +75,12 @@ def test_verified_override_replaces_only_matching_history_line(
     assert [line.product_id for line in lines] == [
         "990101",
         "990103" if history_product_id == "900312" else "990102",
+        "990104",
     ]
     assert lines[0].name == "Example juustokakku"
-    assert [line.quantity_sales_units for line in lines] == [2, 6]
-    assert [line.line_total for line in lines] == [77, 15]
-    assert customer.order_history[0].total == 92
+    assert [line.quantity_sales_units for line in lines] == [2, 6, 2]
+    assert [line.line_total for line in lines] == [77, 15, 29.96]
+    assert customer.order_history[0].total == 121.96
     assert (seeds / "c_pena.json").read_bytes() == original
 
 

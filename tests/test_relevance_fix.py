@@ -438,6 +438,12 @@ def cake_catalog():
                 names={"en": "Example oat drink iKaffe 1L"},
                 pack_size={"value": 1, "unit": "L"},
             ),
+            product(
+                "990005",
+                names={"fi": "Santa Maria Viherpippuri Kokonainen 13 g"},
+                sales_unit="ST",
+                pack_size={"value": 0.013, "unit": "kg"},
+            ),
         ]
     )
 
@@ -541,11 +547,12 @@ def test_pena_seed_override_uses_only_first_verified_live_case(tmp_path, live, s
     )
     assert resolve_customers(
         cake_catalog(), customers_dir=seeds, out=tmp_path / "out", demo_cases=cases
-    ) == (1, 2)
+    ) == (1, 3)
     customer = load_customers(customers_dir=tmp_path / "out", overlay_dir=None)["c_pena"]
     assert [line.product_id for order in customer.order_history for line in order.lines] == [
         expected,
         "990004",
+        "990005",
     ]
     assert (
         json.loads((seeds / "c_pena.json").read_bytes())["order_history"][0]["lines"][0][
