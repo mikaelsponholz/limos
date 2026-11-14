@@ -235,6 +235,31 @@ def test_item_without_products_reports_no_candidates(tmp_path: Path) -> None:
     assert verify_chain(detail.steps)
 
 
+def test_irrelevant_results_only_report_no_candidates(tmp_path: Path) -> None:
+    # The search finds something, but the agent never finds it worth an offer check.
+    turns = [[ToolRequest("search_products", {"item_id": "it_1", "query": "flour"})]] * 8
+    llm = FakeLLM(tool_responses=turns)
+    with environment(tmp_path, llm) as client:
+        detail = start(client)
+    assert detail.status == "FAILED" and detail.error.code == "NO_CANDIDATES"
+
+
+def test_missing_catalogue_stops_the_agent_at_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def unavailable(self: GatewayClient, body: SearchBody) -> object:
+        raise GatewayClientError("CATALOG_UNAVAILABLE")
+
+    monkeypatch.setattr(GatewayClient, "search_products", unavailable)
+    turns = [[ToolRequest("search_products", {"item_id": "it_1", "query": "flour"})]] * 8
+    llm = FakeLLM(tool_responses=turns)
+    with environment(tmp_path, llm) as client:
+        detail = start(client)
+    assert detail.status == "FAILED" and detail.error.code == "CATALOG_UNAVAILABLE"
+    assert sum(step.type == "TOOL_CALL" for step in detail.steps) == 1
+    assert verify_chain(detail.steps)
+
+
 @pytest.mark.parametrize(
     "text",
     [
