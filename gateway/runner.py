@@ -11,6 +11,7 @@ from agent.llm import LLMOutputError
 from agent.loop import run_loop
 from agent.purchasing import create_options, resolve_item
 from agent.question import apply_answer, choices_and_default, missing_field, word_question
+from agent.suggestions import propose_suggestions
 from gateway import customers, tools
 from gateway.api.dependencies import Resources
 from gateway.audit import append_step
@@ -519,6 +520,7 @@ async def run(
         else:
             detail.status = "BLOCKED"
             env.store.save_request(detail)
+        await propose_suggestions(request_id, env)
     except Exception as exc:
         detail = env.store.get_request(request_id, detail.buyer_id) or detail
         detail.status = "FAILED"

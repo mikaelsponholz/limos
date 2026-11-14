@@ -1,12 +1,25 @@
 from fastapi import APIRouter, BackgroundTasks
 
-from gateway import customers, runner, tools
+from gateway import customers, runner, suggestions, tools
 from gateway.api.gateway_tools import Env
 from gateway.api.presets import RequestBody
 from gateway.errors import GatewayError
 from gateway.schemas import AnswerBody, RequestCreated, RequestDetail, RequestListEntry
 
 router = APIRouter()
+
+
+@router.post(
+    "/requests/{request_id}/suggestions/{suggestion_id}/accept",
+    status_code=202,
+    response_model=RequestCreated,
+)
+async def accept_suggestion(
+    request_id: str, suggestion_id: str, background: BackgroundTasks, env: Env
+) -> RequestCreated:
+    suggestions.claim_suggestion(request_id, suggestion_id, env)
+    background.add_task(suggestions.accept_suggestion, request_id, suggestion_id, env)
+    return RequestCreated(request_id=request_id, status="RUNNING")
 
 
 @router.post("/requests/{request_id}/answer", status_code=202, response_model=RequestCreated)

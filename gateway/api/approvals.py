@@ -224,6 +224,9 @@ def reject(
         detail = env.store.get_request(approval.request_id, approval.buyer_id)
         if detail:
             detail.status = "REJECTED"
+            for suggestion in detail.suggestions:
+                if suggestion.status == "OFFERED":
+                    suggestion.status = "DECLINED"
             detail.quote = env.store.get_quote(approval.quote_id, approval.buyer_id)
             env.store.save_request(detail)
     return RejectResponse(status="REJECTED")
