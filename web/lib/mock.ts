@@ -5,6 +5,7 @@ import approveResponse from "./fixtures/approve-response.json";
 import audit from "./fixtures/audit.json";
 import customer from "./fixtures/customer.json";
 import customers from "./fixtures/customers.json";
+import chefProfile from "./fixtures/customers/c_chef.json";
 import requestChef from "./fixtures/request-chef.json";
 import requestNeedsInput from "./fixtures/request-needs-input.json";
 import requestWedding from "./fixtures/request.json";
@@ -277,6 +278,84 @@ function penaQuoted(id: string, text: string, guests: number | null, answered: b
   return req;
 }
 
+/** The chef's reorder, built from the seeded past order in customers/c_chef.json. */
+function chefReorder(id: string, orderRef: string): LimosRequest {
+  const base = clone<LimosRequest>(requestChef);
+  type PastLine = { product_id: string; name: string; quantity_sales_units: number; sales_unit: string; quantity_text: string; unit_price: number; line_total: number };
+  const history = (chefProfile as unknown as { order_history: (Customer["order_history"][number] & { lines: PastLine[] })[] }).order_history;
+  const past = history.find((h) => h.order_ref === orderRef) ?? history[0];
+  const template = base.quote!.lines[0];
+  const lines: Offer[] = past.lines.map((pl, i) => ({
+    ...template,
+    product_id: pl.product_id,
+    item_id: `it_${i + 1}`,
+    name: pl.name,
+    vendor: null,
+    sales_unit: pl.sales_unit,
+    pack_description: null,
+    quantity_sales_units: pl.quantity_sales_units,
+    quantity_text: pl.quantity_text,
+    unit_price: pl.unit_price,
+    line_total: pl.line_total,
+    line_total_with_tax: round2(pl.line_total * 1.135),
+    is_split: false,
+    is_substitute: false,
+    substitute_source: null,
+    flags: [],
+    tier: null,
+    reason: "Same as last time.",
+  }));
+  const req: LimosRequest = {
+    ...base,
+    request_id: id,
+    customer_id: "c_chef",
+    input: { text: "Same as last time", image_url: null },
+    intent: {
+      ...base.intent,
+      based_on: { order_ref: past.order_ref, title: past.title, date: past.date, guests_before: past.guests, guests_now: past.guests, scale: 1 },
+      filled_gaps: [{ field: "items", value: past.order_ref, source: "history", note: `Same as "${past.title}" on ${day(past.date)}.` }],
+    },
+    suggestions: [],
+    approval_id: null,
+    order: null,
+    quote: {
+      ...base.quote!,
+      quote_id: `q_${id}`,
+      request_id: id,
+      lines,
+      policy: { outcome: "AUTO", rules_fired: [] },
+      agent_explanation: `Same products as "${past.title}".`,
+    },
+  };
+  retotal(req);
+  return req;
+}
+
+// Decided with Mikael: Pena always confirms with one tap. The chef's restaurant runs on a
+// mandate, so a list with no rules fired and under the auto limit is ordered straight away.
+const AUTO_LIMIT = 1500;
+function settleAuto(req: LimosRequest): LimosRequest {
+  const q = req.quote;
+  if (req.customer_id !== "c_chef" || !q || req.status !== "WAITING_APPROVAL") return req;
+  if (q.policy.rules_fired.length || q.total > AUTO_LIMIT) return req;
+  q.policy = { ...q.policy, outcome: "AUTO" };
+  q.status = "AUTO_APPROVED";
+  const order: Order = {
+    ...clone<Order>(approveResponse.order),
+    order_id: `o_${req.request_id}`,
+    quote_id: q.quote_id,
+    request_id: req.request_id,
+    approved_by: null,
+    placed_at: new Date().toISOString(),
+    delivery_date: q.delivery_date,
+    order_deadline: q.order_deadline,
+    total: q.total,
+    total_with_tax: q.total_with_tax,
+    authority: `Within the restaurant's mandate: no rules fired and under ${AUTO_LIMIT} €.`,
+  };
+  return { ...req, status: "ORDERED", approval_id: null, order };
+}
+
 export const mock = {
   async customers(): Promise<CustomerSummary[]> {
     return clone(customers);
@@ -284,6 +363,7 @@ export const mock = {
 
   async customer(id: string): Promise<Customer> {
     if (id === "c_pena") return clone(customer);
+    if (id === "c_chef") return clone(chefProfile);
     const s = (customers as unknown as CustomerSummary[]).find((c) => c.customer_id === id);
     if (!s) throw new ApiError(404, "NOT_FOUND", "Customer not found");
     return { ...clone<CustomerSummary>(s), buyer_id: "demo-catering", order_history: s.last_order ? [{ ...s.last_order, guests: null, total: 0 }] : [] };
@@ -305,6 +385,8 @@ export const mock = {
         final = { ...clone<LimosRequest>(requestNeedsInput), request_id: id };
         final.input.text = text;
       }
+    } else if (body.customer_id === "c_chef" && body.reorder_of) {
+      final = chefReorder(id, body.reorder_of);
     } else {
       final = { ...clone<LimosRequest>(requestChef), request_id: id, customer_id: body.customer_id };
       final.input.text = text || final.input.text;
@@ -312,7 +394,7 @@ export const mock = {
     }
     if (final.quote) final.quote.request_id = id;
     const overrides = overridesFrom(body);
-    runs.set(id, { final: applySettings(final, overrides), readyAt: later(1800), overrides });
+    runs.set(id, { final: settleAuto(applySettings(final, overrides)), readyAt: later(1800), overrides });
     return { request_id: id, status: "RUNNING" as const };
   },
 

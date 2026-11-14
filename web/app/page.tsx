@@ -360,8 +360,11 @@ function ListView({
           {ordered && req.order && (
             <div className="bg-good-bg rounded-xl px-4 py-3.5 flex flex-col gap-0.5">
               <strong>
-                {req.order.approved_by ? `Thanks ${req.order.approved_by.split(" ")[0]}, order placed.` : "Ordered, it was within your rules."}
+                {req.order.approved_by ? `Thanks ${req.order.approved_by.split(" ")[0]}, order placed.` : "Ordered automatically."}
               </strong>
+              {!req.order.approved_by && (
+                <span className="text-[15px]">Nothing needed your check, and it is within your restaurant's limits.</span>
+              )}
               <span className="text-[15px]">Arrives {day(req.order.delivery_date)}.</span>
               <Link href={`/audit/${req.request_id}`} className="text-[15px] text-petrol underline">
                 See order details

@@ -9,4 +9,8 @@ const src = join(here, "..", "..", "fixtures", "api");
 const dst = join(here, "..", "lib", "fixtures");
 mkdirSync(dst, { recursive: true });
 for (const f of readdirSync(src)) if (f.endsWith(".json")) cpSync(join(src, f), join(dst, f));
+// The seeded demo customers (invented people and products) from ../customers.
+const people = join(here, "..", "..", "customers");
+mkdirSync(join(dst, "customers"), { recursive: true });
+for (const f of readdirSync(people)) if (f.endsWith(".json")) cpSync(join(people, f), join(dst, "customers", f));
 console.log(`fixtures copied to lib/fixtures`);
