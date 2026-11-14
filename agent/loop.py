@@ -274,12 +274,16 @@ def run_loop(
             prompt,
             available_tools,
             system=(
-                "Search and check offers for each item. Choose the most relevant usable product, "
-                "then request one quote covering every item. Correct tool errors and try again. "
+                "Search once for each item and check offers for its shortlist. Search an item "
+                "again only when its search returned no usable products. Choose the most relevant "
+                "usable product, then request one quote covering every item. Correct tool errors "
+                "and try again. "
                 "Use only returned product ids. Quantities, dates and prices are supplied by code. "
                 "After a successful quote, finish with a short acknowledgement."
             ),
-            max_steps=3 * len(items) + 2,
+            # Per item: a search, an offer check and room for one retry; plus the quote and
+            # its repair. A six-item recipe needs this headroom (3 * n + 2 ran out at n = 6).
+            max_steps=4 * len(items) + 3,
             on_call=on_call,
         )
     except LLMOutputError:

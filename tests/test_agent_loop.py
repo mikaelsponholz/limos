@@ -207,7 +207,7 @@ def test_failed_agent_has_clear_code(tmp_path: Path, mode: str) -> None:
         ["Finished without a quote."]
         if mode == "no_quote"
         else (
-            [[ToolRequest("search_products", {"item_id": "unknown", "query": "flour"})]] * 6
+            [[ToolRequest("search_products", {"item_id": "unknown", "query": "flour"})]] * 8
             if mode == "max_steps"
             else [""]
         )
@@ -218,7 +218,7 @@ def test_failed_agent_has_clear_code(tmp_path: Path, mode: str) -> None:
     assert detail.status == "FAILED" and detail.error.code == "AGENT_FAILED"
     assert detail.quote is None and detail.order is None
     assert sum(step.type == "TOOL_CALL" for step in detail.steps) == (
-        5 if mode == "max_steps" else 0
+        7 if mode == "max_steps" else 0  # 4 * one item + 3
     )
     assert verify_chain(detail.steps)
 
