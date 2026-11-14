@@ -264,7 +264,13 @@ def client_for(tmp_path: Path, llm: FakeLLM | None, *, now: datetime = NOW) -> T
     ids = count(1)
     client = TestClient(
         create_app(
-            Settings(store="memory", gemini_api_key="", gemini_model="", valio_api_key=""),
+            Settings(
+                agent_mode="tools",
+                store="memory",
+                gemini_api_key="",
+                gemini_model="",
+                valio_api_key="",
+            ),
             llm=llm,
             store=MemoryStore(),
             catalog=Catalog([product("900701")]),

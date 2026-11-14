@@ -1,6 +1,6 @@
 """Deterministic shortlist pricing and pack conversion, without ranking or policy."""
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import date, datetime
 from decimal import ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP, Decimal
 from math import isfinite
@@ -49,6 +49,47 @@ class OfferValio(Protocol):
     async def availability(
         self, product_codes: Iterable[str], requested_date: date
     ) -> AvailabilityResponse: ...
+
+
+class OfferSnapshot:
+    """Request-local wire evidence shared by shortlists and locked quote options.
+
+    A new date or new substitute ids fetch new evidence. Rebuilding offers from
+    this snapshot always runs the normal conversion and policy inputs again.
+    """
+
+    def __init__(self, source: OfferValio) -> None:
+        self.source = source
+        self.prices: dict[date, PriceResponse] = {}
+        self.stock: dict[date, AvailabilityResponse] = {}
+        self.price_ids: dict[date, set[str]] = {}
+        self.stock_ids: dict[date, set[str]] = {}
+
+    async def price(self, product_codes: Iterable[str], requested_date: date) -> PriceResponse:
+        ids = list(dict.fromkeys(product_codes))
+        missing = [code for code in ids if code not in self.price_ids.get(requested_date, set())]
+        if missing:
+            response = await self.source.price(missing, requested_date)
+            previous = self.prices.get(requested_date)
+            self.prices[requested_date] = response.model_copy(
+                update={"products": [*(previous.products if previous else []), *response.products]}
+            )
+            self.price_ids.setdefault(requested_date, set()).update(missing)
+        return self.prices[requested_date]
+
+    async def availability(
+        self, product_codes: Iterable[str], requested_date: date
+    ) -> AvailabilityResponse:
+        ids = list(dict.fromkeys(product_codes))
+        missing = [code for code in ids if code not in self.stock_ids.get(requested_date, set())]
+        if missing:
+            response = await self.source.availability(missing, requested_date)
+            previous = self.stock.get(requested_date)
+            self.stock[requested_date] = response.model_copy(
+                update={"products": [*(previous.products if previous else []), *response.products]}
+            )
+            self.stock_ids.setdefault(requested_date, set()).update(missing)
+        return self.stock[requested_date]
 
 
 class UnknownProductError(GatewayError):
@@ -414,6 +455,7 @@ async def price_fixed_lines(
     item_context: Mapping[str, "ItemContext"] | None = None,
     max_overbuy_percent: float = 25,
     refresh: bool = False,
+    on_skip: Callable[[str, str, str], None] | None = None,
 ) -> list[Offer]:
     """Price the caller's exact sales units; shortage is evidence, never a quantity edit.
 
@@ -474,6 +516,9 @@ async def price_fixed_lines(
     for line, record in zip(lines, records, strict=True):
         stock = stock_by_id.get(line.product_id)
         if stock is None:
+            if on_skip is not None:
+                on_skip(line.item_id, line.product_id, "OFFER_DATA_INVALID")
+                continue
             raise OfferDataError(f"Missing availability for {line.product_id}.")
         need = (needs or {}).get(line.item_id) or inferred[line.item_id]
         if not isfinite(need.value) or need.value < 0:
@@ -490,8 +535,8 @@ async def price_fixed_lines(
             constraints=list(dict.fromkeys([*context.constraints, *context.required_preferences])),
             exclude_allergens=list(context.exclude_allergens),
         )
-        result.append(
-            _build_offer(
+        try:
+            offer = _build_offer(
                 body,
                 record,
                 prices_by_id.get(line.product_id),
@@ -500,7 +545,16 @@ async def price_fixed_lines(
                 max_overbuy_percent,
                 Decimal(str(line.quantity_sales_units)),
             )
-        )
+        except (GatewayError, ValueError, ArithmeticError) as exc:
+            if on_skip is None:
+                raise
+            on_skip(
+                line.item_id,
+                line.product_id,
+                exc.code if isinstance(exc, GatewayError) else "OFFER_DATA_INVALID",
+            )
+            continue
+        result.append(offer)
         result[-1].is_split = line.item_id in seen_items
         result[-1].is_substitute = line.substitute_for is not None
         result[-1].substitute_for = line.substitute_for

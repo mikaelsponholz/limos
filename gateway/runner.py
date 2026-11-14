@@ -4,11 +4,13 @@ import asyncio
 import json
 
 from agent.constraints import item_constraints
+from agent.errors import error_code
 from agent.exceptions import ItemPlan
 from agent.expansion import build_event_items, expand_event
 from agent.intent import TextFacts, helsinki_today, parse_text, resolve_request
 from agent.llm import LLMOutputError
 from agent.loop import run_loop
+from agent.pipeline import run_pipeline
 from agent.purchasing import create_options, resolve_item
 from agent.question import apply_answer, choices_and_default, missing_field, word_question
 from agent.suggestions import propose_suggestions
@@ -184,6 +186,17 @@ async def run(
                 )
             today = helsinki_today(env.now())
             parsed = parse_text(llm, body.text, today)
+            if parsed.repaired and env.settings.agent_mode == "pipeline":
+                append_step(
+                    env.store,
+                    request_id,
+                    "agent",
+                    "EXCEPTION",
+                    "Repaired intent output",
+                    {"code": "LLM_OUTPUT_ERROR"},
+                    parsed.model_id,
+                    env.now(),
+                )
             facts, model_id = parsed.value, parsed.model_id
             parsed_text = True
         customer = (
@@ -257,12 +270,15 @@ async def run(
                     {
                         "field": field,
                         "fallback_used": wording.fallback_used,
+                        "code": "LLM_ERROR" if wording.fallback_used else None,
                         "resolved_request": body.model_dump(mode="json"),
                     },
                     wording.model,
                     env.now(),
                 )
             return
+        pipeline = env.llm is not None and env.settings.agent_mode == "pipeline"
+        search_terms: dict[str, list[str]] = {}
         placeholder_event = any(
             gap.field == "event.type" and gap.source == "default"
             for gap in detail.intent.filled_gaps
@@ -279,7 +295,19 @@ async def run(
                 detail.intent.dishes,
                 detail.intent.preferences,
                 detail.intent.exclude_allergens,
+                with_search_terms=pipeline,
             )
+            if expanded.repaired and pipeline:
+                append_step(
+                    env.store,
+                    request_id,
+                    "agent",
+                    "EXCEPTION",
+                    "Repaired expansion output",
+                    {"code": "LLM_OUTPUT_ERROR"},
+                    expanded.model_id,
+                    env.now(),
+                )
             result = build_event_items(
                 expanded.value,
                 detail.intent.event,
@@ -289,6 +317,7 @@ async def run(
                 waste_percent=env.permit(detail.buyer_id, AGENT_ID).waste_percent,
                 explicit_items=detail.intent.items,
             )
+            search_terms = result.search_terms
             detail.intent.dishes = result.dishes
             detail.intent.items = result.items
             detail.intent.assumptions.extend(result.assumptions)
@@ -307,108 +336,83 @@ async def run(
                 raise GatewayError(
                     422, "NO_EVENT_ITEMS", "Event expansion produced no valid purchase items."
                 )
-        lines: list[QuoteLine] = []
-        if body.reorder_of:
-            if detail.customer_id is None:
-                raise GatewayError(422, "CUSTOMER_REQUIRED", "A reorder needs a customer.")
-            customer = customers.get_customer(detail.customer_id, env.store, **env.customer_paths)
-            based_on, reorder_lines = customers.resolve_reorder(
-                customer, body.reorder_of, body.event.guests if body.event else None
-            )
-            detail.intent.based_on = based_on
-            for index, line in enumerate(reorder_lines, 1):
-                if env.catalog.lookup(line.product_id) is None:
-                    log("EXCEPTION", f"Skipped missing product {line.product_id}")
-                    continue
-                item_id = f"it_{index}"
-                detail.intent.items.append(
-                    IntentItem(
-                        item_id=item_id,
-                        description=line.name,
-                        description_fi=line.name,
-                        quantity=float(line.quantity_sales_units),
-                        unit="pcs",
-                        constraints=item_constraints(
-                            detail.intent.preferences, detail.intent.exclude_allergens
-                        ),
-                        used_in=[],
-                    )
-                )
-                lines.append(
-                    QuoteLine(
-                        item_id=item_id,
-                        product_id=line.product_id,
-                        quantity_sales_units=float(line.quantity_sales_units),
-                    )
-                )
-        elif not detail.intent.items:
-            raise GatewayError(
-                503,
-                "AGENT_NOT_AVAILABLE",
-                "Text and event requests need the Gemini agent, which is not available yet.",
-            )
-        env.store.save_request(detail)
-        if body.reorder_of:
-            log("CANDIDATES", f"Resolved {len(lines)} products from the past order")
-        agent_loop = not body.reorder_of and env.llm is not None
-        plans: list[ItemPlan] = []
         alternative_ids: list[str] = []
-        if not body.reorder_of and not agent_loop:
-            for item in detail.intent.items:
-                tools.tool_step(env, request_id, "search_products")
-                shortlist = tools.search_products(
-                    SearchBody(
-                        buyer_id=detail.buyer_id,
-                        agent_id=AGENT_ID,
-                        query=item.description,
-                        constraints=item.constraints,
-                        exclude_allergens=detail.intent.exclude_allergens,
-                        limit=5,
-                    ),
-                    env,
+        if pipeline:
+            assert env.llm is not None
+            pipeline_quote = await run_pipeline(
+                env.llm, detail, body, env, search_terms, alternative_ids
+            )
+            if pipeline_quote is None:
+                return
+            quote = pipeline_quote
+        else:
+            lines: list[QuoteLine] = []
+            if body.reorder_of:
+                if detail.customer_id is None:
+                    raise GatewayError(422, "CUSTOMER_REQUIRED", "A reorder needs a customer.")
+                customer = customers.get_customer(
+                    detail.customer_id, env.store, **env.customer_paths
                 )
-                tools.tool_step(env, request_id, "check_offers")
-                offers = await tools.check_offers(
-                    OffersBody(
-                        buyer_id=detail.buyer_id,
-                        agent_id=AGENT_ID,
-                        product_ids=[p.product_id for p in shortlist.products],
-                        item_id=item.item_id,
-                        quantity=item.quantity,
-                        unit=item.unit,
-                        requested_date=detail.intent.deliver_by,
-                        constraints=list(
-                            dict.fromkeys(
-                                [
-                                    *item.constraints,
-                                    *[
-                                        p.key
-                                        for p in detail.intent.preferences
-                                        if p.level == "require"
-                                    ],
-                                ]
-                            )
-                        ),
-                        exclude_allergens=detail.intent.exclude_allergens,
-                    ),
-                    env,
+                based_on, reorder_lines = customers.resolve_reorder(
+                    customer, body.reorder_of, body.event.guests if body.event else None
                 )
-                detail.candidates.extend(offers)
-                env.store.save_request(detail)
-                log("CANDIDATES", f"Checked {len(offers)} offers for {item.description}")
-                offers.sort(key=lambda offer: offer.product_id)
-                if not offers:
-                    raise GatewayError(
-                        404, "NO_CANDIDATES", "No products match the requested item."
+                detail.intent.based_on = based_on
+                for index, line in enumerate(reorder_lines, 1):
+                    if env.catalog.lookup(line.product_id) is None:
+                        log("EXCEPTION", f"Skipped missing product {line.product_id}")
+                        continue
+                    item_id = f"it_{index}"
+                    detail.intent.items.append(
+                        IntentItem(
+                            item_id=item_id,
+                            description=line.name,
+                            description_fi=line.name,
+                            quantity=float(line.quantity_sales_units),
+                            unit="pcs",
+                            constraints=item_constraints(
+                                detail.intent.preferences, detail.intent.exclude_allergens
+                            ),
+                            used_in=[],
+                        )
                     )
-
-                async def fetch(ids: list[str], item: IntentItem = item) -> list[Offer]:
+                    lines.append(
+                        QuoteLine(
+                            item_id=item_id,
+                            product_id=line.product_id,
+                            quantity_sales_units=float(line.quantity_sales_units),
+                        )
+                    )
+            elif not detail.intent.items:
+                raise GatewayError(
+                    503,
+                    "AGENT_NOT_AVAILABLE",
+                    "Text and event requests need the Gemini agent, which is not available yet.",
+                )
+            env.store.save_request(detail)
+            if body.reorder_of:
+                log("CANDIDATES", f"Resolved {len(lines)} products from the past order")
+            agent_loop = not body.reorder_of and env.llm is not None
+            plans: list[ItemPlan] = []
+            if not body.reorder_of and not agent_loop:
+                for item in detail.intent.items:
+                    tools.tool_step(env, request_id, "search_products")
+                    shortlist = tools.search_products(
+                        SearchBody(
+                            buyer_id=detail.buyer_id,
+                            agent_id=AGENT_ID,
+                            query=item.description,
+                            constraints=item.constraints,
+                            exclude_allergens=detail.intent.exclude_allergens,
+                            limit=5,
+                        ),
+                        env,
+                    )
                     tools.tool_step(env, request_id, "check_offers")
-                    return await tools.check_offers(
+                    offers = await tools.check_offers(
                         OffersBody(
                             buyer_id=detail.buyer_id,
                             agent_id=AGENT_ID,
-                            product_ids=ids,
+                            product_ids=[p.product_id for p in shortlist.products],
                             item_id=item.item_id,
                             quantity=item.quantity,
                             unit=item.unit,
@@ -429,66 +433,102 @@ async def run(
                         ),
                         env,
                     )
+                    detail.candidates.extend(offers)
+                    env.store.save_request(detail)
+                    log("CANDIDATES", f"Checked {len(offers)} offers for {item.description}")
+                    offers.sort(key=lambda offer: offer.product_id)
+                    if not offers:
+                        raise GatewayError(
+                            404, "NO_CANDIDATES", "No products match the requested item."
+                        )
 
-                def search(query: str, item: IntentItem = item) -> list[str]:
-                    return [
-                        product.product_id
-                        for product in tools.search_products(
-                            SearchBody(
+                    async def fetch(ids: list[str], item: IntentItem = item) -> list[Offer]:
+                        tools.tool_step(env, request_id, "check_offers")
+                        return await tools.check_offers(
+                            OffersBody(
                                 buyer_id=detail.buyer_id,
                                 agent_id=AGENT_ID,
-                                query=query,
-                                constraints=item.constraints,
+                                product_ids=ids,
+                                item_id=item.item_id,
+                                quantity=item.quantity,
+                                unit=item.unit,
+                                requested_date=detail.intent.deliver_by,
+                                constraints=list(
+                                    dict.fromkeys(
+                                        [
+                                            *item.constraints,
+                                            *[
+                                                p.key
+                                                for p in detail.intent.preferences
+                                                if p.level == "require"
+                                            ],
+                                        ]
+                                    )
+                                ),
                                 exclude_allergens=detail.intent.exclude_allergens,
-                                limit=5,
                             ),
                             env,
-                        ).products
-                    ]
+                        )
 
-                plan = await resolve_item(item, offers, detail, env, fetch, search, None)
-                plans.append(plan)
-                for planned_line in plan.recommended:
-                    log(
-                        "CHOICE",
-                        f"Selected product {planned_line.product_id} for {item.description}",
-                    )
-        if agent_loop:
-            llm = env.llm
-            assert llm is not None
-            quote = await asyncio.to_thread(run_loop, llm, detail, env, alternative_ids)
-        elif plans:
+                    def search(query: str, item: IntentItem = item) -> list[str]:
+                        return [
+                            product.product_id
+                            for product in tools.search_products(
+                                SearchBody(
+                                    buyer_id=detail.buyer_id,
+                                    agent_id=AGENT_ID,
+                                    query=query,
+                                    constraints=item.constraints,
+                                    exclude_allergens=detail.intent.exclude_allergens,
+                                    limit=5,
+                                ),
+                                env,
+                            ).products
+                        ]
 
-            async def create(body: QuoteBody) -> Quote:
+                    plan = await resolve_item(item, offers, detail, env, fetch, search, None)
+                    plans.append(plan)
+                    for planned_line in plan.recommended:
+                        log(
+                            "CHOICE",
+                            f"Selected product {planned_line.product_id} for {item.description}",
+                        )
+            if agent_loop:
+                llm = env.llm
+                assert llm is not None
+                quote = await asyncio.to_thread(run_loop, llm, detail, env, alternative_ids)
+            elif plans:
+
+                async def create(body: QuoteBody) -> Quote:
+                    tools.tool_step(env, request_id, "request_quote")
+                    return await tools.request_quote(body, env)
+
+                quote = await create_options(
+                    detail, detail.intent.items, plans, AGENT_ID, create, alternative_ids, env
+                )
+            else:
                 tools.tool_step(env, request_id, "request_quote")
-                return await tools.request_quote(body, env)
-
-            quote = await create_options(
-                detail, detail.intent.items, plans, AGENT_ID, create, alternative_ids, env
-            )
-        else:
-            tools.tool_step(env, request_id, "request_quote")
-            quote = await tools.request_quote(
-                QuoteBody(
-                    buyer_id=detail.buyer_id,
-                    agent_id=AGENT_ID,
-                    request_id=request_id,
-                    requested_date=detail.intent.deliver_by,
-                    lines=lines,
-                    budget=detail.intent.budget,
-                ),
-                env,
-            )
-        if body.reorder_of:
-            detail.candidates = quote.lines
-        if not agent_loop:
-            missing_preferences = [
-                rule.description
-                for rule in quote.policy.rules_fired
-                if rule.rule_id == "PREFERENCE_REQUIRED_UNMET"
-            ]
-            if missing_preferences:
-                tools.set_agent_explanation(quote, " ".join(missing_preferences), env)
+                quote = await tools.request_quote(
+                    QuoteBody(
+                        buyer_id=detail.buyer_id,
+                        agent_id=AGENT_ID,
+                        request_id=request_id,
+                        requested_date=detail.intent.deliver_by,
+                        lines=lines,
+                        budget=detail.intent.budget,
+                    ),
+                    env,
+                )
+            if body.reorder_of:
+                detail.candidates = quote.lines
+            if not agent_loop:
+                missing_preferences = [
+                    rule.description
+                    for rule in quote.policy.rules_fired
+                    if rule.rule_id == "PREFERENCE_REQUIRED_UNMET"
+                ]
+                if missing_preferences:
+                    tools.set_agent_explanation(quote, " ".join(missing_preferences), env)
         detail.quote = quote
         detail.status = "BLOCKED" if quote.policy.outcome == "BLOCK" else "RUNNING"
         env.store.save_request(detail)
@@ -523,7 +563,11 @@ async def run(
         await propose_suggestions(request_id, env)
     except Exception as exc:
         detail = env.store.get_request(request_id, detail.buyer_id) or detail
-        detail.status = "FAILED"
+        detail.status = (
+            "BLOCKED"
+            if isinstance(exc, GatewayError) and exc.code == "NO_USABLE_PRODUCTS"
+            else "FAILED"
+        )
         if isinstance(exc, GatewayError):
             detail.error = Error(code=exc.code, message=exc.message)
         elif isinstance(exc, LLMOutputError):
@@ -541,7 +585,7 @@ async def run(
             "gateway",
             "ERROR",
             detail.error.message,
-            {"code": detail.error.code},
+            {"code": error_code(exc), "exception_type": type(exc).__name__},
             None,
             env.now(),
         )

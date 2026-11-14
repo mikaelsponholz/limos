@@ -219,7 +219,9 @@ def client_for(tmp_path: Path, llm: FakeLLM | None, waste: float = 10) -> TestCl
     ids = count(1)
     client = TestClient(
         create_app(
-            Settings(gemini_api_key="", gemini_model="", gemini_expansion_model=""),
+            Settings(
+                agent_mode="tools", gemini_api_key="", gemini_model="", gemini_expansion_model=""
+            ),
             catalog=Catalog([product()]),
             valio=FakeValio([price()], [stock()]),
             store=MemoryStore(),
