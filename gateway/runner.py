@@ -1,9 +1,10 @@
-"""Parse buyer intent, then run deterministic item-list and reorder paths."""
+"""Resolve intent and expand events before deterministic purchasing and reorder paths."""
 
 import json
 from fractions import Fraction
-from typing import cast
 
+from agent.constraints import item_constraints
+from agent.expansion import build_event_items, expand_event
 from agent.intent import TextFacts, helsinki_today, parse_text, resolve_request
 from agent.llm import LLMOutputError
 from agent.question import apply_answer, choices_and_default, missing_field, word_question
@@ -11,9 +12,7 @@ from gateway import customers, tools
 from gateway.api.dependencies import Resources
 from gateway.audit import append_step
 from gateway.errors import GatewayError
-from gateway.policy.engine import REQUIRE_HARD_DIETARY_KEYS
 from gateway.schemas import (
-    Constraint,
     Error,
     IntentItem,
     OffersBody,
@@ -258,6 +257,50 @@ async def run(
                     env.now(),
                 )
             return
+        placeholder_event = any(
+            gap.field == "event.type" and gap.source == "default"
+            for gap in detail.intent.filled_gaps
+        )
+        if (
+            detail.intent.event is not None
+            and (detail.intent.dishes or not placeholder_event)
+            and not body.reorder_of
+            and env.llm is not None
+        ):
+            expanded = expand_event(
+                env.llm,
+                detail.intent.event,
+                detail.intent.dishes,
+                detail.intent.preferences,
+                detail.intent.exclude_allergens,
+            )
+            result = build_event_items(
+                expanded.value,
+                detail.intent.event,
+                detail.intent.dishes,
+                detail.intent.preferences,
+                detail.intent.exclude_allergens,
+                waste_percent=env.permit(detail.buyer_id, AGENT_ID).waste_percent,
+                explicit_items=detail.intent.items,
+            )
+            detail.intent.dishes = result.dishes
+            detail.intent.items = result.items
+            detail.intent.assumptions.extend(result.assumptions)
+            env.store.save_request(detail)
+            append_step(
+                env.store,
+                request_id,
+                "agent",
+                "EVENT_EXPANDED",
+                "Expanded event dishes into purchase items",
+                {"dish_count": len(result.dishes), "item_count": len(result.items)},
+                expanded.model_id,
+                env.now(),
+            )
+            if not detail.intent.items:
+                raise GatewayError(
+                    422, "NO_EVENT_ITEMS", "Event expansion produced no valid purchase items."
+                )
         lines: list[QuoteLine] = []
         if body.reorder_of:
             if detail.customer_id is None:
@@ -279,18 +322,8 @@ async def run(
                         description_fi=line.name,
                         quantity=float(line.quantity_sales_units),
                         unit="pcs",
-                        constraints=list(
-                            dict.fromkeys(
-                                [
-                                    p.key
-                                    for p in detail.intent.preferences
-                                    if p.level == "require" and p.key in REQUIRE_HARD_DIETARY_KEYS
-                                ]
-                                + [
-                                    cast(Constraint, f"no_{code}")
-                                    for code in detail.intent.exclude_allergens
-                                ]
-                            )
+                        constraints=item_constraints(
+                            detail.intent.preferences, detail.intent.exclude_allergens
                         ),
                         used_in=[],
                     )
@@ -437,7 +470,7 @@ async def run(
         elif isinstance(exc, LLMOutputError):
             detail.error = Error(
                 code="LLM_OUTPUT_ERROR",
-                message="The text parser returned invalid output after repair.",
+                message="The agent returned invalid output after repair.",
             )
         else:
             detail.error = Error(

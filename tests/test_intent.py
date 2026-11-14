@@ -338,10 +338,6 @@ def test_text_items_run_existing_order_path_and_helsinki_date(tmp_path: Path) ->
 @pytest.mark.parametrize(
     "outputs,code",
     [
-        (
-            [{"event_type": "wedding", "guests": 120, "event_date": "2026-11-20"}],
-            "AGENT_NOT_AVAILABLE",
-        ),
         ([{"guests": "many"}, {"guests": "many"}], "LLM_OUTPUT_ERROR"),
         ([{"exclude_allergens": ["invented-code"]}] * 2, "LLM_OUTPUT_ERROR"),
     ],
@@ -354,11 +350,7 @@ def test_unavailable_expansion_and_invalid_output_fail_clearly(
         detail = post_text(client)
         assert detail.status == "FAILED" and detail.error is not None
         assert detail.error.code == code and detail.question is None
-        if code == "AGENT_NOT_AVAILABLE":
-            assert detail.intent.event is not None
-            assert any(step.model == "fake" for step in detail.steps)
-        else:
-            assert len(llm.calls) == 2
+        assert len(llm.calls) == 2
         assert verify_chain(detail.steps)
 
 

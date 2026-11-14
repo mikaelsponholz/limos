@@ -5,17 +5,16 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta, timezone
-from typing import Self, cast
+from typing import Self
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
+from agent.constraints import item_constraints
 from agent.llm import LLM, StructuredResult
 from gateway import customers
-from gateway.policy.engine import REQUIRE_HARD_DIETARY_KEYS
 from gateway.schemas import (
     AllergenCode,
-    Constraint,
     Customer,
     Dish,
     Event,
@@ -331,19 +330,15 @@ def resolve_request(
             dishes=[EventDish(name=dish.name, servings=dish.servings) for dish in dishes],
         )
 
-    hard: list[Constraint] = [
-        p.key
-        for p in resolved.preferences
-        if p.level == "require" and p.key in REQUIRE_HARD_DIETARY_KEYS
-    ]
-    hard.extend(cast(Constraint, f"no_{code}") for code in resolved.exclude_allergens)
     items = [
         IntentItem(
             **item.model_dump(exclude={"constraints"}),
             item_id=f"it_{index}",
             description_fi=item.description,
             used_in=[],
-            constraints=list(dict.fromkeys([*item.constraints, *hard])),
+            constraints=item_constraints(
+                resolved.preferences, resolved.exclude_allergens, item.constraints
+            ),
         )
         for index, item in enumerate(resolved.items, 1)
     ]

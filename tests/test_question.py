@@ -72,11 +72,27 @@ def test_guest_answer_resumes_to_quote_without_a_second_question(
         structured_outputs=[
             {"event_type": "company_lunch", "items": ITEMS, "dishes": [{"name": "Lunch"}]},
             {"text": "How many people is the lunch for?"},
+            {
+                "dishes": [
+                    {
+                        "name": "Lunch",
+                        "ingredients": [
+                            {
+                                "description": "flour",
+                                "description_fi": "jauho",
+                                "quantity_per_serving": 1.0,
+                                "unit": "g",
+                            }
+                        ],
+                    }
+                ]
+            },
         ]
     )
     with client_for(tmp_path, llm) as client:
         detail = post_text(client, text="Lunch for the team, including 2 kg flour")
         assert detail.question is not None and detail.question.field == "guests"
+        assert len(llm.calls) == 2  # Intent parsing and question wording precede expansion.
         response = client.post(
             f"/requests/{detail.request_id}/answer",
             json={"question_id": detail.question.question_id, "answer": answer},
@@ -92,7 +108,8 @@ def test_guest_answer_resumes_to_quote_without_a_second_question(
         assert sum(step.type == "CLARIFICATION_REQUESTED" for step in result.steps) == 1
         assert sum(step.type == "CLARIFICATION_ANSWERED" for step in result.steps) == 1
         assert sum(step.type == "REQUEST_RECEIVED" for step in result.steps) == 1
-        assert len(llm.calls) == 2  # The original text is not parsed twice.
+        assert len(llm.calls) == 3  # Expansion adds one call; the text is not parsed twice.
+        assert sum(step.type == "EVENT_EXPANDED" for step in result.steps) == 1
         assert verify_chain(result.steps)
         replay = client.post(
             f"/requests/{detail.request_id}/answer",

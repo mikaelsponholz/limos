@@ -30,6 +30,7 @@ class StructuredResult[T: BaseModel](BaseModel):
 
     value: T
     model_id: str
+    repaired: bool = False
 
 
 @dataclass(frozen=True)
@@ -159,7 +160,7 @@ class _ValidatedLLM(ABC):
                     ]
                 )
             else:
-                return StructuredResult[T](value=value, model_id=model_id)
+                return StructuredResult[T](value=value, model_id=model_id, repaired=attempt == 1)
         raise AssertionError("The repair loop must return or raise.")
 
     def run_tools(

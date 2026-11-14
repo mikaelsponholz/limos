@@ -46,4 +46,5 @@ How Limos was built, step by step. Each phase in `docs/PLAN.md` runs through the
 | Step | Tag | What was built | Builder | Reviewer | Fix rounds | Tests | Commit |
 |---|---|---|---|---|---|---|---|
 | 1 | ENGINE | Free-text intent with Gemini Flash, gap filling by precedence with sources, free-text reorder | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 0 | 718 | 8c4ea85 |
-| 2 | ENGINE | One clarifying question decided in code and worded by Gemini, answer route with "Use default", resume after the answer | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 1 (gate: delivery default changed without a model; two step 1 test cases superseded by the question) | 749 | see git log |
+| 2 | ENGINE | One clarifying question decided in code and worded by Gemini, answer route with "Use default", resume after the answer | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 1 (gate: delivery default changed without a model; two step 1 test cases superseded by the question) | 749 | e64f4f9 |
+| 3 | ENGINE | Event expansion: Gemini proposes ingredients per serving; code scales by servings, adds mandate waste, normalises units, merges across dishes and adds sanity notes; Flash vs Pro eval script | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 1 (gate: three earlier Phase 3 test cases had no expansion output) | 777 | see git log |
