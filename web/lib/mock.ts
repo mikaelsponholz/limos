@@ -25,6 +25,7 @@ import {
   type Preference,
   type Priority,
   type RuleFired,
+  type Step,
 } from "./types";
 
 type Run = {
@@ -34,6 +35,8 @@ type Run = {
   title?: string;
   decision?: { status: "APPROVED" | "REJECTED"; by: string; at: string };
   overrides?: Overrides;
+  startedAt?: number;
+  asked?: { text: string; answer: string };
 };
 const runs = new Map<string, Run>();
 let counter = 0;
@@ -356,6 +359,89 @@ function settleAuto(req: LimosRequest): LimosRequest {
   return { ...req, status: "ORDERED", approval_id: null, order };
 }
 
+/** The decision log for this run, step by step, as the gateway would write it.
+ * The wedding keeps the fixture log (it has the richest agent steps). Hashes are fake
+ * but linked, so the page shows the chain as intact. */
+function stepsFor(run: Run): Step[] {
+  const r = run.final;
+  const q = r.quote;
+  const t0 = run.startedAt ?? Date.now() - 60_000;
+  type Draft = { actor: string; type: string; title: string; detail?: unknown; model?: string | null; at?: number };
+  let drafts: Draft[];
+
+  if (!run.startedAt || /wedding/i.test(r.input.text ?? "")) {
+    drafts = clone<Audit>(audit).steps.map((s, i) => ({ ...s, at: t0 + i * 400 }));
+  } else {
+    drafts = [];
+    const based = r.intent?.based_on;
+    drafts.push({
+      actor: "customer",
+      type: "REQUEST_RECEIVED",
+      title: r.input.text && r.input.text !== "Same as last time" ? `Asked for: "${r.input.text}"` : `Asked for the same as "${based?.title ?? "last time"}"`,
+    });
+    drafts.push({ actor: "gateway", type: "CUSTOMER_LOADED", title: "Loaded the customer's profile and order history" });
+    if (run.asked) {
+      drafts.push({ actor: "agent", type: "QUESTION_ASKED", title: `Asked: ${run.asked.text}`, model: "gemini-flash" });
+      drafts.push({ actor: "customer", type: "QUESTION_ANSWERED", title: `Answered: ${run.asked.answer}` });
+    }
+    for (const g of r.intent?.filled_gaps ?? []) {
+      const yours = g.source === "form" || g.source === "answer";
+      const title = g.source === "answer" ? `From your answer: ${g.note}` : g.source === "form" ? g.note : `Assumed: ${g.note}`;
+      drafts.push({ actor: yours ? "customer" : "agent", type: "GAP_FILLED", title });
+    }
+    if (q) {
+      drafts.push({ actor: "gateway", type: "TOOL_CALL", title: `Checked price and availability for ${q.lines.length} product${q.lines.length === 1 ? "" : "s"} for ${day(q.delivery_date)}` });
+      for (const s of r.suggestions.filter((x) => x.status === "ACCEPTED")) drafts.push({ actor: "customer", type: "SUGGESTION_ACCEPTED", title: `Took the idea: ${s.title}` });
+      drafts.push({ actor: "gateway", type: "QUOTE_CREATED", title: `Locked the prices: ${q.total.toFixed(2)} EUR excl. VAT, ${q.total_with_tax.toFixed(2)} EUR with VAT` });
+      const rules = q.policy.rules_fired;
+      const outcome =
+        q.policy.outcome === "BLOCK"
+          ? `Can't be ordered: ${rules.filter((x) => x.outcome === "BLOCK").map((x) => x.description).join(" ")}`
+          : q.policy.outcome === "AUTO"
+            ? "Can be ordered without a check: no rule fired and the total is within the limits"
+            : rules.length
+              ? `Needs a check: ${rules.map((x) => x.description).join(" ")}`
+              : "Nothing unusual. The customer confirms the list with one tap";
+      drafts.push({ actor: "policy", type: "POLICY_DECISION", title: outcome, detail: { outcome: q.policy.outcome, rule_ids: rules.map((x) => x.rule_id) } });
+      if (r.approval_id && q.policy.outcome !== "BLOCK") drafts.push({ actor: "gateway", type: "APPROVAL_REQUESTED", title: "Waiting for the customer to approve the list" });
+    }
+    drafts = drafts.map((d, i) => ({ ...d, at: t0 + i * 300 }));
+  }
+
+  if (run.decision)
+    drafts.push({
+      actor: "human",
+      type: run.decision.status === "APPROVED" ? "APPROVED" : "REJECTED",
+      title: `${run.decision.by} ${run.decision.status === "APPROVED" ? "approved this exact list and its prices" : "said no to this list"}`,
+      at: Date.parse(run.decision.at),
+    });
+  if (r.order)
+    drafts.push({
+      actor: "gateway",
+      type: "ORDER_PLACED",
+      title: `Order placed with Valio Aimo, arrives ${day(r.order.delivery_date)}${r.order.approved_by ? "" : " (ordered automatically)"}`,
+      at: Date.parse(r.order.placed_at),
+    });
+
+  let prev: string | null = null;
+  return drafts.map((d, i) => {
+    const hash = `sha256:${(i + 1).toString(16).padStart(4, "0")}${r.request_id.slice(-8)}`;
+    const step: Step = {
+      seq: i + 1,
+      at: new Date(d.at ?? t0).toISOString(),
+      actor: d.actor,
+      type: d.type,
+      title: d.title,
+      detail: d.detail ?? {},
+      model: d.model ?? null,
+      prev_hash: prev,
+      hash,
+    };
+    prev = hash;
+    return step;
+  });
+}
+
 export const mock = {
   async customers(): Promise<CustomerSummary[]> {
     return clone(customers);
@@ -394,7 +480,7 @@ export const mock = {
     }
     if (final.quote) final.quote.request_id = id;
     const overrides = overridesFrom(body);
-    runs.set(id, { final: settleAuto(applySettings(final, overrides)), readyAt: later(1800), overrides });
+    runs.set(id, { final: settleAuto(applySettings(final, overrides)), readyAt: later(1800), overrides, startedAt: Date.now() });
     return { request_id: id, status: "RUNNING" as const };
   },
 
@@ -410,7 +496,12 @@ export const mock = {
     if (!run || run.final.status !== "NEEDS_INPUT" || run.final.question?.question_id !== question_id)
       throw new ApiError(409, "NO_OPEN_QUESTION", "There is no open question.");
     const guests = Number(answer ?? run.final.question.default ?? 30) || 30;
-    runs.set(id, { ...run, final: applySettings(penaQuoted(id, run.final.input.text ?? "", guests, true), run.overrides), readyAt: later(1500) });
+    runs.set(id, {
+      ...run,
+      final: applySettings(penaQuoted(id, run.final.input.text ?? "", guests, true), run.overrides),
+      readyAt: later(1500),
+      asked: { text: run.final.question.text, answer: answer === null ? `${guests} (the default)` : String(guests) },
+    });
     return { request_id: id, status: "RUNNING" as const };
   },
 
@@ -509,6 +600,8 @@ export const mock = {
   },
 
   async audit(id: string): Promise<Audit> {
-    return { ...clone<Audit>(audit), request_id: id };
+    const run = runs.get(id);
+    if (!run) throw new ApiError(404, "NOT_FOUND", "Request not found");
+    return { request_id: id, chain_valid: true, steps: stepsFor(run) };
   },
 };
