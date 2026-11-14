@@ -18,10 +18,17 @@ The gateway (FastAPI) runs as a container next to our Aiven PostgreSQL. The deci
    - `GEMINI_MODEL` = the model in `.env.example`
    - `WEB_ORIGIN` = the web app's URL (for example the Vercel URL), comma separated if several
    - `STORE` = `postgres` and `PORT` = `8000` are already set in the image.
+   - `MIGRATE_ON_START` = `true` explicitly enables startup migrations on Aiven Runtime.
 5. **Port:** 8000.
 6. After the first deploy, open `https://<app-url>/health`. Expect `{"status":"ok","valio_api":"ok","database":"ok"}`. Then `/customers` should list Pena and the chef.
 
 Runtime does not redeploy on push. After new commits, redeploy from the console. Editing secrets or variables redeploys automatically.
+
+The gateway no longer migrates on start unless `MIGRATE_ON_START=true`. Alternatively,
+set `DATABASE_URL` in the environment and run `uv run python -m scripts.migrate_db`
+as the database owner before deployment. In production, use a separate application
+role without owner rights for the gateway and keep startup migrations disabled;
+see `gateway/store/README.md` under "Production steps".
 
 ## Point the web app at it
 

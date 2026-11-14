@@ -50,3 +50,10 @@ How Limos was built, step by step. Each phase in `docs/PLAN.md` runs through the
 | 3 | ENGINE | Event expansion: Gemini proposes ingredients per serving; code scales by servings, adds mandate waste, normalises units, merges across dishes and adds sanity notes; Flash vs Pro eval script | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 1 (gate: three earlier Phase 3 test cases had no expansion output) | 777 | 01b5298 |
 | 4 | ENGINE | Gemini tool loop over HTTP: picks candidates and requests the quote through the gateway REST tools as agent limos-gemini; code fills ids, quantities and constraints, validates every choice and checks the explanation against the facts | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 0 | 796 | a95dcbd |
 | 5 | STANDARD | Fix found in a live check: Gemini rejected `additionalProperties` and `maxItems`, so every structured call failed with 400; Gemini now gets a reduced schema while Pydantic still validates in full | Codex gpt-6.1-sol | Gemini 3.8 Flash, standard | 1 (stopped on three Phase 0 assertions that pinned the old call; those three were allowed to change) | 808 | 23bd723 |
+
+## Between phases: Postgres store (Johannes) and review fixes
+
+| Step | Tag | What was built | Builder | Reviewer | Fix rounds | Tests | Commit |
+|---|---|---|---|---|---|---|---|
+| Merge | DB_RLS | Johannes's PostgresStore with database-level guarantees, catalogue-price rule, hosting files; merged from the web branch with the psycopg dependencies | Johannes (by hand, with his own tools) | Gemini 3.8 Flash, strict: FAIL | 1 (next row) | 816 | 43ea418 |
+| Fix | DB_RLS | No migration on start unless `MIGRATE_ON_START`, a migration command, decided approvals final (migration 002), a thread guard for store transactions | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 0 | 843 | see git log |

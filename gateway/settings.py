@@ -30,6 +30,9 @@ class Settings:
         default_factory=lambda: os.getenv("CATALOG_PATH", "data/valio/catalog.slim.json")
     )
     database_url: str = field(default_factory=lambda: os.getenv("DATABASE_URL", ""), repr=False)
+    migrate_on_start: bool = field(
+        default_factory=lambda: os.getenv("MIGRATE_ON_START", "").lower() in {"1", "true", "yes"}
+    )
     web_origin: str = field(
         default_factory=lambda: os.getenv("WEB_ORIGIN", "http://localhost:3000")
     )

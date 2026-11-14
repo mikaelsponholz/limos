@@ -23,9 +23,8 @@ COPY customers ./customers
 COPY presets ./presets
 COPY scripts ./scripts
 
-# psycopg is listed here until it is in pyproject.toml.
 RUN python -m venv .venv \
-    && .venv/bin/pip install --no-cache-dir . "psycopg[binary]" psycopg-pool
+    && .venv/bin/pip install --no-cache-dir .
 
 RUN useradd --create-home limos && chown -R limos /app
 USER limos

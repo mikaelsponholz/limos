@@ -15,7 +15,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
-from threading import RLock
+from threading import RLock, get_ident
 from typing import Any
 
 from psycopg import Connection, errors, sql
@@ -60,7 +60,7 @@ class PostgresStore:
         self._pool: ConnectionPool[Connection[Any]] = ConnectionPool(
             database_url, min_size=1, max_size=max(1, size), kwargs=kwargs, open=True
         )
-        self._tx: ContextVar[tuple[Connection[Any], int] | None] = ContextVar(
+        self._tx: ContextVar[tuple[Connection[Any], int, int] | None] = ContextVar(
             f"limos_pg_tx_{id(self)}", default=None
         )
         # Writers in this process queue here first, holding no connection while they wait.
@@ -73,21 +73,30 @@ class PostgresStore:
     def close(self) -> None:
         self._pool.close()
 
-    def migrate(self) -> None:
-        script = (MIGRATIONS / "001_init.sql").read_text(encoding="utf-8")
+    def migrate(self) -> list[str]:
+        scripts = sorted(MIGRATIONS.glob("*.sql"))
         with self._pool.connection() as conn, conn.transaction():
             # Two processes starting at once must not run the DDL at the same time.
             conn.execute("SELECT pg_advisory_xact_lock(%s)", (_ENGINE_LOCK + 1,))
-            conn.execute(sql.SQL(script))
+            for script in scripts:
+                conn.execute(sql.SQL(script.read_text(encoding="utf-8")))
+        return [script.name for script in scripts]
 
     # ---- transactions ----
 
+    def _current_transaction(self) -> tuple[Connection[Any], int, int] | None:
+        current = self._tx.get()
+        # to_thread() and copy_context() copy ContextVars, not connection ownership.
+        if current is not None and current[2] != get_ident():
+            raise RuntimeError("Postgres transaction belongs to another thread.")
+        return current
+
     @contextmanager
     def transaction(self) -> Iterator[None]:
-        current = self._tx.get()
+        current = self._current_transaction()
         if current is not None:
-            conn, depth = current
-            token = self._tx.set((conn, depth + 1))
+            conn, depth, owner = current
+            token = self._tx.set((conn, depth + 1, owner))
             try:
                 yield
             finally:
@@ -97,7 +106,7 @@ class PostgresStore:
             try:
                 with conn.transaction():
                     conn.execute("SELECT pg_advisory_xact_lock(%s)", (_ENGINE_LOCK,))
-                    token = self._tx.set((conn, 1))
+                    token = self._tx.set((conn, 1, get_ident()))
                     try:
                         yield
                     finally:
@@ -108,7 +117,7 @@ class PostgresStore:
 
     @contextmanager
     def _conn(self) -> Iterator[Connection[Any]]:
-        current = self._tx.get()
+        current = self._current_transaction()
         if current is not None:
             yield current[0]
         else:
@@ -116,7 +125,7 @@ class PostgresStore:
                 yield conn
 
     def _write(self) -> Connection[Any]:
-        current = self._tx.get()
+        current = self._current_transaction()
         assert current is not None, "writes run inside transaction()"
         return current[0]
 

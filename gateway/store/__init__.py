@@ -21,6 +21,6 @@ def create_store(settings: Settings, *, path: str | Path = Path(".runtime/store.
             # Imported here so memory and file stores never need psycopg.
             from gateway.store.postgres import PostgresStore
 
-            return PostgresStore(settings.database_url)
+            return PostgresStore(settings.database_url, migrate=settings.migrate_on_start)
         case _:
             raise ValueError(f"Unknown store implementation: {settings.store}.")

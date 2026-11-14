@@ -292,7 +292,7 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 ### Phase 6: Aiven, docs and demo hardening
 
 1. DB_RLS: Postgres `Store` for requests, quotes, approvals, orders, the history appended for seeded customers and the decision log, plus a migration SQL file. Mikael applies it to Aiven. File store stays the fallback.
-2. COPY: `README.md` (pitch, setup, fetch script, customers and presets, MCP), `docs/ARCHITECTURE.md`, `docs/POLICY.md` (rule table and mandate fields).
+2. COPY: `README.md` (pitch, setup, fetch script, customers and presets, MCP, "How we built Limos with Codex" from `docs/BUILD_LOG.md`, production steps including a database role without owner rights), `docs/ARCHITECTURE.md`, `docs/POLICY.md` (rule table and mandate fields).
 3. STANDARD: record and replay of Valio and Gemini responses in `.runtime/` for an offline demo, `scripts/demo_check.py`, a clear message when a rate limit is hit.
 
 ### Phase 7 (add-on): Storage capacity rule
@@ -340,6 +340,9 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 - 2026-11-14: Gemini gets a reduced JSON schema (`agent/llm.py` `gemini_schema`): the API rejects `additionalProperties` and `maxItems`, which made every structured call fail live. Pydantic still validates the full model.
 - 2026-11-14: The Gemini agent (agent id `limos-gemini`) calls the gateway's search, offers and quote routes over HTTP at `LIMOS_GATEWAY_URL`. Gemini picks products; code fills quantities, constraints, ids and dates and places the order or requests approval. Item lists also go through the tool loop when Gemini is configured; without it the deterministic runner is unchanged. Reorders keep their past product ids.
 - 2026-11-14: An event date is never used as the delivery date. Without a delivery date, the next-day system default applies and is listed as a filled gap.
+- 2026-11-14: `PRICE_MISSING` fires only when Valio returns an error or no `catalogPrice`. `netPriceFound=false` is normal in the Junction API (no customer-specific net price), and the catalogue price is a confirmed price (Johannes, b278d89).
+- 2026-11-14: PostgresStore (Johannes, b824823) is merged. The gateway never migrates on start unless `MIGRATE_ON_START=true`, which only the Aiven deployment sets explicitly. Otherwise migrations run with `uv run python -m scripts.migrate_db`. A decided approval can't change status, be deleted or be truncated (migration 002). Deleting quotes is still possible, listed as a known limitation. The table owner can disable the triggers; in production the gateway uses a separate role without owner rights (README production step).
+- 2026-11-14: Allergen gap (agreed with Johannes): the gateway always applies the buyer's own customer profile rules (excluded allergens, required dietary keys) to every quote, including standalone MCP and script quotes. `QuoteBody` gains optional `exclude_allergens` and `constraints` that can only add restrictions. Contract v0.4.
 - 2026-11-13: MCP server is its own phase right after the thin end-to-end flow.
 - 2026-11-13: Storage capacity rule is an add-on phase. Menu photo is stretch.
 - 2026-11-13: Pitch is time saving, without speed promises.
