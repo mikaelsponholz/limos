@@ -1,53 +1,73 @@
 "use client";
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useCustomer } from "@/lib/customer";
 import { readSettings, requestOverrides } from "@/lib/settings";
-import { assumedLines } from "@/lib/assumed";
-import OrderLine from "@/components/OrderLine";
 import Progress from "@/components/Progress";
-import RequestBox from "@/components/RequestBox";
-import { day, dayTime, eur } from "@/lib/format";
-import { ApiError, type LimosRequest, type Step, type Suggestion } from "@/lib/types";
+import ConversationReply from "@/components/ConversationReply";
+import ApprovalBar from "@/components/ApprovalBar";
+import { day, eur } from "@/lib/format";
+import { ApiError, type LimosRequest, type Offer, type Step, type Suggestion } from "@/lib/types";
 
 const POLL_MS = 1500;
+type Turn = { id: string; userText: string; request: LimosRequest | null; previousLines?: Offer[] };
 
 export default function OrderPage() {
   const { customer, reload } = useCustomer();
   const [text, setText] = useState("");
-  const [req, setReq] = useState<LimosRequest | null>(null);
+  const [turns, setTurns] = useState<Turn[]>([]);
+  const latest = turns[turns.length - 1];
+  const req = latest?.request ?? null;
+  const inConversation = turns.length > 0;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [reorderTitle, setReorderTitle] = useState<string | null>(null);
+  const [reorderOf, setReorderOf] = useState<string | undefined>();
   // Set while a list is being made: the gateway's steps so far, and the past order tapped (if any).
   const [running, setRunning] = useState<{ steps: Step[]; startedAt: number; reorderOf?: string } | null>(null);
   const field = useRef<HTMLTextAreaElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const version = useRef(0);
-  const focusOnStart = useRef(false);
+  const newest = useRef<HTMLElement>(null);
+  const bottomBar = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (field.current) {
       field.current.style.height = "auto";
       field.current.style.height = `${field.current.scrollHeight}px`;
-      if (focusOnStart.current) {
-        field.current.focus();
-        focusOnStart.current = false;
-      }
     }
-  }, [text, req, customer]);
+  }, [text, inConversation, customer]);
+
+  useEffect(() => {
+    const el = newest.current;
+    if (!el) return;
+    const frame = requestAnimationFrame(() => el.scrollIntoView({
+      block: "start",
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+    }));
+    return () => cancelAnimationFrame(frame);
+  }, [turns.length, req?.status, error]);
+
+  useEffect(() => {
+    const bar = bottomBar.current;
+    const thread = bar?.previousElementSibling as HTMLElement | null;
+    if (!bar || !thread) return;
+    const measure = () => { thread.style.paddingBottom = `${bar.offsetHeight + 16}px`; };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, [inConversation]);
 
   // A new customer starts a fresh page.
   useEffect(() => {
     version.current += 1;
     if (timer.current) clearTimeout(timer.current);
-    setReq(null);
+    setTurns([]);
     setText("");
     setError(null);
     setRunning(null);
     setBusy(false);
-    setReorderTitle(null);
+    setReorderOf(undefined);
   }, [customer?.customer_id]);
 
   const poll = useCallback((id: string, activeVersion = version.current) => {
@@ -62,7 +82,7 @@ export default function OrderPage() {
           timer.current = setTimeout(tick, POLL_MS);
           return;
         }
-        setReq(r);
+        setTurns((current) => current.map((turn, i) => i === current.length - 1 ? { ...turn, request: r } : turn));
         setBusy(false);
         setRunning(null);
       } catch (e) {
@@ -76,23 +96,40 @@ export default function OrderPage() {
   }, []);
   useEffect(
     () => () => {
+      version.current += 1;
       if (timer.current) clearTimeout(timer.current);
     },
     [],
   );
 
-  const start = async (body: { text?: string; reorder_of?: string }) => {
+  const start = async (body: { text?: string; reorder_of?: string }, refresh = false) => {
     if (!customer) return;
     const activeVersion = ++version.current;
-    setReorderTitle(body.reorder_of ? customer.order_history.find((o) => o.order_ref === body.reorder_of)?.title ?? null : null);
-    setError(null);
+    if (timer.current) clearTimeout(timer.current);
+    const orderRef = body.reorder_of ?? reorderOf;
+    const messages = turns.slice(orderRef ? 1 : 0).map((turn) => turn.userText);
+    const requestText = [...messages, ...(refresh ? [] : [body.text])].filter(Boolean).join("\n") || undefined;
+    if (!refresh) {
+      const previousLines = [...turns].reverse().find((turn) => turn.request?.quote)?.request?.quote?.lines;
+      const title = customer.order_history.find((order) => order.order_ref === body.reorder_of)?.title ?? "past order";
+      setTurns((current) => [...current, {
+        id: String(activeVersion),
+        userText: body.reorder_of ? "Order again: " + title : body.text ?? "",
+        request: null,
+        previousLines,
+      }]);
+      setText("");
+      setError(null);
+    }
+    setReorderOf(orderRef);
     setBusy(true);
-    setRunning({ steps: [], startedAt: Date.now(), reorderOf: body.reorder_of });
+    setRunning({ steps: [], startedAt: Date.now(), reorderOf: orderRef });
     try {
       const { request_id } = await api.createRequest({
         customer_id: customer.customer_id,
         ...requestOverrides(readSettings(customer.customer_id)),
-        ...body,
+        text: requestText,
+        reorder_of: orderRef,
       });
       if (activeVersion === version.current) poll(request_id, activeVersion);
     } catch {
@@ -104,7 +141,7 @@ export default function OrderPage() {
   };
 
   const answer = async (value: string | null) => {
-    if (!req?.question) return;
+    if (!req?.question || busy) return;
     const activeVersion = version.current;
     setBusy(true);
     setError(null);
@@ -121,7 +158,7 @@ export default function OrderPage() {
   };
 
   const accept = async (s: Suggestion) => {
-    if (!req) return;
+    if (!req || busy) return;
     const activeVersion = version.current;
     setBusy(true);
     setError(null);
@@ -138,7 +175,7 @@ export default function OrderPage() {
   };
 
   const approve = async () => {
-    if (!req?.quote || !req.approval_id || !customer) return;
+    if (!req?.quote || !req.approval_id || !customer || busy) return;
     const activeVersion = version.current;
     setBusy(true);
     setError(null);
@@ -148,6 +185,7 @@ export default function OrderPage() {
         content_hash: req.quote.content_hash,
         approver: customer.name,
       });
+      if (activeVersion !== version.current) return;
       reload();
       if (activeVersion === version.current) poll(req.request_id, activeVersion);
     } catch (e) {
@@ -155,10 +193,10 @@ export default function OrderPage() {
       setBusy(false);
       if (e instanceof ApiError && e.status === 409) {
         setError("Prices changed while you were looking. Here is the updated list.");
-        poll(req.request_id);
+        poll(req.request_id, activeVersion);
       } else if (e instanceof ApiError && e.status === 410) {
         setError("This list expired. Checking prices again.");
-        start({ text: req.input.text ?? undefined });
+        start({}, true);
       } else setError("The order did not go through. Please try again.");
     }
   };
@@ -169,60 +207,78 @@ export default function OrderPage() {
   const history = customer.order_history.slice(0, 3);
   const last = history[0];
   const submit = () => {
-    if (text.trim()) start({ text: text.trim() });
+    if (text.trim() && !busy) start({ text: text.trim() });
     else field.current?.focus();
   };
-  const requestText = reorderTitle ?? req?.input.text ?? req?.intent?.based_on?.title ?? text;
-  const reset = (keepText = false) => {
+  const reset = () => {
     version.current += 1;
     if (timer.current) clearTimeout(timer.current);
-    setReq(null);
-    setText(keepText ? requestText : "");
+    setTurns([]);
+    setText("");
     setError(null);
     setRunning(null);
     setBusy(false);
-    setReorderTitle(null);
-    focusOnStart.current = keepText;
+    setReorderOf(undefined);
     window.scrollTo({ top: 0, behavior: "instant" });
   };
 
-  if (req) {
+  if (inConversation) {
     return (
-      <main className="w-full max-w-[760px] mx-auto px-4 sm:px-6 pt-8 pb-12 flex flex-col gap-5">
+      <main className="w-full max-w-[720px] mx-auto px-4 sm:px-6 pt-4 flex-1 flex flex-col">
         <h1 className="sr-only">Your order</h1>
-        <RequestBox text={requestText} onNew={() => reset()} />
-        {running && <Progress steps={running.steps} startedAt={running.startedAt} />}
-        {(error || req.status === "FAILED") && (
-          <p role="alert" className="m-0 bg-bad-bg text-bad rounded-xl px-4 py-3">
-            {error ?? req.error?.message ?? "Something went wrong."}
-          </p>
-        )}
-        {req.quote && (
-          <ListView req={req} busy={busy} first={first} company={customer.company} onApprove={approve} onAccept={accept} onChange={() => reset(true)} />
-        )}
-        {req.status === "NEEDS_INPUT" && req.question && (
-          <section className={`bg-surface rounded-xl p-5 sm:p-6 flex flex-col gap-4 motion-safe:transition-opacity motion-safe:duration-150 ${busy ? "opacity-60" : ""}`}>
-            <h2 className="m-0 text-[24px] font-semibold">{req.question.text}</h2>
-            <div className="flex flex-wrap gap-3">
-              {req.question.choices.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  disabled={busy}
-                  onClick={() => answer(c)}
-                  className="min-h-14 min-w-24 max-w-full break-words px-6 rounded-md border border-petrol text-petrol text-[22px] font-semibold hover:bg-petrol-tint"
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-            {req.question.default && (
-              <button type="button" disabled={busy} onClick={() => answer(null)} className="self-start text-petrol underline min-h-11">
-                Use default ({req.question.default})
+        <div className="flex justify-end mb-4">
+          <button type="button" onClick={reset} className="min-h-11 text-[16px] font-medium text-petrol hover:underline">New request</button>
+        </div>
+        <div aria-label="Conversation" className="flex flex-col gap-8 pb-8">
+          {turns.map((turn, index) => {
+            const isLatest = index === turns.length - 1;
+            return (
+              <section key={turn.id} ref={isLatest ? newest : undefined} aria-label={"Turn " + (index + 1)} className="flex flex-col gap-5 min-w-0 scroll-mt-4">
+                <div className="self-end max-w-[85%] bg-petrol text-white rounded-xl px-4 py-3">
+                  <p className="m-0 text-[14px] font-medium text-petrol-tint">You</p>
+                  <p className="m-0 text-[17px] whitespace-pre-line break-words [overflow-wrap:anywhere]">{turn.userText}</p>
+                </div>
+                <div className="self-start w-full bg-surface rounded-xl px-5 sm:px-6 py-4 flex flex-col gap-3 min-w-0">
+                  <p className="m-0 text-[14px] font-medium text-petrol">Chef Aimo</p>
+                  {isLatest && running ? <Progress steps={running.steps} startedAt={running.startedAt} plain /> : (
+                    <>
+                      {isLatest && error && <p role="alert" className="m-0 text-[17px] text-bad">{error}</p>}
+                      {turn.request && <ConversationReply req={turn.request} previousLines={turn.previousLines} latest={isLatest} busy={busy} onAccept={accept} onAnswer={answer} />}
+                    </>
+                  )}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+        <div ref={bottomBar} className="sticky bottom-0 z-10 mt-auto bg-page pt-2 sm:pt-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex flex-col gap-3">
+          {req?.quote && req.status !== "NEEDS_INPUT" && <ApprovalBar req={req} busy={busy} first={first} company={customer.company} onApprove={approve} />}
+          {req?.status === "ORDERED" ? (
+            <button type="button" onClick={reset} className="self-center min-h-11 px-3 text-[17px] font-medium text-petrol hover:underline">Start a new request</button>
+          ) : (
+            <form className="bg-surface border border-line rounded-xl focus-within:border-petrol focus-within:ring-4 focus-within:ring-petrol-tint p-2 flex items-end gap-1" onSubmit={(e) => { e.preventDefault(); submit(); }}>
+              <textarea
+                ref={field}
+                rows={1}
+                aria-label="Change something or add to the list"
+                placeholder="Change something or add to the list"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    if (!busy) submit();
+                  }
+                }}
+                className="flex-1 min-w-0 w-full min-h-11 max-h-[112px] overflow-y-auto bg-transparent px-1.5 py-2 text-[17px] leading-6 resize-none outline-none placeholder:text-muted"
+              />
+              <button type="submit" disabled={busy || !text.trim()} className="flex-none min-h-11 px-2 rounded-md text-petrol text-[17px] font-semibold flex items-center gap-1 enabled:hover:bg-petrol-tint enabled:hover:underline disabled:text-soft">
+                Send
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 12h14M12 5l7 7-7 7" /></svg>
               </button>
-            )}
-          </section>
-        )}
+            </form>
+          )}
+        </div>
       </main>
     );
   }
@@ -302,154 +358,5 @@ export default function OrderPage() {
         )}
       </section>
     </main>
-  );
-}
-
-function ListView({
-  req,
-  busy,
-  first,
-  company,
-  onApprove,
-  onAccept,
-  onChange,
-}: {
-  req: LimosRequest;
-  busy: boolean;
-  first: string;
-  company: string;
-  onApprove: () => void;
-  onAccept: (s: Suggestion) => void;
-  onChange: () => void;
-}) {
-  const q = req.quote!;
-  const ordered = req.status === "ORDERED";
-  const blocked = !ordered && (req.status === "BLOCKED" || q.policy.outcome === "BLOCK");
-  const vat = q.total_with_tax - q.total;
-  const gaps = assumedLines(req.intent?.filled_gaps ?? []);
-  const offered = req.suggestions.filter((s) => s.status === "OFFERED");
-  const rules = q.policy.rules_fired;
-  const generalRules = rules.filter((r) => !q.lines.some((l) => l.product_id === r.product_id));
-  const linesToCheck = q.lines.filter((l) => rules.some((r) => r.product_id === l.product_id)).length;
-
-  return (
-    <div className={`flex flex-col gap-5 motion-safe:transition-opacity motion-safe:duration-150 ${busy ? "opacity-60" : ""}`} aria-busy={busy}>
-      <section aria-label="Summary" className="bg-petrol text-white rounded-xl p-5 sm:p-6 flex flex-col gap-5">
-        {ordered && (
-          <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 pb-5 border-b border-white/25">
-            <div className="min-w-0">
-              <h2 className="m-0 text-[24px] leading-tight font-semibold">Order placed</h2>
-              <p className="m-0 mt-1 text-[17px]">
-                {req.order?.approved_by ? `Thanks, ${first}. Valio Aimo has your order.` : `Ordered automatically, within ${company}'s ordering limits.`}
-              </p>
-            </div>
-            <Link href={`/audit/${req.request_id}`} className="min-h-11 inline-flex items-center text-[16px] font-medium text-white underline">
-              See order details
-            </Link>
-          </div>
-        )}
-        {/* Two columns built the same way (label, big value, small line), bottom aligned with the action on the right. */}
-        <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-5 sm:gap-6">
-          <div>
-            <p className="m-0 text-[15px] text-petrol-tint">Total incl. VAT</p>
-            <p className="m-0 text-[40px] leading-[1.15] font-semibold tabular-nums">{eur(q.total_with_tax)}</p>
-            <p className="m-0 text-[15px] text-petrol-tint">Products {eur(q.total)} | VAT {eur(vat)}</p>
-          </div>
-          <div>
-            <p className="m-0 text-[15px] text-petrol-tint">{ordered ? "Arrives" : "Delivery"}</p>
-            <p className="m-0 text-[40px] leading-[1.15] font-semibold whitespace-nowrap">{day(req.order?.delivery_date ?? q.delivery_date)}</p>
-            {!ordered && (
-              <p className="m-0 text-[15px] text-petrol-tint">
-                {q.order_deadline ? `Order by ${dayTime(q.order_deadline)}` : "No order deadline from Valio"}
-              </p>
-            )}
-          </div>
-          {req.status === "WAITING_APPROVAL" && !blocked && req.approval_id && (
-            <button type="button" onClick={onApprove} disabled={busy} className="w-full sm:w-auto shrink-0 min-h-14 px-7 rounded-md bg-lime text-petrol-dark text-[18px] font-semibold disabled:opacity-60">
-              Approve order
-            </button>
-          )}
-          {blocked && <p className="m-0 text-[18px] font-semibold">Can&apos;t be ordered</p>}
-        </div>
-      </section>
-
-      {!ordered && generalRules.length === 0 && linesToCheck > 0 && (
-        <p className="m-0 flex items-center gap-2.5 text-ink text-[17px]">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-petrol">
-            <path d="m10.3 3.9-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3.1l-8-14a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4m0 4h.01" />
-          </svg>
-          {linesToCheck} {linesToCheck === 1 ? "line below needs" : "lines below need"} a look before you approve.
-        </p>
-      )}
-
-      {!ordered && generalRules.length > 0 && (
-        <section className="bg-surface rounded-xl px-5 sm:px-6 py-2">
-          <h2 className="my-3 text-[20px] font-semibold">{blocked ? "Why it can't be ordered" : "Check before you approve"}</h2>
-          <ul className="m-0 p-0 list-none divide-y divide-hair">
-            {generalRules.map((r, i) => (
-              <li key={`${r.rule_id}-${i}`} className="flex items-start gap-2.5 py-3 text-ink text-[17px]">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className={`shrink-0 mt-0.5 ${blocked ? "text-bad" : "text-petrol"}`}>
-                  <path d="m10.3 3.9-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3.1l-8-14a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4m0 4h.01" />
-                </svg>
-                <span>{r.description}</span>
-              </li>
-            ))}
-            {linesToCheck > 0 && <li className="py-3 text-soft text-[17px]">{linesToCheck} {linesToCheck === 1 ? "line below needs" : "lines below need"} a look.</li>}
-          </ul>
-        </section>
-      )}
-
-      <section aria-labelledby="list-h" className="bg-surface rounded-xl px-5 sm:px-6 py-2 min-w-0">
-        <div className="flex flex-wrap items-baseline gap-x-2 my-3">
-          <h2 id="list-h" className="m-0 text-[20px] font-semibold">Your list</h2>
-          <span className="text-[16px] text-soft">| {q.lines.length} {q.lines.length === 1 ? "product" : "products"}</span>
-        </div>
-        <div className="divide-y divide-hair">
-          {q.lines.map((l) => <OrderLine key={l.product_id} l={l} rules={rules} />)}
-        </div>
-      </section>
-
-      {gaps.length > 0 && !ordered && (
-        <section className="bg-surface rounded-xl px-5 sm:px-6 py-2">
-          <h2 className="my-3 text-[20px] font-semibold">How I read your request</h2>
-          <ul className="m-0 p-0 list-none divide-y divide-hair">
-            {gaps.map((g, i) => (
-              <li key={i} className="flex items-center justify-between gap-4 py-2 text-[17px]">
-                <span className="text-ink min-w-0">{g.text.replace(/^We assumed:\s*/i, "")}</span>
-                {g.toSettings ? (
-                  <Link href="/settings" className="shrink-0 inline-flex items-center min-h-11 text-petrol hover:underline">Change</Link>
-                ) : (
-                  <button type="button" onClick={onChange} className="shrink-0 min-h-11 text-petrol hover:underline">Change</button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {offered.length > 0 && !ordered && (
-        <section className="bg-surface rounded-xl px-5 sm:px-6 py-2">
-          <h2 className="my-3 text-[20px] font-semibold">If you want</h2>
-          <ul className="m-0 p-0 list-none divide-y divide-hair">
-            {offered.map((s) => {
-              const replaced = s.replaces_item_id ? q.lines.find((l) => l.item_id === s.replaces_item_id) : null;
-              const delta = s.offer ? s.offer.line_total_with_tax - (replaced?.line_total_with_tax ?? 0) : null;
-              return (
-                <li key={s.suggestion_id} className="py-4 flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex-[1_1_280px] min-w-0">
-                    <p className="m-0 font-medium">{s.title}</p>
-                    <p className="m-0 text-[16px] text-soft">{s.reason}</p>
-                  </div>
-                  {delta !== null && <span className="font-semibold tabular-nums">{delta < 0 ? "−" : "+"}{eur(Math.abs(delta))}</span>}
-                  <button type="button" disabled={busy} onClick={() => onAccept(s)} className="min-h-11 px-5 rounded-md border border-petrol text-petrol font-semibold hover:bg-petrol-tint">
-                    {s.replaces_item_id ? "Swap" : "Add"}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
-    </div>
   );
 }

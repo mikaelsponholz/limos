@@ -12,7 +12,7 @@ const STAGES: { label: string; types: string[]; after: number }[] = [
   { label: "Checking your rules", types: ["POLICY_DECISION", "APPROVAL_REQUESTED"], after: Infinity },
 ];
 
-export default function Progress({ steps, startedAt }: { steps: Step[]; startedAt: number }) {
+export default function Progress({ steps, startedAt, plain = false }: { steps: Step[]; startedAt: number; plain?: boolean }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 500);
@@ -25,7 +25,7 @@ export default function Progress({ steps, startedAt }: { steps: Step[]; startedA
   const current = Math.max(byTime, bySteps);
 
   return (
-    <section className="bg-surface rounded-xl border border-hair px-5 py-4 flex flex-col gap-3">
+    <section className={`flex flex-col gap-3 ${plain ? "" : "bg-surface rounded-xl border border-hair px-5 py-4"}`}>
       <ol className="m-0 p-0 list-none flex flex-col gap-2.5 text-[17px]">
         {STAGES.map((s, i) => (
           <li key={s.label} className={`flex items-center gap-3 ${i > current ? "text-muted" : ""}`}>

@@ -83,8 +83,9 @@ function retotal(req: LimosRequest) {
 }
 
 function guestsFrom(text: string): number | null {
-  const m = text.match(/(\d{1,4})\s*(people|persons|guests|hengelle|henkeä|pax|for)?/i);
-  return m ? Number(m[1]) : null;
+  const matches = [...text.matchAll(/(\d{1,4})\s*(people|persons|guests|hengelle|henkeä|pax|for)?/gi)];
+  const last = matches[matches.length - 1];
+  return last ? Number(last[1]) : null;
 }
 
 // ---- Settings: the mock runs the same rules the gateway runs (docs/PLAN.md section 4) ----
