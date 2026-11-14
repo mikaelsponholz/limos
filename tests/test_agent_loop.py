@@ -136,12 +136,6 @@ def test_http_purchase_chooses_over_decoy_and_stores_explanation(
             "UNKNOWN_ITEM",
         ),
         (
-            ToolRequest(
-                "request_quote", {"choices": [{"item_id": "it_1", "product_id": "900703"}]}
-            ),
-            "OFFER_EXCLUDED",
-        ),
-        (
             ToolRequest("search_products", {"item_id": "it_1", "query": "flour", "quantity": 99}),
             "Invalid arguments",
         ),

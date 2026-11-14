@@ -297,6 +297,9 @@ def finish_order(order: Order, buyer_id: str, env: Resources) -> None:
         return
     detail.order = order
     detail.status = "ORDERED"
+    for suggestion in detail.suggestions:
+        if suggestion.status == "OFFERED":
+            suggestion.status = "DECLINED"
     detail.quote = env.store.get_quote(order.quote_id, buyer_id)
     if detail.customer_id:
         event = detail.intent.event

@@ -12,6 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from gateway.catalog.index import Catalog
+from gateway.customers import load_customers
 from gateway.main import create_app
 from gateway.schemas import (
     ApprovalDetail,
@@ -50,7 +51,7 @@ def client(tmp_path: Path) -> Iterator[TestClient]:
         ),
         product("900102", names={"en": "Invented butter"}),
         product("900103", names={"en": "Invented potatoes"}, country_of_origin="fi"),
-        product("900104", names={"en": "Invented eggs"}, pack_size={"value": 30, "unit": "pcs"}),
+        product("900104", names={"en": "Invented eggs"}, pack_size={"value": 5, "unit": "kg"}),
     ]
     fake = FakeValio([price(p.product_id) for p in records], [stock(p.product_id) for p in records])
     profile = Customer.model_validate_json("""{
@@ -63,6 +64,8 @@ def client(tmp_path: Path) -> Iterator[TestClient]:
       "sales_unit":"PRK","quantity_text":"2 x 1 kg","unit_price":3.35,"line_total":6.7}],
       "total":6.7,"source":"seeded","simulated":true}],"simulated":true}""")
     (tmp_path / "invented-customer.json").write_text(profile.model_dump_json(), encoding="utf-8")
+    chef = load_customers(overlay_dir=None)["c_chef"]
+    (tmp_path / "c_chef.json").write_text(chef.model_dump_json(), encoding="utf-8")
     app = create_app(
         Settings(store="memory", valio_api_key="", catalog_path=str(tmp_path / "missing.json")),
         catalog=Catalog(records),
@@ -137,10 +140,11 @@ def test_presets_and_preset_runner(client: TestClient) -> None:
     audit = Audit.model_validate_json(client.get(f"/audit/{request_id}").text)
     assert audit.chain_valid and audit.steps == detail.steps
     types = [step.type for step in audit.steps]
-    assert types[:2] == ["REQUEST_RECEIVED", "INTENT_PARSED"]
+    assert types[:3] == ["REQUEST_RECEIVED", "CUSTOMER_LOADED", "INTENT_PARSED"]
     assert types.count("TOOL_CALL") == 10
     assert types[-3:] == ["POLICY_DECISION", "TOOL_CALL", "ORDER_PLACED"]
-    listing = client.get("/requests", params={"buyer_id": IDENTITY["buyer_id"]})
+    assert detail.customer_id == "c_chef" and detail.buyer_id == "bistro-example"
+    listing = client.get("/requests", params={"buyer_id": detail.buyer_id})
     entry = RequestListEntry.model_validate_json(json.dumps(listing.json()[0]))
     assert entry.request_id == request_id and entry.status == "ORDERED"
 
@@ -367,9 +371,11 @@ def test_approval_error_codes(client: TestClient, change: str) -> None:
     assert response.json()["error"]["code"] == expected_code
     assert client.app.state.store.order_for_request(quote["request_id"], "demo-catering") is None
     assert client.app.state.store.get_approval(approval_id, "demo-catering").status == "PENDING"
-    assert len(client.app.state.valio.calls) - before == (
-        1 if expected_code == "AVAILABILITY_CHANGED" else 0
-    )
+    # An expired quote is re-quoted once (Phase 4): one price and one availability call.
+    assert len(client.app.state.valio.calls) - before == {
+        "AVAILABILITY_CHANGED": 1,
+        "QUOTE_EXPIRED": 2,
+    }.get(expected_code, 0)
 
 
 def test_reject(client: TestClient) -> None:

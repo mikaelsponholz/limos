@@ -1,0 +1,436 @@
+{
+  "simulated": true,
+  "catalog": [
+    {
+      "product_id": "900821",
+      "names": {
+        "en": "Invented cake cream"
+      },
+      "vendor": "Invented Pantry",
+      "country_of_origin": "fi",
+      "allergens": {
+        "may_contain": [
+          "tree_nuts",
+          "peanuts"
+        ],
+        "data_available": true
+      },
+      "claims": [
+        "lactose_free"
+      ],
+      "sales_unit": "ST",
+      "pack_size": {
+        "value": 0.25,
+        "unit": "L"
+      }
+    },
+    {
+      "product_id": "900822",
+      "names": {
+        "en": "Invented cake cream safe"
+      },
+      "vendor": "Invented Pantry",
+      "country_of_origin": "fi",
+      "allergens": {
+        "free_from": [
+          "tree_nuts",
+          "peanuts"
+        ],
+        "data_available": true
+      },
+      "claims": [
+        "lactose_free"
+      ],
+      "sales_unit": "ST",
+      "pack_size": {
+        "value": 0.25,
+        "unit": "L"
+      }
+    },
+    {
+      "product_id": "900823",
+      "names": {
+        "en": "Invented sandwich bread"
+      },
+      "vendor": "Invented Pantry",
+      "country_of_origin": "fi",
+      "allergens": {
+        "free_from": [
+          "tree_nuts",
+          "peanuts"
+        ],
+        "data_available": true
+      },
+      "claims": [
+        "lactose_free"
+      ],
+      "sales_unit": "ST",
+      "pack_size": {
+        "value": 0.25,
+        "unit": "kg"
+      }
+    },
+    {
+      "product_id": "900824",
+      "names": {
+        "en": "Invented fruit"
+      },
+      "vendor": "Invented Pantry",
+      "country_of_origin": "fi",
+      "allergens": {
+        "free_from": [
+          "tree_nuts",
+          "peanuts"
+        ],
+        "data_available": true
+      },
+      "claims": [
+        "lactose_free"
+      ],
+      "sales_unit": "ST",
+      "pack_size": {
+        "value": 0.5,
+        "unit": "kg"
+      }
+    }
+  ],
+  "valio": {
+    "price": {
+      "customerId": "demo-catering",
+      "currency": "EUR",
+      "pricingDate": "2026-11-20",
+      "products": [
+        {
+          "productId": "900821",
+          "quantity": "1",
+          "catalogPrice": {
+            "value": "1",
+            "valueWithTax": "1.14",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonPrice": {
+            "value": "4",
+            "valueWithTax": "4.56",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonUnit": "L",
+          "tax": {
+            "taxRate": "13.5",
+            "taxValue": "0.14"
+          },
+          "listPrice": {
+            "value": "1",
+            "valueWithTax": "1.14",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "netPriceFound": true,
+          "error": false
+        },
+        {
+          "productId": "900822",
+          "quantity": "1",
+          "catalogPrice": {
+            "value": "1.2",
+            "valueWithTax": "1.36",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonPrice": {
+            "value": "4.8",
+            "valueWithTax": "5.44",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonUnit": "L",
+          "tax": {
+            "taxRate": "13.5",
+            "taxValue": "0.16"
+          },
+          "listPrice": {
+            "value": "1.2",
+            "valueWithTax": "1.36",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "netPriceFound": true,
+          "error": false
+        },
+        {
+          "productId": "900823",
+          "quantity": "1",
+          "catalogPrice": {
+            "value": "2",
+            "valueWithTax": "2.27",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonPrice": {
+            "value": "8",
+            "valueWithTax": "9.08",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonUnit": "KG",
+          "tax": {
+            "taxRate": "13.5",
+            "taxValue": "0.27"
+          },
+          "listPrice": {
+            "value": "2",
+            "valueWithTax": "2.27",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "netPriceFound": true,
+          "error": false
+        },
+        {
+          "productId": "900824",
+          "quantity": "1",
+          "catalogPrice": {
+            "value": "3",
+            "valueWithTax": "3.41",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonPrice": {
+            "value": "6",
+            "valueWithTax": "6.82",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "comparisonUnit": "KG",
+          "tax": {
+            "taxRate": "13.5",
+            "taxValue": "0.41"
+          },
+          "listPrice": {
+            "value": "3",
+            "valueWithTax": "3.41",
+            "validFrom": "2026-01-01",
+            "validTo": "2026-12-31",
+            "currency": "EUR"
+          },
+          "netPriceFound": true,
+          "error": false
+        }
+      ]
+    },
+    "availability": {
+      "timeNow": "2026-11-14T09:00:00+02:00",
+      "requestedDate": "2026-11-20",
+      "products": [
+        {
+          "productId": "900821",
+          "closingTime": "2026-11-19T17:00:00+02:00",
+          "salesBlock": false,
+          "logisticModel": "Stock",
+          "scheduleLines": [
+            {
+              "salesBlock": false,
+              "availableAmount": "2",
+              "availableDate": "2026-11-16",
+              "salesUnit": "ST"
+            }
+          ]
+        },
+        {
+          "productId": "900822",
+          "closingTime": "2026-11-19T17:00:00+02:00",
+          "salesBlock": false,
+          "logisticModel": "Stock",
+          "scheduleLines": [
+            {
+              "salesBlock": false,
+              "availableAmount": "100",
+              "availableDate": "2026-11-16",
+              "salesUnit": "ST"
+            }
+          ]
+        },
+        {
+          "productId": "900823",
+          "closingTime": "2026-11-19T17:00:00+02:00",
+          "salesBlock": false,
+          "logisticModel": "Stock",
+          "scheduleLines": [
+            {
+              "salesBlock": false,
+              "availableAmount": "100",
+              "availableDate": "2026-11-16",
+              "salesUnit": "ST"
+            }
+          ]
+        },
+        {
+          "productId": "900824",
+          "closingTime": "2026-11-19T17:00:00+02:00",
+          "salesBlock": false,
+          "logisticModel": "Stock",
+          "scheduleLines": [
+            {
+              "salesBlock": false,
+              "availableAmount": "100",
+              "availableDate": "2026-11-16",
+              "salesUnit": "ST"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "llm": {
+    "structured_outputs": [
+      {
+        "event_type": "birthday",
+        "guests": 25,
+        "deliver_by": "2026-11-20",
+        "budget": 250,
+        "preferences": [],
+        "exclude_allergens": [
+          "tree_nuts",
+          "peanuts"
+        ]
+      },
+      {
+        "dishes": [
+          {
+            "name": "Strawberry cake",
+            "ingredients": [
+              {
+                "description": "cake cream",
+                "description_fi": "cake cream",
+                "quantity_per_serving": 0.04,
+                "unit": "L"
+              }
+            ]
+          },
+          {
+            "name": "Ham sandwiches",
+            "ingredients": [
+              {
+                "description": "sandwich bread",
+                "description_fi": "sandwich bread",
+                "quantity_per_serving": 0.05,
+                "unit": "kg"
+              }
+            ]
+          },
+          {
+            "name": "Fruit plate",
+            "ingredients": [
+              {
+                "description": "fruit",
+                "description_fi": "fruit",
+                "quantity_per_serving": 0.1,
+                "unit": "kg"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "text": "The selected products cover the requested items. The quote is ready for review."
+      }
+    ],
+    "tool_responses": [
+      [
+        {
+          "name": "search_products",
+          "arguments": {
+            "item_id": "it_1",
+            "query": "cake cream"
+          }
+        }
+      ],
+      [
+        {
+          "name": "check_offers",
+          "arguments": {
+            "item_id": "it_1",
+            "product_ids": [
+              "900821",
+              "900822"
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "name": "search_products",
+          "arguments": {
+            "item_id": "it_2",
+            "query": "sandwich bread"
+          }
+        }
+      ],
+      [
+        {
+          "name": "check_offers",
+          "arguments": {
+            "item_id": "it_2",
+            "product_ids": [
+              "900823"
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "name": "search_products",
+          "arguments": {
+            "item_id": "it_3",
+            "query": "fruit"
+          }
+        }
+      ],
+      [
+        {
+          "name": "check_offers",
+          "arguments": {
+            "item_id": "it_3",
+            "product_ids": [
+              "900824"
+            ]
+          }
+        }
+      ],
+      [
+        {
+          "name": "request_quote",
+          "arguments": {
+            "choices": [
+              {
+                "item_id": "it_1",
+                "product_id": "900821"
+              },
+              {
+                "item_id": "it_2",
+                "product_id": "900823"
+              },
+              {
+                "item_id": "it_3",
+                "product_id": "900824"
+              }
+            ]
+          }
+        }
+      ],
+      "The quote is ready."
+    ]
+  }
+}

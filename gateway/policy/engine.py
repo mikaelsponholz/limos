@@ -53,6 +53,7 @@ _APPROVAL_RULES: tuple[RuleId, ...] = (
     "OVERBUY",
     "PACK_SIZE_UNKNOWN",
     "TERMINAL_LOW_RELIABILITY",
+    "PRICE_CHANGED",
     "APPROVAL_ALWAYS_REQUIRED",
 )
 _RULE_ORDER = {rule: index for index, rule in enumerate(_BLOCK_RULES + _APPROVAL_RULES)}
@@ -127,6 +128,7 @@ def evaluate(
     mandate: MandateEntry,
     agent_id: str,
     budget: float | None = None,
+    previous_prices: Mapping[tuple[str, str], float] | None = None,
 ) -> PolicyDecision:
     """Evaluate chosen lines, retaining all rules in PLAN section 4 order.
 
@@ -192,6 +194,14 @@ def evaluate(
             raise ValueError(f"Missing policy context for item: {line.item_id}.")
         by_item[line.item_id].append(line)
         context = item_context[line.item_id]
+        previous = (previous_prices or {}).get((line.item_id, line.product_id))
+        if previous is not None and _decimal(line.unit_price) != _decimal(previous):
+            fire(
+                "PRICE_CHANGED",
+                f"{line.name} unit price changed from {previous:.2f} EUR "
+                f"to {line.unit_price:.2f} EUR.",
+                line,
+            )
         for flag, rule, fact in _FLAG_RULES:
             if flag in line.flags:
                 fire(rule, f"{line.name} {fact}.", line)

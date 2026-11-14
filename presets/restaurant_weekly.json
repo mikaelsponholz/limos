@@ -4,7 +4,7 @@
   "description": "Routine weekly order of staples for a lunch restaurant.",
   "expected": "Every line passes the rules and the agent orders on its own.",
   "request": {
-    "buyer_id": "demo-catering",
+    "buyer_id": "bistro-example",
     "preset_id": "restaurant_weekly",
     "text": null,
     "requested_date": "2026-11-17",
@@ -34,8 +34,8 @@
       },
       {
         "description": "eggs",
-        "quantity": 180,
-        "unit": "pcs",
+        "quantity": 10,
+        "unit": "kg",
         "constraints": []
       }
     ],
@@ -48,8 +48,8 @@
     "exclude_allergens": [],
     "budget": null,
     "priority": "price",
-    "customer_id": null,
+    "customer_id": "c_chef",
     "reorder_of": null
   },
-  "customer_id": null
+  "customer_id": "c_chef"
 }

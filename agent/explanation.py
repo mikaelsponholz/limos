@@ -98,4 +98,8 @@ def explain(llm: LLM, quote: Quote, model: str) -> Explanation:
             f"{deadline}. {outcome}" + (f": {reasons}" if reasons else "") + "."
         )
         return Explanation(text, error.model_id, True)
-    return Explanation(result.value.text, result.model_id, False)
+    text = result.value.text
+    for rule in quote.policy.rules_fired:
+        if rule.rule_id == "PREFERENCE_REQUIRED_UNMET" and rule.description not in text:
+            text += " " + rule.description
+    return Explanation(text, result.model_id, False)

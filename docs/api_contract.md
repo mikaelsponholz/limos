@@ -1,4 +1,4 @@
-# Limos API contract (v0.5)
+# Limos API contract (v0.6)
 
 Contract between the **web** (Johannes) and the **backend** (gateway + Gemini agent, Mikael). v0.2 merged Johannes's v0.1 with Mikael's contract. v0.3 adds customer profiles, reorder, one clarifying question, optional suggestions and per-line delivery and order deadlines (Valio mentor requirements, 2026-11-14). Every earlier field keeps its name and meaning, and new fields are additions. Change it only by agreement, and bump the version.
 
@@ -14,6 +14,11 @@ Three kinds of endpoints:
 - **Buyer side**: the kitchen user starts a request and follows it.
 - **Approver side**: a human approves or rejects. Never callable by an agent, and not exposed over MCP.
 - **Gateway tools**: what any buying agent calls (our Gemini agent, Claude Desktop over MCP, a plain script).
+
+## Changes from v0.5 to v0.6
+
+- `QuoteLine` in `POST /gateway/quotes` gains optional `substitute_for` (the original product id) and `substitute_source` (`valio` or `agent`). Both default to `null` and are set together. The quoted line then has `is_substitute: true` with the same two fields, and `SUBSTITUTION` fires. A `valio` source must match a substitution in Valio's data, else `422`.
+- An item may have two lines in one quote. The second has `is_split: true`, and `SPLIT_DELIVERY` fires. More than two lines for one item is a `422`.
 
 ## Changes from v0.4 to v0.5
 
@@ -467,7 +472,7 @@ Every call carries `buyer_id` and `agent_id`. The gateway checks the agent again
 |---|---|---|---|
 | `POST /gateway/search` | `search_products` | `{query, constraints, exclude_allergens, limit}` | `{"products": [{product_id, name, vendor, sales_unit, pack_size, country_of_origin, labels, allergens}]}` from the local catalogue, never the Valio API |
 | `POST /gateway/offers` | `check_offers` | `{product_ids, item_id, quantity, unit, requested_date, constraints, exclude_allergens}` | `{"offers": [Offer]}`. Calls Valio price and availability for this shortlist only |
-| `POST /gateway/quotes` | `request_quote` | `{request_id?, buyer_id, agent_id, requested_date, lines: [{item_id, product_id, quantity_sales_units}], budget?, option_label?, exclude_allergens?: [], constraints?: []}` | `Quote` with the policy decision |
+| `POST /gateway/quotes` | `request_quote` | `{request_id?, buyer_id, agent_id, requested_date, lines: [{item_id, product_id, quantity_sales_units, substitute_for?, substitute_source?}], budget?, option_label?, exclude_allergens?: [], constraints?: []}` | `Quote` with the policy decision |
 | `POST /gateway/quotes/{quote_id}/request-approval` | `request_approval` | `{agent_id, explanation, alternative_quote_ids?}` | `{"approval_id", "status": "PENDING"}` |
 | `POST /gateway/orders` | `place_order` | `{quote_id, agent_id, idempotency_key}` | `Order`. `403 NEEDS_APPROVAL` without a matching approval, `410 QUOTE_EXPIRED`, `422 BLOCKED`. Same key → same order |
 | `GET /gateway/orders/{order_id}` | `get_order_status` | | `Order`, or the pending approval state |

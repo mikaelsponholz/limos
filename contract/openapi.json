@@ -2520,6 +2520,34 @@
           "quantity_sales_units": {
             "title": "Quantity Sales Units",
             "type": "number"
+          },
+          "substitute_for": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Substitute For"
+          },
+          "substitute_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "valio",
+                  "agent"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Substitute Source"
           }
         },
         "required": [
@@ -3594,7 +3622,7 @@
   },
   "info": {
     "title": "Limos",
-    "version": "0.5"
+    "version": "0.6"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -4387,6 +4415,54 @@
           }
         },
         "summary": "Answer Request"
+      }
+    },
+    "/requests/{request_id}/suggestions/{suggestion_id}/accept": {
+      "post": {
+        "operationId": "accept_suggestion_requests__request_id__suggestions__suggestion_id__accept_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "title": "Request Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "suggestion_id",
+            "required": true,
+            "schema": {
+              "title": "Suggestion Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestCreated"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept Suggestion"
       }
     }
   }

@@ -60,3 +60,13 @@ How Limos was built, step by step. Each phase in `docs/PLAN.md` runs through the
 | Allergen gap | ENGINE | Every quote gets the buyer's own profile rules (excluded allergens, required dietary keys), also standalone MCP and script quotes; optional quote fields only add restrictions; contract v0.4 | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 0 | 863 | 0d11ff1 |
 | Pena approves | ENGINE | Mandate setting `always_require_approval` (on for Ab Oy): every non-blocked quote needs one-tap approval via `APPROVAL_ALWAYS_REQUIRED`; the chef keeps AUTO within the mandate; contract v0.5 | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 1 (stopped on a mandate test that pinned identical mandates; one line allowed to change) | 877 | 4d75443 |
 | Secret safety | TEST | Postgres fixture never prints the connection string (generic failures, hidden repr, short tracebacks) and skips without reading `.env` when `LIMOS_SKIP_PG_TESTS=1`, which every Codex build sets | Claude (written directly: running this fixture inside Codex leaked the URL) | Gemini 3.8 Flash, strict | 0 | 880 | see git log |
+
+## Phase 4: Exceptions and presets
+
+| Step | Tag | What was built | Builder | Reviewer | Fix rounds | Tests | Commit |
+|---|---|---|---|---|---|---|---|
+| 1a | ENGINE | Code plans each item's exceptions: next candidate, Valio substitute, agent substitute (Gemini proposes a search, rules decide), split for short stock with a whole-need alternative, in-time before late; alternatives as labelled approval options; contract v0.6 (`QuoteLine` substitute fields) | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 1 (loop test; two superseded tests updated with Mikael's approval) | 918 | 6375200 |
+| 1b | ENGINE | Cheaper option over budget (biggest saving first); approving an expired quote re-quotes it once and `PRICE_CHANGED` fires when a locked price moved; the re-quote always waits for a human | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 1 (old approval stays stored PENDING; one assertion updated with Mikael's approval) | 946 | a98ccc9 |
+| 2 | ENGINE | Up to three priced suggestions for playful customers while a quote waits for approval; accepting one re-quotes under the rules | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 0 | 971 | 48afee2 |
+| 3a | ENGINE | The policy decision step names the mandate that allowed or stopped the order (added when step 3's build stopped for it) | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 0 | 974 | 4147920 |
+| 3 | TEST | `scripts/find_demo_cases.py`, presets linked to their customers, invented recordings per preset, one test per preset and Pena's reorder | Codex gpt-6.1-sol | Gemini 3.8 Flash, standard | 1 (first build stopped correctly for 3a) | 984 | 661af57 |

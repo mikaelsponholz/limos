@@ -75,7 +75,7 @@ def test_cli_resolves_overlay_offline_with_only_count_output(tmp_path: Path) -> 
     resolved = load_customers(overlay_dir=out)
     assert {p.name for p in out.iterdir()} == {"c_pena.json", "c_chef.json"}
     expected = {
-        "900310": "900701",
+        "900310": "900705",
         "900311": "900705",
         "900401": "900702",
         "900402": "900703",

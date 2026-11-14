@@ -1,13 +1,14 @@
 """A bounded Gemini purchasing loop using the gateway's HTTP tools."""
 
+import asyncio
 import json
-from fractions import Fraction
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from agent.explanation import explain
 from agent.gateway_client import AGENT_ID, GatewayClient, GatewayClientError
 from agent.llm import LLM, LLMOutputError, Tool
+from agent.purchasing import create_options, resolve_item
 from gateway import tools
 from gateway.api.dependencies import Resources
 from gateway.audit import append_step
@@ -19,7 +20,6 @@ from gateway.schemas import (
     OffersBody,
     Quote,
     QuoteBody,
-    QuoteLine,
     RequestDetail,
     SearchBody,
 )
@@ -48,7 +48,9 @@ class QuoteArguments(Arguments):
     choices: list[Selection] = Field(min_length=1)
 
 
-def run_loop(llm: LLM, detail: RequestDetail, env: Resources) -> Quote:
+def run_loop(
+    llm: LLM, detail: RequestDetail, env: Resources, alternative_ids: list[str] | None = None
+) -> Quote:
     client = GatewayClient(env.settings, env.gateway_http_client)
     items = {item.item_id: item for item in detail.intent.items}
     searched: dict[str, set[str]] = {}
@@ -77,7 +79,7 @@ def run_loop(llm: LLM, detail: RequestDetail, env: Resources) -> Quote:
                     buyer_id=detail.buyer_id,
                     agent_id=AGENT_ID,
                     query=query,
-                    constraints=constraints(items[item_id]),
+                    constraints=items[item_id].constraints,
                     exclude_allergens=detail.intent.exclude_allergens,
                     limit=5,
                 )
@@ -132,45 +134,82 @@ def run_loop(llm: LLM, detail: RequestDetail, env: Resources) -> Quote:
             return error("UNKNOWN_ITEM")
         if {choice.item_id for choice in choices} != set(items) or len(choices) != len(items):
             return error("MISSING_OR_DUPLICATE_ITEMS")
-        lines: list[QuoteLine] = []
+        selected: list[Offer] = []
         for choice in choices:
             offer = seen.get(choice.item_id, {}).get(choice.product_id)
             if offer is None:
                 return error("PRODUCT_NOT_OFFERED")
-            if (
-                {"NOT_DELIVERABLE", "SALES_BLOCK", "PRICE_MISSING"} & set(offer.flags)
-                or set(offer.allergens.contains) & set(detail.intent.exclude_allergens)
-                or any(
-                    offer.dietary_check.get(key) == "violated"
-                    for key in constraints(items[choice.item_id])
-                )
+            if set(offer.allergens.contains) & set(detail.intent.exclude_allergens) or any(
+                offer.dietary_check.get(key) == "violated"
+                for key in items[choice.item_id].constraints
             ):
                 return error("OFFER_EXCLUDED")
-            units = offer.quantity_sales_units
-            if not units:
-                record = env.catalog.lookup(offer.product_id)
-                if record is None:
-                    return error("PRODUCT_NOT_OFFERED")
-                units = float(Fraction(str(record.allowed_lot_size or 1)).numerator)
-            lines.append(
-                QuoteLine(
-                    item_id=choice.item_id, product_id=choice.product_id, quantity_sales_units=units
-                )
+            selected.append(offer)
+
+        async def plan_and_quote() -> Quote:
+            plans = []
+            ordered_items = []
+            for offer in selected:
+                item = items[offer.item_id]
+                ordered_items.append(item)
+
+                async def fetch(ids: list[str], item: IntentItem = item) -> list[Offer]:
+                    response = client.check_offers(
+                        OffersBody(
+                            buyer_id=detail.buyer_id,
+                            agent_id=AGENT_ID,
+                            product_ids=ids,
+                            item_id=item.item_id,
+                            quantity=item.quantity,
+                            unit=item.unit,
+                            requested_date=detail.intent.deliver_by,
+                            constraints=constraints(item),
+                            exclude_allergens=detail.intent.exclude_allergens,
+                        )
+                    )
+                    return response.offers
+
+                def search(query: str, item: IntentItem = item) -> list[str]:
+                    response = client.search_products(
+                        SearchBody(
+                            buyer_id=detail.buyer_id,
+                            agent_id=AGENT_ID,
+                            query=query,
+                            constraints=item.constraints,
+                            exclude_allergens=detail.intent.exclude_allergens,
+                            limit=5,
+                        )
+                    )
+                    return [product.product_id for product in response.products]
+
+                ordered = [
+                    offer,
+                    *[
+                        other
+                        for other in seen[item.item_id].values()
+                        if other.product_id != offer.product_id
+                    ],
+                ]
+                plans.append(await resolve_item(item, ordered, detail, env, fetch, search, llm))
+
+            async def create(body: QuoteBody) -> Quote:
+                return client.request_quote(body)
+
+            return await create_options(
+                detail,
+                ordered_items,
+                plans,
+                AGENT_ID,
+                create,
+                alternative_ids if alternative_ids is not None else [],
+                env,
             )
+
         try:
-            quote = client.request_quote(
-                QuoteBody(
-                    buyer_id=detail.buyer_id,
-                    agent_id=AGENT_ID,
-                    request_id=detail.request_id,
-                    requested_date=detail.intent.deliver_by,
-                    lines=lines,
-                    budget=detail.intent.budget,
-                )
-            )
+            quote = asyncio.run(plan_and_quote())
         except GatewayClientError as exc:
             return error(exc.code)
-        for line in lines:
+        for line in quote.lines:
             append_step(
                 env.store,
                 detail.request_id,

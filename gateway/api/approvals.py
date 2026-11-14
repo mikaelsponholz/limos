@@ -11,6 +11,7 @@ from gateway.api.dependencies import Resources, domain_errors, json_body
 from gateway.api.gateway_tools import Env
 from gateway.audit import append_step
 from gateway.errors import GatewayError
+from gateway.requote import requote_expired
 from gateway.schemas import (
     ApprovalDetail,
     ApprovalListEntry,
@@ -39,6 +40,8 @@ def find_approval(approval_id: str, env: Resources) -> ApprovalRecord:
 
 
 def selected_quote(approval: ApprovalRecord, body: ApproveBody, env: Resources) -> Quote:
+    if approval.status == "EXPIRED":
+        raise GatewayError(410, "QUOTE_EXPIRED", "Quote has expired; request a new quote.")
     if approval.status != "PENDING":
         raise GatewayError(409, "ALREADY_DECIDED", "Approval has already been decided.")
     if body.quote_id not in approval.option_quote_ids:
@@ -166,7 +169,12 @@ async def approve(
     approval_id: str, body: Annotated[ApproveBody, json_body(ApproveBody)], env: Env
 ) -> ApproveResponse:
     approval = find_approval(approval_id, env)
-    quote = selected_quote(approval, body, env)
+    try:
+        quote = selected_quote(approval, body, env)
+    except GatewayError as exc:
+        if exc.code == "QUOTE_EXPIRED":
+            await requote_expired(approval, env)
+        raise
     env.permit(quote.buyer_id, quote.agent_id)
     await recheck(quote, env)
     try:
@@ -193,6 +201,8 @@ async def approve(
     except GatewayError as exc:
         if exc.code == "HASH_MISMATCH":
             raise GatewayError(409, "QUOTE_CHANGED", exc.message) from None
+        if exc.code == "QUOTE_EXPIRED":
+            await requote_expired(approval, env)
         raise
     return ApproveResponse(status="APPROVED", order=order)
 
@@ -214,6 +224,9 @@ def reject(
         detail = env.store.get_request(approval.request_id, approval.buyer_id)
         if detail:
             detail.status = "REJECTED"
+            for suggestion in detail.suggestions:
+                if suggestion.status == "OFFERED":
+                    suggestion.status = "DECLINED"
             detail.quote = env.store.get_quote(approval.quote_id, approval.buyer_id)
             env.store.save_request(detail)
     return RejectResponse(status="REJECTED")
