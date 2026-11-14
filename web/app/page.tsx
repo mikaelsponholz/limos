@@ -7,7 +7,7 @@ import { readSettings, requestOverrides } from "@/lib/settings";
 import { assumedLines } from "@/lib/assumed";
 import OrderLine from "@/components/OrderLine";
 import Progress from "@/components/Progress";
-import { ICONS, day, dayTime, eur } from "@/lib/format";
+import { day, dayTime, eur } from "@/lib/format";
 import { ApiError, type LimosRequest, type Step, type Suggestion } from "@/lib/types";
 
 const POLL_MS = 1500;
@@ -18,24 +18,43 @@ export default function OrderPage() {
   const [req, setReq] = useState<LimosRequest | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reorderTitle, setReorderTitle] = useState<string | null>(null);
   // Set while a list is being made: the gateway's steps so far, and the past order tapped (if any).
   const [running, setRunning] = useState<{ steps: Step[]; startedAt: number; reorderOf?: string } | null>(null);
   const field = useRef<HTMLTextAreaElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const version = useRef(0);
+  const focusOnStart = useRef(false);
+
+  useEffect(() => {
+    if (field.current) {
+      field.current.style.height = "auto";
+      field.current.style.height = `${field.current.scrollHeight}px`;
+      if (focusOnStart.current) {
+        field.current.focus();
+        focusOnStart.current = false;
+      }
+    }
+  }, [text, req, customer]);
 
   // A new customer starts a fresh page.
   useEffect(() => {
+    version.current += 1;
+    if (timer.current) clearTimeout(timer.current);
     setReq(null);
     setText("");
     setError(null);
     setRunning(null);
+    setBusy(false);
+    setReorderTitle(null);
   }, [customer?.customer_id]);
 
-  const poll = useCallback((id: string) => {
+  const poll = useCallback((id: string, activeVersion = version.current) => {
     if (timer.current) clearTimeout(timer.current);
     const tick = async () => {
       try {
         const r = await api.getRequest(id);
+        if (activeVersion !== version.current) return;
         if (r.status === "RUNNING") {
           setBusy(true);
           setRunning((p) => (p ? { ...p, steps: r.steps ?? [] } : p));
@@ -46,6 +65,7 @@ export default function OrderPage() {
         setBusy(false);
         setRunning(null);
       } catch (e) {
+        if (activeVersion !== version.current) return;
         setBusy(false);
         setRunning(null);
         setError(e instanceof ApiError ? e.message : "Something went wrong. Please try again.");
@@ -62,6 +82,8 @@ export default function OrderPage() {
 
   const start = async (body: { text?: string; reorder_of?: string }) => {
     if (!customer) return;
+    const activeVersion = ++version.current;
+    setReorderTitle(body.reorder_of ? customer.order_history.find((o) => o.order_ref === body.reorder_of)?.title ?? null : null);
     setError(null);
     setBusy(true);
     setRunning({ steps: [], startedAt: Date.now(), reorderOf: body.reorder_of });
@@ -71,8 +93,9 @@ export default function OrderPage() {
         ...requestOverrides(readSettings(customer.customer_id)),
         ...body,
       });
-      poll(request_id);
+      if (activeVersion === version.current) poll(request_id, activeVersion);
     } catch {
+      if (activeVersion !== version.current) return;
       setBusy(false);
       setRunning(null);
       setError("We could not reach Limos. Please try again.");
@@ -81,22 +104,41 @@ export default function OrderPage() {
 
   const answer = async (value: string | null) => {
     if (!req?.question) return;
+    const activeVersion = version.current;
     setBusy(true);
+    setError(null);
     setRunning({ steps: [], startedAt: Date.now() });
-    await api.answer(req.request_id, req.question.question_id, value);
-    poll(req.request_id);
+    try {
+      await api.answer(req.request_id, req.question.question_id, value);
+      if (activeVersion === version.current) poll(req.request_id, activeVersion);
+    } catch (e) {
+      if (activeVersion !== version.current) return;
+      setBusy(false);
+      setRunning(null);
+      setError(e instanceof ApiError ? e.message : "Something went wrong. Please try again.");
+    }
   };
 
   const accept = async (s: Suggestion) => {
     if (!req) return;
+    const activeVersion = version.current;
     setBusy(true);
+    setError(null);
     setRunning({ steps: [], startedAt: Date.now() });
-    await api.acceptSuggestion(req.request_id, s.suggestion_id);
-    poll(req.request_id);
+    try {
+      await api.acceptSuggestion(req.request_id, s.suggestion_id);
+      if (activeVersion === version.current) poll(req.request_id, activeVersion);
+    } catch (e) {
+      if (activeVersion !== version.current) return;
+      setBusy(false);
+      setRunning(null);
+      setError(e instanceof ApiError ? e.message : "Something went wrong. Please try again.");
+    }
   };
 
   const approve = async () => {
     if (!req?.quote || !req.approval_id || !customer) return;
+    const activeVersion = version.current;
     setBusy(true);
     setError(null);
     try {
@@ -106,8 +148,9 @@ export default function OrderPage() {
         approver: customer.name,
       });
       reload();
-      poll(req.request_id);
+      if (activeVersion === version.current) poll(req.request_id, activeVersion);
     } catch (e) {
+      if (activeVersion !== version.current) return;
       setBusy(false);
       if (e instanceof ApiError && e.status === 409) {
         setError("Prices changed while you were looking. Here is the updated list.");
@@ -128,17 +171,70 @@ export default function OrderPage() {
     if (text.trim()) start({ text: text.trim() });
     else field.current?.focus();
   };
-  // Before a list exists, the page is a calm centred start screen; once a list is shown it takes the full width.
-  const centred = !req;
+  const requestText = reorderTitle ?? req?.input.text ?? req?.intent?.based_on?.title ?? text;
+  const reset = (keepText = false) => {
+    version.current += 1;
+    if (timer.current) clearTimeout(timer.current);
+    setReq(null);
+    setText(keepText ? requestText : "");
+    setError(null);
+    setRunning(null);
+    setBusy(false);
+    setReorderTitle(null);
+    focusOnStart.current = keepText;
+    window.scrollTo({ top: 0, behavior: "instant" });
+  };
+
+  if (req) {
+    return (
+      <main className="w-full max-w-[760px] mx-auto px-4 sm:px-6 pt-8 pb-12 flex flex-col gap-5">
+        <h1 className="sr-only">Your order</h1>
+        <div className="flex items-baseline justify-between gap-4">
+          <p className="m-0 text-soft text-[16px] min-w-0 flex-1 break-words">&ldquo;{requestText}&rdquo;</p>
+          <button type="button" onClick={() => reset()} className="shrink-0 min-h-11 text-[16px] text-petrol hover:underline">
+            New request
+          </button>
+        </div>
+        {running && <Progress steps={running.steps} startedAt={running.startedAt} />}
+        {(error || req.status === "FAILED") && (
+          <p role="alert" className="m-0 bg-bad-bg text-bad rounded-xl px-4 py-3">
+            {error ?? req.error?.message ?? "Something went wrong."}
+          </p>
+        )}
+        {req.quote && (
+          <ListView req={req} busy={busy} first={first} company={customer.company} onApprove={approve} onAccept={accept} onChange={() => reset(true)} />
+        )}
+        {req.status === "NEEDS_INPUT" && req.question && (
+          <section className={`bg-surface rounded-xl p-5 sm:p-6 flex flex-col gap-4 motion-safe:transition-opacity motion-safe:duration-150 ${busy ? "opacity-60" : ""}`}>
+            <h2 className="m-0 text-[24px] font-semibold">{req.question.text}</h2>
+            <div className="flex flex-wrap gap-3">
+              {req.question.choices.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => answer(c)}
+                  className="min-h-14 min-w-24 max-w-full break-words px-6 rounded-md border border-petrol text-petrol text-[22px] font-semibold hover:bg-petrol-tint"
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+            {req.question.default && (
+              <button type="button" disabled={busy} onClick={() => answer(null)} className="self-start text-petrol underline min-h-11">
+                Use default ({req.question.default})
+              </button>
+            )}
+          </section>
+        )}
+      </main>
+    );
+  }
 
   return (
-    <main
-      className={`w-full mx-auto px-4 sm:px-6 flex flex-col gap-6 ${
-        centred ? "max-w-[680px] flex-1 justify-center py-10 sm:py-16" : "max-w-[1080px] pt-8 pb-12"
-      }`}
-    >
+    <main className="w-full max-w-[680px] mx-auto px-4 sm:px-6 flex flex-col gap-6 flex-1 justify-center py-10 sm:py-16">
       <section className="flex flex-col gap-5">
-        <h1 className={`m-0 leading-tight font-normal tracking-tight ${centred ? "text-[30px] sm:text-[36px] text-center" : "text-[26px]"}`}>
+        <h1 className="m-0 leading-tight font-normal tracking-tight text-[30px] sm:text-[36px] text-center">
           {last ? `Hi ${first}, same as last time?` : `Hi ${first}, what do you need?`}
         </h1>
         <form
@@ -155,18 +251,18 @@ export default function OrderPage() {
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault();
-                submit();
+                if (!busy) submit();
               }
             }}
             placeholder="What do you need?"
-            className="w-full bg-transparent px-1.5 py-1 text-[19px] leading-snug resize-none outline-none placeholder:text-muted"
+            className="w-full min-h-[61px] max-h-[218px] overflow-y-auto bg-transparent px-1.5 py-1 text-[19px] leading-snug resize-none outline-none placeholder:text-muted"
           />
           <button
             type="submit"
             disabled={busy}
-            className="self-end min-h-12 px-5 rounded-md bg-petrol text-white text-[17px] font-semibold flex items-center gap-2 hover:bg-petrol-dark disabled:bg-petrol-dark"
+            className="self-end min-h-11 px-3 rounded-md text-petrol text-[17px] font-semibold flex items-center gap-2 enabled:hover:bg-petrol-tint enabled:hover:underline disabled:text-soft"
           >
             {busy ? "Making your list…" : "Make my list"}
             {!busy && (
@@ -177,11 +273,10 @@ export default function OrderPage() {
           </button>
         </form>
         {running && <Progress steps={running.steps} startedAt={running.startedAt} />}
-        {history.length > 0 && !req && (
+        {error && <p role="alert" className="m-0 bg-bad-bg text-bad rounded-xl px-4 py-3">{error}</p>}
+        {history.length > 0 && (
           <section aria-labelledby="again-h" className="flex flex-col gap-2 mt-3">
-            <h2 id="again-h" className="m-0 text-base font-semibold text-soft">
-              Order again
-            </h2>
+            <h2 id="again-h" className="m-0 text-base font-semibold text-soft">Order again</h2>
             <ul className="m-0 p-0 list-none bg-surface rounded-xl px-4 divide-y divide-hair">
               {history.map((o) => (
                 <li key={o.order_ref}>
@@ -198,10 +293,7 @@ export default function OrderPage() {
                         {running?.reorderOf === o.order_ref ? (
                           <span className="text-petrol font-medium">Getting today&apos;s prices…</span>
                         ) : (
-                          <>
-                            {day(o.date)}
-                            {o.guests ? ` | ${o.guests} people` : ""}
-                          </>
+                          <>{day(o.date)}{o.guests ? ` | ${o.guests} people` : ""}</>
                         )}
                       </span>
                     </span>
@@ -213,39 +305,6 @@ export default function OrderPage() {
           </section>
         )}
       </section>
-
-      {error && <p className="bg-bad-bg text-bad rounded-xl px-4 py-3">{error}</p>}
-
-      {req?.status === "NEEDS_INPUT" && req.question && (
-        <section className="bg-white rounded-2xl shadow-card p-6 flex flex-col gap-4">
-          <h2 className="text-2xl font-bold">{req.question.text}</h2>
-          <div className="flex flex-wrap gap-3">
-            {req.question.choices.map((c) => (
-              <button
-                key={c}
-                disabled={busy}
-                onClick={() => answer(c)}
-                className="min-h-16 min-w-24 px-6 rounded-2xl border-2 border-petrol text-petrol text-2xl font-bold bg-white"
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-          {req.question.default && (
-            <button disabled={busy} onClick={() => answer(null)} className="self-start text-petrol underline font-semibold min-h-11">
-              Use default ({req.question.default})
-            </button>
-          )}
-        </section>
-      )}
-
-      {req?.quote && req.status !== "NEEDS_INPUT" && (
-        <ListView req={req} busy={busy} onApprove={approve} onAccept={accept} onChange={() => field.current?.focus()} />
-      )}
-
-      {req?.status === "FAILED" && (
-        <p className="bg-bad-bg text-bad rounded-xl px-4 py-3">{req.error?.message ?? "Something went wrong."}</p>
-      )}
     </main>
   );
 }
@@ -253,167 +312,145 @@ export default function OrderPage() {
 function ListView({
   req,
   busy,
+  first,
+  company,
   onApprove,
   onAccept,
   onChange,
 }: {
   req: LimosRequest;
   busy: boolean;
+  first: string;
+  company: string;
   onApprove: () => void;
   onAccept: (s: Suggestion) => void;
   onChange: () => void;
 }) {
   const q = req.quote!;
   const ordered = req.status === "ORDERED";
-  const blocked = req.status === "BLOCKED" || q.policy.outcome === "BLOCK";
+  const blocked = !ordered && (req.status === "BLOCKED" || q.policy.outcome === "BLOCK");
   const vat = q.total_with_tax - q.total;
   const gaps = assumedLines(req.intent?.filled_gaps ?? []);
   const offered = req.suggestions.filter((s) => s.status === "OFFERED");
+  const rules = q.policy.rules_fired;
+  const generalRules = rules.filter((r) => !q.lines.some((l) => l.product_id === r.product_id));
+  const linesToCheck = q.lines.filter((l) => rules.some((r) => r.product_id === l.product_id)).length;
 
   return (
-    <div className={`flex flex-col gap-6 transition-opacity ${busy ? "opacity-60" : ""}`}>
-      <div className="flex items-center gap-3 bg-good-bg rounded-xl px-4 py-3 text-[17px]">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#3F6000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d={ICONS.truck} />
-        </svg>
-        <span>
-          Delivered <strong>{day(q.delivery_date)}</strong>
-          {q.order_deadline ? (
-            <>
-              {" "}· Order by <strong>{dayTime(q.order_deadline)}</strong>
-            </>
-          ) : (
-            " · No order deadline from Valio"
-          )}
-        </span>
-      </div>
+    <div className={`flex flex-col gap-5 motion-safe:transition-opacity motion-safe:duration-150 ${busy ? "opacity-60" : ""}`} aria-busy={busy}>
+      <section aria-label="Summary" className="bg-petrol text-white rounded-xl p-5 sm:p-6 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-5 sm:gap-4">
+        <div>
+          <p className="m-0 text-[15px] text-petrol-tint">Total incl. VAT</p>
+          <p className="m-0 text-[40px] leading-tight font-semibold tabular-nums">{eur(q.total_with_tax)}</p>
+          <p className="m-0 mt-1 text-[15px] text-petrol-tint">Products {eur(q.total)} | VAT {eur(vat)}</p>
+        </div>
+        <div className="text-[17px]">
+          <p className="m-0">Delivery <strong className="font-semibold">{day(q.delivery_date)}</strong></p>
+          <p className="m-0">
+            {q.order_deadline ? <>Order by <strong className="font-semibold">{dayTime(q.order_deadline)}</strong></> : "No order deadline from Valio"}
+          </p>
+        </div>
+        {req.status === "WAITING_APPROVAL" && !blocked && req.approval_id && (
+          <button type="button" onClick={onApprove} disabled={busy} className="w-full sm:w-auto shrink-0 min-h-14 px-7 rounded-md bg-lime text-petrol-dark text-[18px] font-semibold disabled:opacity-60">
+            Approve order
+          </button>
+        )}
+        {blocked && <p className="m-0 text-[18px] font-semibold">Can&apos;t be ordered</p>}
+        {ordered && (
+          <div className="flex flex-col gap-1 sm:max-w-[280px]">
+            <p className="m-0 flex items-center gap-2 text-[20px] font-semibold">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0"><path d="m5 12 4 4L19 6" /></svg>
+              Order placed
+            </p>
+            <p className="m-0 text-[17px]">
+              {req.order?.approved_by
+                ? `Thanks ${first}.`
+                : `Ordered automatically, within ${company}'s ordering limits.`}
+              <br />
+              Arrives <span className="whitespace-nowrap">{day(req.order?.delivery_date ?? q.delivery_date)}</span>.
+            </p>
+            <Link href={`/audit/${req.request_id}`} className="self-start min-h-11 inline-flex items-center text-[16px] text-white underline">See order details</Link>
+          </div>
+        )}
+      </section>
 
-      {gaps.length > 0 && !ordered && (
-        <ul className="flex flex-col gap-1 text-[17px] text-soft">
-          {gaps.map((g, i) => (
-            <li key={i}>
-              {g.text}{" "}
-              {g.toSettings ? (
-                <Link href="/settings" className="inline-flex items-center min-h-11 -my-2.5 text-petrol underline font-semibold">
-                  Change
-                </Link>
-              ) : (
-                <button onClick={onChange} className="inline-flex items-center min-h-11 -my-2.5 text-petrol underline font-semibold">
-                  Change
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
+      {!ordered && generalRules.length === 0 && linesToCheck > 0 && (
+        <p className="m-0 flex items-center gap-2.5 text-ink text-[17px]">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-petrol">
+            <path d="m10.3 3.9-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3.1l-8-14a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4m0 4h.01" />
+          </svg>
+          {linesToCheck} {linesToCheck === 1 ? "line below needs" : "lines below need"} a look before you approve.
+        </p>
       )}
 
-      <div className="flex flex-wrap gap-6 items-start">
-        <section aria-labelledby="list-h" className="flex-[1_1_560px] min-w-0 flex flex-col gap-5">
-          <div className="bg-white rounded-2xl shadow-card px-4 sm:px-5 py-2">
-            <h2 id="list-h" className="mt-3 mb-1 text-xl font-bold">
-              Your list <span className="font-medium text-muted text-base">· {q.lines.length} {q.lines.length === 1 ? "product" : "products"}</span>
-            </h2>
-            {q.lines.map((l) => (
-              <OrderLine key={l.product_id} l={l} />
+      {!ordered && generalRules.length > 0 && (
+        <section className="bg-surface rounded-xl px-5 sm:px-6 py-2">
+          <h2 className="my-3 text-[20px] font-semibold">{blocked ? "Why it can't be ordered" : "Check before you approve"}</h2>
+          <ul className="m-0 p-0 list-none divide-y divide-hair">
+            {generalRules.map((r, i) => (
+              <li key={`${r.rule_id}-${i}`} className="flex items-start gap-2.5 py-3 text-ink text-[17px]">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className={`shrink-0 mt-0.5 ${blocked ? "text-bad" : "text-petrol"}`}>
+                  <path d="m10.3 3.9-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3.1l-8-14a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4m0 4h.01" />
+                </svg>
+                <span>{r.description}</span>
+              </li>
             ))}
-          </div>
-
-          {offered.length > 0 && !ordered && (
-            <div className="flex flex-col gap-2.5">
-              <h2 className="text-lg font-bold">If you want</h2>
-              {offered.map((s) => {
-                const replaced = s.replaces_item_id ? q.lines.find((l) => l.item_id === s.replaces_item_id) : null;
-                const delta = s.offer ? s.offer.line_total_with_tax - (replaced?.line_total_with_tax ?? 0) : null;
-                return (
-                  <div key={s.suggestion_id} className="bg-white rounded-2xl shadow-card px-5 py-4 flex flex-wrap items-center justify-between gap-3">
-                    <span className="flex-[1_1_320px]">
-                      <span className="font-semibold">{s.title}</span>
-                      <span className="block text-[15px] text-muted">{s.reason}</span>
-                    </span>
-                    {delta !== null && (
-                      <span className="font-bold tabular-nums">
-                        {delta <= 0 ? "−" : "+"}
-                        {eur(Math.abs(delta))}
-                      </span>
-                    )}
-                    <button
-                      disabled={busy}
-                      onClick={() => onAccept(s)}
-                      className="min-h-12 px-5 rounded-full border-2 border-petrol text-petrol font-bold bg-white"
-                    >
-                      {s.replaces_item_id ? "Swap" : "Add"}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+            {linesToCheck > 0 && <li className="py-3 text-soft text-[17px]">{linesToCheck} {linesToCheck === 1 ? "line below needs" : "lines below need"} a look.</li>}
+          </ul>
         </section>
+      )}
 
-        <aside aria-label="Summary" className="w-full md:w-auto md:flex-[0_1_330px] md:min-w-[280px] md:sticky md:top-5 bg-white rounded-2xl shadow-card p-5 flex flex-col gap-3.5">
-          <Row k="Delivery" v={day(q.delivery_date)} strong />
-          {q.order_deadline && <Row k="Order by" v={dayTime(q.order_deadline)} strong />}
-          <Row k="Products" v={eur(q.total)} />
-          <Row k="VAT" v={eur(vat)} />
-          <div className="flex justify-between items-baseline border-t border-hair pt-3.5">
-            <span className="font-bold">Total</span>
-            <span className="text-[30px] font-extrabold tabular-nums">{eur(q.total_with_tax)}</span>
-          </div>
+      <section aria-labelledby="list-h" className="bg-surface rounded-xl px-5 sm:px-6 py-2 min-w-0">
+        <div className="flex flex-wrap items-baseline gap-x-2 my-3">
+          <h2 id="list-h" className="m-0 text-[20px] font-semibold">Your list</h2>
+          <span className="text-[16px] text-soft">| {q.lines.length} {q.lines.length === 1 ? "product" : "products"}</span>
+        </div>
+        <div className="divide-y divide-hair">
+          {q.lines.map((l) => <OrderLine key={l.product_id} l={l} rules={rules} />)}
+        </div>
+      </section>
 
-          {!ordered && !blocked && q.policy.rules_fired.length > 0 && (
-            <div className="bg-warn-bg rounded-xl px-4 py-3 text-[16px] flex flex-col gap-1.5">
-              <strong className="text-warn">Please check before ordering</strong>
-              {q.policy.rules_fired.map((r) => (
-                <span key={r.rule_id + (r.product_id ?? "")}>{r.description}</span>
-              ))}
-            </div>
-          )}
+      {gaps.length > 0 && !ordered && (
+        <section className="bg-surface rounded-xl px-5 sm:px-6 py-2">
+          <h2 className="my-3 text-[20px] font-semibold">How I read your request</h2>
+          <ul className="m-0 p-0 list-none divide-y divide-hair">
+            {gaps.map((g, i) => (
+              <li key={i} className="flex items-center justify-between gap-4 py-2 text-[17px]">
+                <span className="text-ink min-w-0">{g.text.replace(/^We assumed:\s*/i, "")}</span>
+                {g.toSettings ? (
+                  <Link href="/settings" className="shrink-0 inline-flex items-center min-h-11 text-petrol hover:underline">Change</Link>
+                ) : (
+                  <button type="button" onClick={onChange} className="shrink-0 min-h-11 text-petrol hover:underline">Change</button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
-          {blocked && (
-            <div className="bg-bad-bg text-bad rounded-xl px-4 py-3 text-[16px] flex flex-col gap-1.5">
-              <strong>This can&apos;t be ordered</strong>
-              {q.policy.rules_fired.map((r) => (
-                <span key={r.rule_id + (r.product_id ?? "")}>{r.description}</span>
-              ))}
-            </div>
-          )}
-
-          {req.status === "WAITING_APPROVAL" && req.approval_id && (
-            <button
-              onClick={onApprove}
-              disabled={busy}
-              className="w-full min-h-[60px] rounded-full bg-lime text-petrol-dark text-lg font-extrabold disabled:opacity-60"
-            >
-              Approve order
-            </button>
-          )}
-
-          {ordered && req.order && (
-            <div className="bg-good-bg rounded-xl px-4 py-3.5 flex flex-col gap-0.5">
-              <strong>
-                {req.order.approved_by ? `Thanks ${req.order.approved_by.split(" ")[0]}, order placed.` : "Ordered automatically."}
-              </strong>
-              {!req.order.approved_by && (
-                <span className="text-[15px]">Nothing needed your check, and it is within your company&apos;s ordering limits.</span>
-              )}
-              <span className="text-[15px]">Arrives {day(req.order.delivery_date)}.</span>
-              <Link href={`/audit/${req.request_id}`} className="text-[15px] text-petrol underline">
-                See order details
-              </Link>
-            </div>
-          )}
-          <p className="m-0 text-sm text-muted">Prices and stock straight from Valio Aimo.</p>
-        </aside>
-      </div>
-    </div>
-  );
-}
-
-function Row({ k, v, strong }: { k: string; v: string; strong?: boolean }) {
-  return (
-    <div className="flex justify-between gap-3 text-base text-soft">
-      <span>{k}</span>
-      <span className={`tabular-nums text-right ${strong ? "font-semibold text-ink" : ""}`}>{v}</span>
+      {offered.length > 0 && !ordered && (
+        <section className="bg-surface rounded-xl px-5 sm:px-6 py-2">
+          <h2 className="my-3 text-[20px] font-semibold">If you want</h2>
+          <ul className="m-0 p-0 list-none divide-y divide-hair">
+            {offered.map((s) => {
+              const replaced = s.replaces_item_id ? q.lines.find((l) => l.item_id === s.replaces_item_id) : null;
+              const delta = s.offer ? s.offer.line_total_with_tax - (replaced?.line_total_with_tax ?? 0) : null;
+              return (
+                <li key={s.suggestion_id} className="py-4 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex-[1_1_280px] min-w-0">
+                    <p className="m-0 font-medium">{s.title}</p>
+                    <p className="m-0 text-[16px] text-soft">{s.reason}</p>
+                  </div>
+                  {delta !== null && <span className="font-semibold tabular-nums">{delta < 0 ? "−" : "+"}{eur(Math.abs(delta))}</span>}
+                  <button type="button" disabled={busy} onClick={() => onAccept(s)} className="min-h-11 px-5 rounded-md border border-petrol text-petrol font-semibold hover:bg-petrol-tint">
+                    {s.replaces_item_id ? "Swap" : "Add"}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

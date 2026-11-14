@@ -27,44 +27,47 @@ export default function Header() {
 
   return (
     <header className="bg-surface border-b border-hair">
-      <div className="max-w-[1080px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-        <Link href="/" className="min-h-11 flex items-center font-semibold text-[22px] text-petrol tracking-tight no-underline whitespace-nowrap">
+      <div className="max-w-[1080px] mx-auto px-4 sm:px-6 min-h-16 flex items-center justify-between gap-2 sm:gap-4">
+        <Link href="/" className="min-h-11 flex items-center font-semibold text-[22px] text-petrol tracking-tight no-underline whitespace-nowrap shrink-0">
           Chef Aimo
         </Link>
-        <nav aria-label="Main" className="flex items-center gap-4 sm:gap-6 min-w-0">
+        <nav aria-label="Main" className="flex items-center gap-2 sm:gap-4 min-w-0">
           <Link
             href="/approve"
             aria-current={path.startsWith("/approve") ? "page" : undefined}
-            className={`min-h-11 text-base no-underline flex items-center gap-2 ${
+            className={`min-h-11 text-base no-underline flex items-center gap-1.5 shrink-0 ${
               path.startsWith("/approve") ? "text-petrol font-semibold" : "text-ink font-medium hover:text-petrol"
             }`}
           >
             Approvals
-            {pending > 0 && (
-              <span className="border border-petrol text-petrol rounded-[3px] min-w-6 h-6 px-1.5 text-[14px] font-semibold flex items-center justify-center tabular-nums">
-                {pending}
-              </span>
-            )}
+            <span className="text-petrol font-semibold tabular-nums">{pending}</span>
+            <span className="sr-only"> waiting</span>
           </Link>
           {customer && (
             <>
-              <span className="flex flex-col items-end leading-tight min-w-0">
-                <span className="text-base font-semibold text-ink truncate max-w-[220px]">{customer.name}</span>
-                <span className="hidden sm:block text-[14px] text-soft truncate max-w-[220px]">{customer.company}</span>
-              </span>
-              <Link
-                href="/settings"
-                aria-label="Settings"
-                title="Settings"
-                aria-current={path === "/settings" ? "page" : undefined}
-                className={`flex-none w-11 h-11 -mr-2 rounded-md flex items-center justify-center hover:bg-petrol-tint ${
-                  path === "/settings" ? "text-petrol bg-petrol-tint" : "text-petrol"
-                }`}
-              >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d={GEAR} />
-                </svg>
-              </Link>
+              <span aria-hidden className="w-px h-6 bg-hair shrink-0" />
+              <div className="flex items-center min-w-0">
+                <span className="text-base whitespace-nowrap truncate min-w-0">
+                  <span className="font-medium text-ink">
+                    <span className="sm:hidden">{customer.name.split(" ")[0]}</span>
+                    <span className="hidden sm:inline">{customer.name}</span>
+                  </span>
+                  <span className="hidden sm:inline text-soft"> | {customer.company}</span>
+                </span>
+                <Link
+                  href="/settings"
+                  aria-label="Settings"
+                  title="Settings"
+                  aria-current={path === "/settings" ? "page" : undefined}
+                  className={`flex-none w-11 h-11 rounded-md flex items-center justify-center hover:bg-petrol-tint ${
+                    path === "/settings" ? "text-petrol bg-petrol-tint" : "text-petrol"
+                  }`}
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d={GEAR} />
+                  </svg>
+                </Link>
+              </div>
             </>
           )}
         </nav>

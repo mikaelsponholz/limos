@@ -17,6 +17,11 @@ export interface Settings {
 
 export const EMPTY: Settings = { preferences: null, exclude_allergens: null, priority: null, budget: null, textSize: "normal" };
 
+// Mirrors the gateway mandate until GET /customers/{id} returns always_require_approval.
+export function alwaysAsks(buyerId: string): boolean {
+  return buyerId === "ab-oy";
+}
+
 export const PREFERENCES: { key: string; label: string }[] = [
   { key: "lactose_free", label: "Lactose-free" },
   { key: "gluten_free", label: "Gluten-free" },
