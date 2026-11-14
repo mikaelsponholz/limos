@@ -20,6 +20,8 @@ export default function SettingsPage() {
   const { customer, customers, choose } = useCustomer();
   const { settings, update } = useSettings(customer?.customer_id);
   const [saved, setSaved] = useState(false);
+  // Only the preferences in use are shown; the rest open on request, so the page stays short.
+  const [allPrefs, setAllPrefs] = useState(false);
 
   if (!customer) return <main className="w-full min-w-0 max-w-[720px] mx-auto px-4 sm:px-6 py-10 text-[16px] text-soft">Loading…</main>;
 
@@ -110,28 +112,26 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      <Card title="What you like" help="Chef Aimo uses these when it picks products. You can always say something else in your message." note={'"Always" means Chef Aimo asks you before ordering anything that doesn\'t match.'}>
+      <Card title="What you like" help="Used when Chef Aimo picks products. You can always say something else in your message.">
         <div className="divide-y divide-hair">
           <Row label="When we pick products" stacked>
             <Segmented<Priority> label="When we pick products" value={eff.priority} options={PRIORITIES} onChange={(v) => save({ priority: v })} />
             <p className="m-0 text-[15px] text-soft">{PRIORITIES.find((p) => p.key === eff.priority)?.help}</p>
           </Row>
-          {PREFERENCES.map((p) => (
-            <Row key={p.key} label={p.label}>
+          {PREFERENCES.filter((p) => allPrefs || levelOf(p.key) !== "off").map((p) => (
+            <Row key={p.key} label={p.label} help={levelOf(p.key) === "require" ? "Chef Aimo asks you before ordering anything that doesn't match." : undefined}>
               <Segmented label={p.label} value={levelOf(p.key)} options={LEVELS} onChange={(v) => setLevel(p.key, v)} />
             </Row>
           ))}
-          <Row label="Ideas and seasonal tips" stacked>
-            <p className="m-0 text-[15px] text-soft">
-              {customer.playful
-                ? "On. We show a few optional ideas under your list, like seasonal swaps."
-                : "Off. Your lists show only what you asked for."}
-            </p>
-          </Row>
+          <div className="py-3">
+            <button type="button" aria-expanded={allPrefs} onClick={() => setAllPrefs((o) => !o)} className="min-h-11 text-[17px] font-medium text-petrol hover:underline">
+              {allPrefs ? "Show only what I use" : "Add a preference, like lactose-free or organic"}
+            </button>
+          </div>
         </div>
       </Card>
 
-      <Card title="Display" help="Make everything on the screen bigger.">
+      <Card title="Display">
         <Row label="Text size">
           <Segmented<TextSize>
             label="Text size"
@@ -181,13 +181,12 @@ export default function SettingsPage() {
   );
 }
 
-function Card({ title, help, note, children }: { title: string; help: string; note?: string; children: React.ReactNode }) {
+function Card({ title, help, children }: { title: string; help?: string; children: React.ReactNode }) {
   return (
     <section className="bg-surface rounded-xl px-5 sm:px-6 py-5 flex flex-col gap-3">
       <div>
         <h2 className="m-0 text-[20px] font-semibold">{title}</h2>
-        <p className="m-0 text-[16px] text-soft">{help}</p>
-        {note && <p className="mt-2 mb-0 text-[15px] text-soft">{note}</p>}
+        {help && <p className="m-0 text-[16px] text-soft">{help}</p>}
       </div>
       {children}
     </section>

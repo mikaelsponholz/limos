@@ -18,7 +18,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <CustomerProvider>
           <Header />
           <div className="flex-1 flex flex-col">{children}</div>
-          <footer className="border-t border-hair">
+          <footer className="site-footer border-t border-hair">
             <p className="max-w-[1080px] mx-auto px-4 sm:px-6 py-4 m-0 text-[15px] text-soft text-center">
               <strong className="font-semibold text-ink">Demo</strong> | Prices and stock from the Valio Aimo test API. Orders are simulated.
             </p>

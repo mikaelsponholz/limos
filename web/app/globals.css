@@ -36,6 +36,11 @@ body {
   line-height: 1.5;
 }
 
+/* The chat has its own demo line inside the fixed bottom bar, so the page footer never pushes that bar. */
+body:has([data-chat]) .site-footer {
+  display: none;
+}
+
 h1,
 h2,
 h3 {

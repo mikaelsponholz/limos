@@ -47,17 +47,6 @@ export default function OrderPage() {
     return () => cancelAnimationFrame(frame);
   }, [turns.length, req?.status, error]);
 
-  useEffect(() => {
-    const bar = bottomBar.current;
-    const thread = bar?.previousElementSibling as HTMLElement | null;
-    if (!bar || !thread) return;
-    const measure = () => { thread.style.paddingBottom = `${bar.offsetHeight + 16}px`; };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(bar);
-    return () => observer.disconnect();
-  }, [inConversation]);
-
   // A new customer starts a fresh page.
   useEffect(() => {
     version.current += 1;
@@ -224,7 +213,7 @@ export default function OrderPage() {
 
   if (inConversation) {
     return (
-      <main className="w-full max-w-[720px] mx-auto px-4 sm:px-6 pt-4 flex-1 flex flex-col">
+      <main data-chat className="w-full max-w-[720px] mx-auto px-4 sm:px-6 pt-4 flex-1 flex flex-col">
         <h1 className="sr-only">Your order</h1>
         <div className="flex justify-end mb-4">
           <button type="button" onClick={reset} className="min-h-11 text-[16px] font-medium text-petrol hover:underline">New request</button>
@@ -278,6 +267,9 @@ export default function OrderPage() {
               </button>
             </form>
           )}
+          <p className="m-0 text-center text-[14px] text-soft">
+            <strong className="font-semibold text-ink">Demo</strong> | Prices and stock from the Valio Aimo test API. Orders are simulated.
+          </p>
         </div>
       </main>
     );
