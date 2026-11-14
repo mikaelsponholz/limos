@@ -2,26 +2,50 @@
 @tailwind components;
 @tailwind utilities;
 
-html {
-  background: #f6f4ef;
+/* Valio Aimo palette (from valioaimo.fi): petrol #005670, dark petrol #003747,
+   petrol 15 % #D9E6EA, petrol 30 % #B2CCD4, light blue #F2F7F8, green #C0E021, text #23282D. */
+:root {
+  --page: 242 247 248;
+  --surface: 255 255 255;
+  --ink: 35 40 45;
+  --soft: 75 75 75;
+  --muted: 85 87 89;
+  --line: 178 204 212;
+  --hair: 217 230 234;
+  --petrol: 0 86 112;
+  --petrol-dark: 0 55 71;
+  --petrol-tint: 217 230 234;
+  --petrol-ring: 178 204 212;
+  --lime: 192 224 33;
+  --good: 63 96 0;
+  --good-bg: 234 244 211;
+  --warn: 138 75 0;
+  --warn-bg: 255 243 224;
+  --bad: 155 28 20;
+  --bad-bg: 253 236 234;
+}
+
+html,
+body {
+  background: rgb(var(--page));
 }
 
 body {
-  background: #f6f4ef;
-  color: #1f2a30;
+  color: rgb(var(--ink));
   font-size: 18px;
   line-height: 1.5;
 }
 
-textarea:focus {
-  outline: none;
-  border-color: #005670;
-  box-shadow: 0 0 0 4px #d3e6eb;
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+  hyphens: none;
 }
 
 button:focus-visible,
 a:focus-visible,
 select:focus-visible {
-  outline: 3px solid #005670;
+  outline: 3px solid rgb(var(--petrol));
   outline-offset: 2px;
 }

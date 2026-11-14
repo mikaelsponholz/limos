@@ -1,24 +1,28 @@
 import type { Config } from "tailwindcss";
 
+// Colours live as CSS variables in app/globals.css (Valio Aimo palette), so a dark theme can be added there.
+const v = (name: string) => `rgb(var(--${name}) / <alpha-value>)`;
+
 export default {
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./lib/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        page: "#F6F4EF",
-        ink: "#1F2A30",
-        muted: "#6B767B",
-        soft: "#4A565C",
-        line: "#E7E3DA",
-        hair: "#F0EDE6",
-        petrol: { DEFAULT: "#005670", dark: "#00394B", tint: "#E3EEF1", ring: "#D3E6EB" },
-        lime: "#C0E021",
-        good: { DEFAULT: "#3F6000", bg: "#EAF4D3" },
-        warn: { DEFAULT: "#8A4B00", bg: "#FFF3E0" },
-        bad: { DEFAULT: "#9B1C14", bg: "#FDECEA" },
+        page: v("page"),
+        surface: v("surface"),
+        ink: v("ink"),
+        soft: v("soft"),
+        muted: v("muted"),
+        line: v("line"),
+        hair: v("hair"),
+        petrol: { DEFAULT: v("petrol"), dark: v("petrol-dark"), tint: v("petrol-tint"), ring: v("petrol-ring") },
+        lime: v("lime"),
+        good: { DEFAULT: v("good"), bg: v("good-bg") },
+        warn: { DEFAULT: v("warn"), bg: v("warn-bg") },
+        bad: { DEFAULT: v("bad"), bg: v("bad-bg") },
       },
-      fontFamily: { sans: ["var(--font-figtree)", "system-ui", "sans-serif"] },
-      boxShadow: { card: "0 1px 2px rgba(31,42,48,0.06)" },
+      fontFamily: { sans: ["var(--font-outfit)", "system-ui", "sans-serif"] },
+      boxShadow: { card: "0 1px 2px rgb(var(--ink) / 0.06)" },
     },
   },
   plugins: [],

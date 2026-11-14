@@ -124,90 +124,92 @@ export default function OrderPage() {
   const first = customer.name.split(" ")[0];
   const history = customer.order_history.slice(0, 3);
   const last = history[0];
+  const submit = () => {
+    if (text.trim()) start({ text: text.trim() });
+    else field.current?.focus();
+  };
+  // Before a list exists, the page is a calm centred start screen; once a list is shown it takes the full width.
+  const centred = !req;
 
   return (
-    <main className="max-w-[1080px] mx-auto px-4 sm:px-6 pt-8 pb-12 flex flex-col gap-6">
-      <section className="flex flex-col gap-3">
-        <h1 className="text-[30px] leading-tight font-bold tracking-tight">
-          {last ? `Hi ${first}! Same as last time?` : `Hi ${first}, what would you like to order?`}
+    <main
+      className={`w-full mx-auto px-4 sm:px-6 flex flex-col gap-6 ${
+        centred ? "max-w-[680px] flex-1 justify-center py-10 sm:py-16" : "max-w-[1080px] pt-8 pb-12"
+      }`}
+    >
+      <section className="flex flex-col gap-5">
+        <h1 className={`m-0 leading-tight font-normal tracking-tight ${centred ? "text-[30px] sm:text-[36px] text-center" : "text-[26px]"}`}>
+          {last ? `Hi ${first}, same as last time?` : `Hi ${first}, what do you need?`}
         </h1>
         <form
-          className="bg-white rounded-2xl p-2 shadow-card flex flex-wrap gap-2"
+          className="bg-surface rounded-xl border border-line focus-within:border-petrol focus-within:ring-4 focus-within:ring-petrol-tint p-3 flex flex-col gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            if (text.trim()) start({ text: text.trim() });
+            submit();
           }}
         >
           <textarea
             ref={field}
             rows={2}
-            aria-label="Your order"
+            aria-label="What do you need?"
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                if (text.trim()) start({ text: text.trim() });
+                submit();
               }
             }}
-            placeholder={last ? `For example: same as last time, but for 40` : "For example: cakes for 30 on Friday"}
-            className="flex-[1_1_420px] border-2 border-line rounded-xl px-3.5 py-3 text-[19px] leading-snug resize-none"
+            placeholder="What do you need?"
+            className="w-full bg-transparent px-1.5 py-1 text-[19px] leading-snug resize-none outline-none placeholder:text-muted"
           />
           <button
             type="submit"
-            disabled={busy || !text.trim()}
-            className="min-h-14 px-6 rounded-xl bg-petrol text-white text-[17px] font-bold disabled:opacity-60"
+            disabled={busy}
+            className="self-end min-h-12 px-5 rounded-md bg-petrol text-white text-[17px] font-semibold flex items-center gap-2 hover:bg-petrol-dark disabled:bg-petrol-dark"
           >
-            {busy ? "Checking prices…" : "Make my list"}
+            {busy ? "Making your list…" : "Make my list"}
+            {!busy && (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+            )}
           </button>
         </form>
-        {/* Under the form for typed orders and new lists; a tapped past order shows it under that row. */}
-        {running && !(running.reorderOf && !req) && <Progress steps={running.steps} startedAt={running.startedAt} />}
+        {running && <Progress steps={running.steps} startedAt={running.startedAt} />}
         {history.length > 0 && !req && (
-          <section aria-labelledby="again-h" className="flex flex-col gap-2 mt-2">
-            <h2 id="again-h" className="text-lg font-bold m-0">
+          <section aria-labelledby="again-h" className="flex flex-col gap-2 mt-3">
+            <h2 id="again-h" className="m-0 text-base font-semibold text-soft">
               Order again
             </h2>
-            <ol className="m-0 p-0 list-none flex flex-col gap-2">
-              {history.map((o, i) => (
+            <ul className="m-0 p-0 list-none bg-surface rounded-xl px-4 divide-y divide-hair">
+              {history.map((o) => (
                 <li key={o.order_ref}>
                   <button
                     type="button"
                     disabled={busy}
                     onClick={() => start({ reorder_of: o.order_ref })}
-                    className={`w-full text-left bg-white rounded-2xl shadow-card px-4 sm:px-5 py-3.5 min-h-16 flex items-center gap-3 sm:gap-4 hover:ring-2 hover:ring-petrol-ring ${
-                      running?.reorderOf === o.order_ref ? "ring-2 ring-petrol" : "disabled:opacity-60"
-                    }`}
+                    aria-current={running?.reorderOf === o.order_ref ? "true" : undefined}
+                    className="group w-full text-left py-3 min-h-14 flex items-center gap-4"
                   >
-                    <span className="flex-none w-9 h-9 rounded-full bg-petrol-tint text-petrol font-bold flex items-center justify-center">
-                      {i + 1}
-                    </span>
                     <span className="flex-1 min-w-0">
-                      <span className="block font-semibold leading-snug">{o.title}</span>
-                      <span className="block text-[15px] text-muted">
+                      <span className="block text-[17px] font-medium leading-snug group-hover:text-petrol group-hover:underline">{o.title}</span>
+                      <span className="block text-[15px] text-soft">
                         {running?.reorderOf === o.order_ref ? (
-                          <span className="text-petrol font-semibold">Getting today&apos;s prices…</span>
+                          <span className="text-petrol font-medium">Getting today&apos;s prices…</span>
                         ) : (
                           <>
-                            Last ordered {day(o.date)}
-                            {o.guests ? ` · ${o.guests} people` : ""}
-                            {/* On a phone the price sits on this line, so the title gets the full width. */}
-                            {o.total > 0 && <span className="sm:hidden font-bold text-ink tabular-nums"> · {eur(o.total)}</span>}
+                            {day(o.date)}
+                            {o.guests ? ` | ${o.guests} people` : ""}
                           </>
                         )}
                       </span>
                     </span>
-                    {o.total > 0 && <span className="hidden sm:block flex-none font-bold tabular-nums">{eur(o.total)}</span>}
+                    {o.total > 0 && <span className="flex-none text-[17px] font-medium tabular-nums">{eur(o.total)}</span>}
                   </button>
-                  {running?.reorderOf === o.order_ref && (
-                    <div className="mt-2">
-                      <Progress steps={running.steps} startedAt={running.startedAt} />
-                    </div>
-                  )}
                 </li>
               ))}
-            </ol>
-            <p className="m-0 text-[15px] text-muted">Tap one to get it with today&apos;s prices, or write what you need above.</p>
+            </ul>
           </section>
         )}
       </section>

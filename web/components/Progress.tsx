@@ -25,12 +25,12 @@ export default function Progress({ steps, startedAt }: { steps: Step[]; startedA
   const current = Math.max(byTime, bySteps);
 
   return (
-    <section className="bg-white rounded-2xl shadow-card px-5 py-4 flex flex-col gap-3">
+    <section className="bg-surface rounded-xl border border-hair px-5 py-4 flex flex-col gap-3">
       <ol className="m-0 p-0 list-none flex flex-col gap-2.5 text-[17px]">
         {STAGES.map((s, i) => (
           <li key={s.label} className={`flex items-center gap-3 ${i > current ? "text-muted" : ""}`}>
             {i < current ? (
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3F6000" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="flex-none">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="flex-none text-good">
                 <path d="M5 12.5l4.5 4.5L19 7.5" />
               </svg>
             ) : i === current ? (

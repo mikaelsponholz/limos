@@ -3,7 +3,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { initials, useCustomer } from "@/lib/customer";
+import { useCustomer } from "@/lib/customer";
+
+// Lucide "settings" icon.
+const GEAR =
+  "M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z";
 
 export default function Header() {
   const { customer } = useCustomer();
@@ -22,43 +26,48 @@ export default function Header() {
   }, [path]);
 
   return (
-    <header className="bg-white border-b border-line">
-      <div className="max-w-[1080px] mx-auto px-4 sm:px-6 min-h-16 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2">
-        <div className="flex items-center gap-5">
-          <Link href="/" className="min-h-11 flex items-center font-extrabold text-2xl text-petrol tracking-tight no-underline">
-            limos
-          </Link>
+    <header className="bg-surface border-b border-hair">
+      <div className="max-w-[1080px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+        <Link href="/" className="min-h-11 flex items-center font-semibold text-[22px] text-petrol tracking-tight no-underline whitespace-nowrap">
+          Chef Aimo
+        </Link>
+        <nav aria-label="Main" className="flex items-center gap-4 sm:gap-6 min-w-0">
           <Link
             href="/approve"
-            className={`min-h-11 text-base font-semibold no-underline flex items-center gap-1.5 ${path.startsWith("/approve") ? "text-petrol" : "text-soft"}`}
+            aria-current={path.startsWith("/approve") ? "page" : undefined}
+            className={`min-h-11 text-base no-underline flex items-center gap-2 ${
+              path.startsWith("/approve") ? "text-petrol font-semibold" : "text-ink font-medium hover:text-petrol"
+            }`}
           >
             Approvals
             {pending > 0 && (
-              <span className="bg-lime text-petrol-dark rounded-full min-w-6 h-6 px-1.5 text-[14px] font-bold flex items-center justify-center">
+              <span className="border border-petrol text-petrol rounded-[3px] min-w-6 h-6 px-1.5 text-[14px] font-semibold flex items-center justify-center tabular-nums">
                 {pending}
               </span>
             )}
           </Link>
-        </div>
-        {customer && (
-          <Link
-            href="/settings"
-            className={`flex items-center gap-2.5 no-underline rounded-full pr-2 min-w-0 ${path === "/settings" ? "text-petrol" : "text-soft"}`}
-          >
-            <span
-              aria-hidden
-              className="flex-none w-9 h-9 rounded-full bg-petrol-tint text-petrol font-bold text-[15px] flex items-center justify-center"
-            >
-              {initials(customer)}
-            </span>
-            <span className="flex flex-col leading-tight min-w-0">
-              <span className="text-base text-ink font-semibold truncate">
-                {customer.name} · {customer.company}
+          {customer && (
+            <>
+              <span className="flex flex-col items-end leading-tight min-w-0">
+                <span className="text-base font-semibold text-ink truncate max-w-[220px]">{customer.name}</span>
+                <span className="hidden sm:block text-[14px] text-soft truncate max-w-[220px]">{customer.company}</span>
               </span>
-              <span className="text-[14px] underline">Settings</span>
-            </span>
-          </Link>
-        )}
+              <Link
+                href="/settings"
+                aria-label="Settings"
+                title="Settings"
+                aria-current={path === "/settings" ? "page" : undefined}
+                className={`flex-none w-11 h-11 -mr-2 rounded-md flex items-center justify-center hover:bg-petrol-tint ${
+                  path === "/settings" ? "text-petrol bg-petrol-tint" : "text-petrol"
+                }`}
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d={GEAR} />
+                </svg>
+              </Link>
+            </>
+          )}
+        </nav>
       </div>
     </header>
   );
