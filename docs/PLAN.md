@@ -155,7 +155,7 @@ Pure Python in `gateway/policy/`, with no LLM calls. Mandates per buyer live in 
 | `PACK_SIZE_UNKNOWN` | Can't convert need to sales units | NEEDS_APPROVAL |
 | `TERMINAL_LOW_RELIABILITY` | Terminal product with reliability under 0.90 | NEEDS_APPROVAL |
 | `PRICE_CHANGED` | A re-quote changed a locked price | NEEDS_APPROVAL |
-| `APPROVAL_ALWAYS_REQUIRED` | The buyer's mandate has `always_require_approval` on (Ab Oy, for Pena); listed after any more specific reason, never on a BLOCK | NEEDS_APPROVAL |
+| `APPROVAL_ALWAYS_REQUIRED` | The buyer's mandate has `always_require_approval` on (Ab Oy, for Frank); listed after any more specific reason, never on a BLOCK | NEEDS_APPROVAL |
 | `CUTOFF_PASSED` | `closingTime` in the past | flag only (see findings) |
 
 Placeholder mandate (per buyer, editable): auto limit €1 500 net, line limit €250, hard cap €5 000, max overbuy 25 %, waste 5 %, allowed agents, `always_require_approval` (on for Ab Oy only).
@@ -208,7 +208,7 @@ Approval `options` are alternative quotes (at most 3): the recommended one and a
 | `birthday_kids_25` | 25 | Nut-free; a may-contain-nuts product → `ALLERGEN_MAY_CONTAIN` approval with a safe option |
 | `company_lunch_60` | 60 | Kotimainen required; budget set so the total exceeds it → `BUDGET_EXCEEDED` approval with a cheaper option |
 
-Plus free text. Each preset may name a seeded customer (`company_lunch_60` → Pena, `restaurant_weekly` → the chef). Presets are built from data, not luck: `scripts/find_demo_cases.py` finds products that trigger each case (for example courgette 460025, not deliverable, with Valio substitute 460150 in stock). A test per preset runs against recorded responses and fails unless the expected outcome and rules appear. `uv run python scripts/demo_check.py` re-runs all presets live before the demo.
+Plus free text. Each preset may name a seeded customer (`company_lunch_60` → Frank, `restaurant_weekly` → the chef). Presets are built from data, not luck: `scripts/find_demo_cases.py` finds products that trigger each case (for example courgette 460025, not deliverable, with Valio substitute 460150 in stock). A test per preset runs against recorded responses and fails unless the expected outcome and rules appear. `uv run python scripts/demo_check.py` re-runs all presets live before the demo.
 
 ## 8a. Customers, history and reorder
 
@@ -216,7 +216,7 @@ Requirements from the Valio mentors (2026-11-14). Seeded in `customers/` as JSON
 
 | Customer | Who | Profile | History |
 |---|---|---|---|
-| `c_pena` | Pena, executive at Ab Oy, `55_plus` | Not playful. Prefers Finnish, priority quality, typical 30 guests. Approves every order himself (one tap), even within the mandate | Layer cakes for board meetings, a staff coffee table |
+| `c_pena` | Frank, executive at Ab Oy, `55_plus` | Not playful. Prefers Finnish, priority quality, typical 30 guests. Approves every order himself (one tap), even within the mandate | Layer cakes for board meetings, a staff coffee table |
 | `c_chef` | A younger chef at an invented bistro, `under_35` | Playful. Prefers organic and low carbon, priority balanced | Weekly staples, a tasting menu evening |
 
 - Recognition is picking the customer in the UI; there is no sign-in. The profile and history load with every request for that customer.
@@ -284,7 +284,7 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 
 1. ENGINE: partial stock with split options, late delivery, not deliverable, Valio substitutes then agent substitutes (Gemini proposes, rules decide), required preference unmet, budget exceeded with a cheaper option, quote expiry with re-quote and `PRICE_CHANGED`. Approval options as alternative quotes.
 2. ENGINE: suggestions for playful customers only (section 8b): Gemini proposes up to three seasonal, holiday or trend lines, code prices them through the gateway and keeps them out of the quote; accepting one re-quotes so the rules run again. A non-playful customer gets none, tested.
-3. TEST: `scripts/find_demo_cases.py`, the four preset files in `presets/`, the seeded customers' history codes, recorded responses for each, and one test per preset that asserts its outcome and fired rules, plus a reorder test for Pena.
+3. TEST: `scripts/find_demo_cases.py`, the four preset files in `presets/`, the seeded customers' history codes, recorded responses for each, and one test per preset that asserts its outcome and fired rules, plus a reorder test for Frank.
 
 ### Phase 5: Ranking
 
@@ -326,7 +326,7 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 - 2026-11-13: Passed `closingTime` is a flag, not a block (Terminal data shows past cut-offs with valid delivery dates).
 - 2026-11-13: Gemini Flash for everything; Pro is tested for event expansion in Phase 3.
 - 2026-11-14: `GEMINI_MODEL` pinned to `gemini-3.8-flash`, the current Flash on our key (`scripts/list_models.py`). The key has no `gemini-3.1-pro`; Phase 3 chooses the Pro-class model to test for dish expansion from the key's list (`gemini-2.5-pro` or a `gemini-4-*` model) and records it here. `GEMINI_EXPANSION_MODEL` stays empty (Flash) until then.
-- 2026-11-14: Valio mentor requirements added: seeded customer profiles with simulated history (Pena at Ab Oy, a younger playful chef), recognition by picking the customer, reorder with scaling, vague or clear prompts with gaps filled from history and defaults, at most one clarifying question, a shopping-list result with delivery date and order deadline on every line, one-tap approval designed for a busy 65-year-old first, and optional suggestions for playful profiles only. Contract bumped to v0.3.
+- 2026-11-14: Valio mentor requirements added: seeded customer profiles with simulated history (Frank at Ab Oy, a younger playful chef), recognition by picking the customer, reorder with scaling, vague or clear prompts with gaps filled from history and defaults, at most one clarifying question, a shopping-list result with delivery date and order deadline on every line, one-tap approval designed for a busy 65-year-old first, and optional suggestions for playful profiles only. Contract bumped to v0.3.
 - 2026-11-14: History is back for seeded customers only and is used for recognition, reorder and gap filling. Guardrails and approvals are unchanged; the history-based rules stay dropped.
 - 2026-11-14: `age_group` is profile information only. No rule or ranking uses it.
 - 2026-11-14: pytest uses `--basetemp=.pytest-tmp` (in `pyproject.toml`) because a sandbox-created temp folder under `%TEMP%` can be unreadable.
@@ -344,7 +344,7 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 - 2026-11-14: `PRICE_MISSING` fires only when Valio returns an error or no `catalogPrice`. `netPriceFound=false` is normal in the Junction API (no customer-specific net price), and the catalogue price is a confirmed price (Johannes, b278d89).
 - 2026-11-14: PostgresStore (Johannes, b824823) is merged. The gateway never migrates on start unless `MIGRATE_ON_START=true`, which only the Aiven deployment sets explicitly. Otherwise migrations run with `uv run python -m scripts.migrate_db`. A decided approval can't change status, be deleted or be truncated (migration 002). Deleting quotes is still possible, listed as a known limitation. The table owner can disable the triggers; in production the gateway uses a separate role without owner rights (README production step).
 - 2026-11-14: Allergen gap (agreed with Johannes): the gateway always applies the buyer's own customer profile rules (excluded allergens, required dietary keys) to every quote, including standalone MCP and script quotes. `QuoteBody` gains optional `exclude_allergens` and `constraints` that can only add restrictions. Contract v0.4.
-- 2026-11-14: Pena's orders always need his approval (one tap), even within the mandate: Ab Oy's mandate sets `always_require_approval`, which fires `APPROVAL_ALWAYS_REQUIRED` (NEEDS_APPROVAL) on every quote that isn't blocked. The chef's bistro keeps AUTO within its mandate. Policy reads only the mandate, never the customer profile or history. Contract v0.5 (mandate field and rule id); the web needs a label for the new rule.
+- 2026-11-14: Frank's orders always need his approval (one tap), even within the mandate: Ab Oy's mandate sets `always_require_approval`, which fires `APPROVAL_ALWAYS_REQUIRED` (NEEDS_APPROVAL) on every quote that isn't blocked. The chef's bistro keeps AUTO within its mandate. Policy reads only the mandate, never the customer profile or history. Contract v0.5 (mandate field and rule id); the web needs a label for the new rule.
 - 2026-11-14: Phase 4 split step 1 into 1a (in-quote exceptions, approval options) and 1b (cheaper option, re-quote on expiry), and added 3a (the `POLICY_DECISION` step names the mandate: "Within the <buyer> mandate, so the agent may order") because `restaurant_weekly` must show what allowed it.
 - 2026-11-14: Contract v0.6 (Mikael): `QuoteLine` gains optional `substitute_for` and `substitute_source`; an item may have two lines (the second `is_split`). Johannes needs to know; the web reads the existing `Offer` fields.
 - 2026-11-14: When Gemini picks an undeliverable product, code moves to the next candidate instead of returning `OFFER_EXCLUDED` (section 6). An allergen or violated constraint pick still returns `OFFER_EXCLUDED`.
@@ -368,7 +368,7 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 - Phase 4 known limits: an expired re-quote fails as a whole if any alternative option comes back blocked (it could drop that option instead); a failed suggestion accept leaves the request `FAILED` with the old approval already expired (nothing is ordered).
 - Johannes: contract v0.6 (`QuoteLine` substitute fields) and the preset fixture values (customers and buyers).
 - Johannes: agree contract v0.3 (customers, question, suggestions, per-line deadlines) and the shopping-list UI requirements in section 8b.
-- Mikael: pipeline live run 2026-11-14 (memory store): all six cases end in a quote waiting for approval. Quality gaps: the pick misses for many items (12 `MISSING_PICK` in two company lunch runs, so the fallback takes the first search hit), weak candidates reach the quote ("egg" becomes egg noodles, "cheese" Roquefort for lactose-free, "salad greens" potato salad, "fish stock" dashi powder), approval options can be nonsense (chilli paste for sugar paste; liquorice and pudding for Pena's cake after re-search), salmon fillet has no usable offer, every `PACK_SIZE_UNKNOWN` line also fires `PARTIAL_QUANTITY` with 0 coverage, and the chef's suggestions call proposed nothing (`SUGGESTIONS_PROPOSED` count 0, no drop reasons).
+- Mikael: pipeline live run 2026-11-14 (memory store): all six cases end in a quote waiting for approval. Quality gaps: the pick misses for many items (12 `MISSING_PICK` in two company lunch runs, so the fallback takes the first search hit), weak candidates reach the quote ("egg" becomes egg noodles, "cheese" Roquefort for lactose-free, "salad greens" potato salad, "fish stock" dashi powder), approval options can be nonsense (chilli paste for sugar paste; liquorice and pudding for Frank's cake after re-search), salmon fillet has no usable offer, every `PACK_SIZE_UNKNOWN` line also fires `PARTIAL_QUANTITY` with 0 coverage, and the chef's suggestions call proposed nothing (`SUGGESTIONS_PROPOSED` count 0, no drop reasons).
 - Known limit (pick-quality fix, accepted 2026-11-14): when a moved default delivery date re-prices offers and the original product's data then turns out incomplete, an accepted agent substitute is dropped and the item shows "not found, needs a human". Safe direction: it never orders without approval. Valio substitutes are not affected.
 
 - Organisers: is a past `closingTime` for Terminal products intended?

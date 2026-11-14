@@ -297,7 +297,7 @@ def test_customer_scenarios() -> None:
         (FIXTURES / "request-needs-input.json").read_text()
     )
     chef = schemas.RequestDetail.model_validate_json((FIXTURES / "request-chef.json").read_text())
-    assert (customer.customer_id, customer.name, customer.company) == ("c_pena", "Pena", "Ab Oy")
+    assert (customer.customer_id, customer.name, customer.company) == ("c_pena", "Frank", "Ab Oy")
     assert customer.age_group == "55_plus" and not customer.playful
     assert len(customer.order_history) == 2
     assert customer.order_history == sorted(

@@ -180,7 +180,7 @@ def find_cases(catalog: Catalog) -> list[dict]:
                 unit=item["unit"],
                 constraints=item["constraints"],
             )
-    # Use the same committed search term and scaling as Pena's seeded reorder.
+    # Use the same committed search term and scaling as Frank's seeded reorder.
     seed_terms = json.loads(SEED_SPEC.read_bytes())
     pena = json.loads((SEED_SPEC.parents[1] / "customers" / "c_pena.json").read_bytes())
     past = pena["order_history"][0]
