@@ -65,6 +65,8 @@ function titleOf(run: Run): string {
 }
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const later = (ms: number) => Date.now() + ms;
+// A real reorder takes 7 to 20 s; set NEXT_PUBLIC_MOCK_DELAY_MS=12000 to work on the loading state.
+const MOCK_DELAY_MS = Number(process.env.NEXT_PUBLIC_MOCK_DELAY_MS) || 1800;
 const fakeHash = () => "sha256:" + Math.random().toString(16).slice(2).padEnd(16, "0");
 
 function newId(prefix: string) {
@@ -473,14 +475,15 @@ export const mock = {
     }
     if (final.quote) final.quote.request_id = id;
     const overrides = overridesFrom(body);
-    runs.set(id, { final: settleAuto(applySettings(final, overrides)), readyAt: later(1800), overrides, startedAt: Date.now() });
+    runs.set(id, { final: settleAuto(applySettings(final, overrides)), readyAt: later(MOCK_DELAY_MS), overrides, startedAt: Date.now() });
     return { request_id: id, status: "RUNNING" as const };
   },
 
   async getRequest(id: string): Promise<LimosRequest> {
     const run = runs.get(id);
     if (!run) throw new ApiError(404, "NOT_FOUND", "Request not found");
-    if (Date.now() < run.readyAt) return { ...clone<LimosRequest>(run.final), status: "RUNNING", quote: null, question: null, suggestions: [] };
+    // No steps while running, so the progress card moves on time alone, as if Valio were slow.
+    if (Date.now() < run.readyAt) return { ...clone<LimosRequest>(run.final), status: "RUNNING", quote: null, question: null, suggestions: [], steps: [] };
     return clone(run.final);
   },
 
