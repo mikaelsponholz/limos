@@ -1,5 +1,6 @@
 """Shared gateway operations used by HTTP routes and the deterministic runner."""
 
+from collections.abc import Callable, Mapping, Sequence
 from typing import cast
 
 from gateway import orders, quotes
@@ -7,7 +8,7 @@ from gateway.api.dependencies import Resources
 from gateway.audit import append_step
 from gateway.customers import append_placed_order, load_customers
 from gateway.errors import GatewayError
-from gateway.offers import _check, build_offers, price_fixed_lines
+from gateway.offers import OfferSnapshot, OfferValio, _check, build_offers, price_fixed_lines
 from gateway.policy import ItemContext
 from gateway.policy.engine import REQUIRE_HARD_DIETARY_KEYS
 from gateway.schemas import (
@@ -78,6 +79,47 @@ async def check_offers(body: OffersBody, env: Resources) -> list[Offer]:
         now=env.now(),
         max_overbuy_percent=mandate.max_overbuy_percent,
     )
+
+
+async def check_offers_batch(
+    bodies: Sequence[OffersBody],
+    env: Resources,
+    snapshot: OfferSnapshot,
+    on_skip: Callable[[str, str, str], None],
+) -> dict[str, list[Offer]]:
+    """One shortlist batch, isolating incomplete evidence to its product."""
+    for body in bodies:
+        env.permit(body.buyer_id, body.agent_id)
+    dates = dict.fromkeys(body.requested_date for body in bodies)
+    for day in dates:
+        ids = list(
+            dict.fromkeys(
+                code for body in bodies if body.requested_date == day for code in body.product_ids
+            )
+        )
+        if ids:
+            await snapshot.price(ids, day)
+            await snapshot.availability(ids, day)
+    result: dict[str, list[Offer]] = {}
+    for body in bodies:
+        mandate = env.permit(body.buyer_id, body.agent_id)
+        offers = result.setdefault(body.item_id, [])
+        for code in body.product_ids:
+            try:
+                offers.extend(
+                    await build_offers(
+                        body.model_copy(update={"product_ids": [code]}),
+                        catalog=env.catalog,
+                        valio=snapshot,
+                        now=env.now(),
+                        max_overbuy_percent=mandate.max_overbuy_percent,
+                    )
+                )
+            except GatewayError as exc:
+                on_skip(body.item_id, code, exc.code)
+            except (ValueError, ArithmeticError):
+                on_skip(body.item_id, code, "OFFER_DATA_INVALID")
+    return result
 
 
 def request_detail(env: Resources, request_id: str, buyer_id: str) -> RequestDetail:
@@ -159,19 +201,30 @@ def quote_contexts(
     return context
 
 
-async def request_quote(body: QuoteBody, env: Resources) -> Quote:
+async def request_quote(
+    body: QuoteBody,
+    env: Resources,
+    *,
+    valio: OfferValio | None = None,
+    item_needs: Mapping[str, Quantity] | None = None,
+    on_skip: Callable[[str, str, str], None] | None = None,
+) -> Quote:
     mandate = env.permit(body.buyer_id, body.agent_id)
     detail = request_detail(env, body.request_id, body.buyer_id) if body.request_id else None
     if not body.lines:
         raise GatewayError(422, "INVALID_LINES", "A quote needs at least one line.")
     context = quote_contexts(body, detail, env)
     needs = (
-        {
-            item.item_id: Quantity(value=item.quantity, unit=item.unit)
-            for item in detail.intent.items
-        }
-        if detail and not detail.intent.based_on
-        else None
+        item_needs
+        if item_needs is not None
+        else (
+            {
+                item.item_id: Quantity(value=item.quantity, unit=item.unit)
+                for item in detail.intent.items
+            }
+            if detail and not detail.intent.based_on
+            else None
+        )
     )
     lines = await price_fixed_lines(
         body.lines,
@@ -179,12 +232,15 @@ async def request_quote(body: QuoteBody, env: Resources) -> Quote:
         agent_id=body.agent_id,
         requested_date=body.requested_date,
         catalog=env.catalog,
-        valio=env.valio,
+        valio=valio if valio is not None else env.valio,
         now=env.now(),
         needs=needs,
         item_context=context,
         max_overbuy_percent=mandate.max_overbuy_percent,
+        on_skip=on_skip,
     )
+    if not lines:
+        raise GatewayError(422, "NO_USABLE_PRODUCTS", "No products have usable quote data.")
     if detail is None:
         # Standalone tool clients still need a request for approvals and the audit.
         items = {
@@ -243,6 +299,8 @@ async def request_quote(body: QuoteBody, env: Resources) -> Quote:
         id_generator=lambda: env.new_id("q_"),
         budget=detail.intent.budget if detail else body.budget,
         option_label=body.option_label,
+        needs=needs,
+        item_descriptions={item.item_id: item.description for item in detail.intent.items},
     )
     if detail:
         detail.quote = quote

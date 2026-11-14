@@ -41,6 +41,7 @@ def environment(tmp_path: Path, preset: str, *, reorder: bool = False) -> TestCl
     ids = count(1)
     app = create_app(
         Settings(
+            agent_mode="tools",
             store="memory",
             valio_api_key="",
             gemini_api_key="",

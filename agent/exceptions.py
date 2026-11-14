@@ -4,11 +4,11 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal
-from typing import Literal
+from typing import Literal, cast
 
 from gateway.policy import ItemContext
 from gateway.policy.engine import REQUIRE_HARD_DIETARY_KEYS
-from gateway.schemas import IntentItem, Offer, Quote, QuoteLine
+from gateway.schemas import Constraint, IntentItem, Offer, Quote, QuoteLine
 
 
 @dataclass
@@ -134,6 +134,29 @@ def plan_item(
     selected = [
         offer for offer in pool if offer.product_id in {line.product_id for line in recommended}
     ]
+    # Keep the proposed choice visible, but offer confirmed allergen evidence as
+    # an approval option even when the risky product has enough stock.
+    excluded = set(context.exclude_allergens) | {
+        key.removeprefix("no_") for key in context.constraints if key.startswith("no_")
+    }
+    if excluded and any(
+        not offer.allergens.data_available or excluded & set(offer.allergens.may_contain)
+        for offer in selected
+    ):
+        for candidate in ordered:
+            alternative = [line(candidate)]
+            if (
+                candidate.quantity_covered.value >= item.quantity
+                and candidate.allergens.data_available
+                and all(
+                    candidate.dietary_check.get(cast(Constraint, f"no_{key}")) == "confirmed"
+                    for key in excluded
+                )
+                and alternative not in alternatives
+            ):
+                alternatives.append(alternative)
+                if len(alternatives) >= 2:
+                    break
     for offer in selected:
         if offer.available_date and offer.available_date > requested_date:
             decisions.append(f"Wait for {offer.name}, delivered {offer.available_date.isoformat()}")

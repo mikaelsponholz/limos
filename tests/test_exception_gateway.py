@@ -43,7 +43,9 @@ def environment(tmp_path: Path, *, mode: str = "split", llm: FakeLLM | None = No
     elif mode in {"valio", "agent", "blocked"}:
         availability[0] = stock("900701", scheduleLines=[])
     app = create_app(
-        Settings(store="memory", gemini_api_key="", gemini_model="", valio_api_key=""),
+        Settings(
+            agent_mode="tools", store="memory", gemini_api_key="", gemini_model="", valio_api_key=""
+        ),
         catalog=Catalog(records),
         valio=FakeValio([price(record.product_id) for record in records], availability),
         store=MemoryStore(),

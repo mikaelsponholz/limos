@@ -129,6 +129,9 @@ def evaluate(
     agent_id: str,
     budget: float | None = None,
     previous_prices: Mapping[tuple[str, str], float] | None = None,
+    *,
+    needs: Mapping[str, Quantity] | None = None,
+    item_descriptions: Mapping[str, str] | None = None,
 ) -> PolicyDecision:
     """Evaluate chosen lines, retaining all rules in PLAN section 4 order.
 
@@ -260,6 +263,17 @@ def evaluate(
                 f"for item {item_id}.",
                 item_id=item_id,
             )
+
+    for item_id, quantity in sorted((needs or {}).items()):
+        if item_id not in by_item:
+            unit, need = _quantity(quantity)
+            if need > 0:
+                name = (item_descriptions or {}).get(item_id, item_id)
+                fire(
+                    "PARTIAL_QUANTITY",
+                    f"{name} covers 0 {unit} of the requested {need:g} {unit} for item {item_id}.",
+                    item_id=item_id,
+                )
 
     if mandate.always_require_approval and not any(
         rule.outcome == "BLOCK" for rule in fired.values()

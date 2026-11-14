@@ -7,7 +7,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from gateway.audit import append_step, canonical_hash
 from gateway.errors import GatewayError
 from gateway.policy import ItemContext, MandateEntry, budget_status, evaluate
-from gateway.schemas import Offer, Quote, QuoteStatus
+from gateway.schemas import Offer, Quantity, Quote, QuoteStatus
 from gateway.store import ApprovalRecord, Store
 
 
@@ -56,13 +56,24 @@ def create_quote(
     option_label: str | None = None,
     agent_explanation: str = "",
     previous_prices: Mapping[tuple[str, str], float] | None = None,
+    needs: Mapping[str, Quantity] | None = None,
+    item_descriptions: Mapping[str, str] | None = None,
 ) -> Quote:
     check_now(now)
     if mandate.buyer_id != buyer_id:
         raise ValueError("Mandate must belong to the quote buyer.")
     locked_lines = [line.model_copy(deep=True) for line in lines]
     total = _sum_money([line.line_total for line in locked_lines])
-    policy = evaluate(locked_lines, item_context, mandate, agent_id, budget, previous_prices)
+    policy = evaluate(
+        locked_lines,
+        item_context,
+        mandate,
+        agent_id,
+        budget,
+        previous_prices,
+        needs=needs,
+        item_descriptions=item_descriptions,
+    )
     statuses: dict[str, QuoteStatus] = {
         "AUTO": "AUTO_APPROVED",
         "NEEDS_APPROVAL": "PENDING_APPROVAL",

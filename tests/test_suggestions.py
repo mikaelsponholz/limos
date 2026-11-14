@@ -115,7 +115,9 @@ def environment(
     (tmp_path / "invented-chef.json").write_text(json.dumps(profile), encoding="utf-8")
     ids = count(1)
     app = create_app(
-        Settings(store="memory", gemini_api_key="", gemini_model="", valio_api_key=""),
+        Settings(
+            agent_mode="tools", store="memory", gemini_api_key="", gemini_model="", valio_api_key=""
+        ),
         catalog=Catalog(records),
         valio=FakeValio(
             [price(r.product_id, error=r.product_id == "900706") for r in records],

@@ -28,7 +28,13 @@ from tests.test_offers import NOW, FakeValio, price, product, stock
 def environment(tmp_path: Path, llm: FakeLLM, *, auto_limit: float = 1500) -> TestClient:
     ids = count(1)
     app = create_app(
-        Settings(gemini_api_key="", gemini_model="", gemini_expansion_model="", store="memory"),
+        Settings(
+            agent_mode="tools",
+            gemini_api_key="",
+            gemini_model="",
+            gemini_expansion_model="",
+            store="memory",
+        ),
         llm=llm,
         catalog=Catalog(
             [

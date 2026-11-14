@@ -356,6 +356,10 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 - 2026-11-13: Pitch is time saving, without speed promises.
 - 2026-11-13: Orders are simulated because the Valio mock API has no order endpoint.
 
+- 2026-11-14: Our own agent runs as a code-orchestrated pipeline (`AGENT_MODE=pipeline`, the default): one structured Gemini call expands the event into items with 1 to 2 search terms, code searches and fetches all offers in one Valio batch, one structured Gemini call picks a product per item (code validates, falls back to the first usable offer), and code builds the quote. The tool loop (`AGENT_MODE=tools`) and the MCP server stay for external agents. Reason: the free tool loop ran out of steps or failed live on every event with 14 or more items.
+- 2026-11-14: A product with incomplete Valio data is skipped and logged, never failing the request. An item with no usable product is left out and fires `PARTIAL_QUANTITY`; a request with nothing usable ends `BLOCKED`. A system-default delivery date moves to the earliest date Valio offers for every picked product.
+- 2026-11-14: Feature freeze after the pipeline live run: no new functionality, only fixes to what exists.
+
 ## Open questions
 
 - Mikael: event expansion writes preferences into item names ("organic rye bread") because the prompt passes the preference keys. That may narrow the catalogue search. Phase 4 or 5 should keep preferences out of the search words (code already applies them) and check it live against the catalogue.
@@ -364,6 +368,7 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 - Phase 4 known limits: an expired re-quote fails as a whole if any alternative option comes back blocked (it could drop that option instead); a failed suggestion accept leaves the request `FAILED` with the old approval already expired (nothing is ordered).
 - Johannes: contract v0.6 (`QuoteLine` substitute fields) and the preset fixture values (customers and buyers).
 - Johannes: agree contract v0.3 (customers, question, suggestions, per-line deadlines) and the shopping-list UI requirements in section 8b.
+- Mikael: pipeline live run 2026-11-14 (memory store): all six cases end in a quote waiting for approval. Quality gaps: the pick misses for many items (12 `MISSING_PICK` in two company lunch runs, so the fallback takes the first search hit), weak candidates reach the quote ("egg" becomes egg noodles, "cheese" Roquefort for lactose-free, "salad greens" potato salad, "fish stock" dashi powder), approval options can be nonsense (chilli paste for sugar paste; liquorice and pudding for Pena's cake after re-search), salmon fillet has no usable offer, every `PACK_SIZE_UNKNOWN` line also fires `PARTIAL_QUANTITY` with 0 coverage, and the chef's suggestions call proposed nothing (`SUGGESTIONS_PROPOSED` count 0, no drop reasons).
 
 - Organisers: is a past `closingTime` for Terminal products intended?
 - Organisers: does availability change during the event?
