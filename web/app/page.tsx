@@ -7,6 +7,7 @@ import { readSettings, requestOverrides } from "@/lib/settings";
 import { assumedLines } from "@/lib/assumed";
 import OrderLine from "@/components/OrderLine";
 import Progress from "@/components/Progress";
+import RequestBox from "@/components/RequestBox";
 import { day, dayTime, eur } from "@/lib/format";
 import { ApiError, type LimosRequest, type Step, type Suggestion } from "@/lib/types";
 
@@ -189,12 +190,7 @@ export default function OrderPage() {
     return (
       <main className="w-full max-w-[760px] mx-auto px-4 sm:px-6 pt-8 pb-12 flex flex-col gap-5">
         <h1 className="sr-only">Your order</h1>
-        <div className="flex items-baseline justify-between gap-4">
-          <p className="m-0 text-soft text-[16px] min-w-0 flex-1 break-words">&ldquo;{requestText}&rdquo;</p>
-          <button type="button" onClick={() => reset()} className="shrink-0 min-h-11 text-[16px] text-petrol hover:underline">
-            New request
-          </button>
-        </div>
+        <RequestBox text={requestText} onNew={() => reset()} />
         {running && <Progress steps={running.steps} startedAt={running.startedAt} />}
         {(error || req.status === "FAILED") && (
           <p role="alert" className="m-0 bg-bad-bg text-bad rounded-xl px-4 py-3">
