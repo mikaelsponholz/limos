@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useCustomer } from "@/lib/customer";
 import { readSettings, requestOverrides } from "@/lib/settings";
+import { assumedLines } from "@/lib/assumed";
 import OrderLine from "@/components/OrderLine";
 import { ICONS, day, dayTime, eur } from "@/lib/format";
 import { ApiError, type LimosRequest, type Suggestion } from "@/lib/types";
@@ -236,7 +237,7 @@ function ListView({
   const ordered = req.status === "ORDERED";
   const blocked = req.status === "BLOCKED" || q.policy.outcome === "BLOCK";
   const vat = q.total_with_tax - q.total;
-  const gaps = req.intent?.filled_gaps ?? [];
+  const gaps = assumedLines(req.intent?.filled_gaps ?? []);
   const offered = req.suggestions.filter((s) => s.status === "OFFERED");
 
   return (
@@ -261,8 +262,8 @@ function ListView({
         <ul className="flex flex-col gap-1 text-[17px] text-soft">
           {gaps.map((g, i) => (
             <li key={i}>
-              {g.source === "form" ? g.note : `We assumed: ${g.note}`}{" "}
-              {g.source === "form" ? (
+              {g.text}{" "}
+              {g.toSettings ? (
                 <Link href="/settings" className="text-petrol underline font-semibold">
                   Change
                 </Link>

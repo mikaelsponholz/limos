@@ -10,7 +10,7 @@ import requestChef from "./fixtures/request-chef.json";
 import requestNeedsInput from "./fixtures/request-needs-input.json";
 import requestWedding from "./fixtures/request.json";
 import { day } from "./format";
-import { ALLERGENS, PREFERENCES } from "./settings";
+import { PRIORITY_WORDS, allergenLabel, listWords, prefLabel } from "./settings";
 import {
   ApiError,
   type ApprovalDetail,
@@ -88,15 +88,8 @@ function guestsFrom(text: string): number | null {
 // ---- Settings: the mock runs the same rules the gateway runs (docs/PLAN.md section 4) ----
 type Overrides = { preferences?: Preference[]; exclude_allergens?: string[]; priority?: Priority; budget?: number | null };
 
-const allergenLabel = (k: string) => (ALLERGENS.find((a) => a.key === k)?.label ?? k.replace(/_/g, " ")).toLowerCase();
-const prefLabel = (k: string) => {
-  const label = PREFERENCES.find((p) => p.key === k)?.label ?? k.replace(/_/g, " ");
-  return label === "Finnish" ? label : label.toLowerCase();
-};
-const listWords = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
 const HARD_DIET = new Set(["lactose_free", "gluten_free", "vegetarian", "vegan"]);
 const TIER: Record<Priority, "good" | "better" | "best"> = { price: "good", balanced: "better", quality: "best" };
-const PRIORITY_WORDS: Record<Priority, string> = { price: "lowest price", balanced: "balanced", quality: "best quality" };
 
 function overridesFrom(body: Record<string, unknown>): Overrides {
   const o: Overrides = {};
