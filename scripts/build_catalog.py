@@ -4,6 +4,7 @@ import argparse
 import csv
 import json
 from collections import Counter
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,37 @@ SOURCE_NAMES = (
     ("valio_aimo_junction26_delivery_reliability.csv", "delivery-reliability.csv"),
     ("valio_aimo_junction26_carbon_footprint.csv", "carbon-footprint.csv"),
 )
+
+
+def iter_json_array(text: str) -> Iterator[Any]:
+    """Decode a JSON array one element at a time.
+
+    json.load on the 87 MB product file peaks near 800 MB, which a small hosted container
+    cannot hold. Decoding element by element keeps only the text and one product in memory.
+    """
+    decoder = json.JSONDecoder()
+    index = _skip_space(text, 0)
+    if text[index : index + 1] != "[":
+        raise ValueError("Expected a product array")
+    index = _skip_space(text, index + 1)
+    if text[index : index + 1] == "]":
+        return
+    while True:
+        value, index = decoder.raw_decode(text, index)
+        yield value
+        index = _skip_space(text, index)
+        separator = text[index : index + 1]
+        if separator == "]":
+            return
+        if separator != ",":
+            raise ValueError("Expected a product array")
+        index = _skip_space(text, index + 1)
+
+
+def _skip_space(text: str, index: int) -> int:
+    while index < len(text) and text[index] in " \t\r\n":
+        index += 1
+    return index
 
 
 def source_file(folder: Path, names: tuple[str, ...]) -> Path:
@@ -71,14 +103,12 @@ def build_catalog(
         reliability_path, "deliveryReliability", maximum=1, degradations=degradations
     )
     carbon = read_metric(carbon_path, "AVG kg CO2-eq/kg", degradations=degradations)
-    # Load the source array exactly once. No network, settings or environment files.
-    with products_path.open(encoding="utf-8-sig") as source:
-        products: list[dict[str, Any]] = json.load(source)
-    if not isinstance(products, list):
-        raise ValueError("Expected a product array")
+    # Read the source array exactly once, one product at a time (see iter_json_array).
+    # No network, settings or environment files.
+    products_text = products_path.read_text(encoding="utf-8-sig")
     records_by_code: dict[str, SlimRecord] = {}
     duplicates: set[str] = set()
-    for raw in products:
+    for raw in iter_json_array(products_text):
         if not isinstance(raw, dict):
             degraded(skips, "invalid_record")
             continue
@@ -100,19 +130,25 @@ def build_catalog(
             duplicates.add(code)
             continue
         records_by_code[code] = record
+    del products_text
     records = sorted(records_by_code.values(), key=lambda record: record.product_id)
-    payload = (
-        json.dumps(
-            [record.model_dump(mode="json") for record in records],
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-            allow_nan=False,
-        )
-        + "\n"
-    )
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_bytes(payload.encode("utf-8"))
+    # Written record by record; the bytes equal one json.dumps of the whole list.
+    with out.open("w", encoding="utf-8", newline="\n") as target:
+        target.write("[")
+        for position, record in enumerate(records):
+            if position:
+                target.write(",")
+            target.write(
+                json.dumps(
+                    record.model_dump(mode="json"),
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    allow_nan=False,
+                )
+            )
+        target.write("]\n")
     return records
 
 

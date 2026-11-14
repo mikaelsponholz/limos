@@ -40,7 +40,7 @@ async def fetch(settings: Settings) -> None:
                     settings.valio_api_key,
                     origin,
                 )
-                print(f"Downloaded {filename}")
+                print(f"Downloaded {filename}", flush=True)
 
 
 def main() -> int:
@@ -55,8 +55,10 @@ def main() -> int:
         except (httpx.HTTPError, OSError, ValueError):
             print("Valio download failed. Check the key, the base URL and the network.")
             return 1
-        records = build_catalog(OUTPUT_DIRECTORY, catalog)
-        print(f"Catalogue built: {len(records)} products")
+        # Keep only the count: holding the records while seeding loads the catalogue
+        # again would double the memory of a small hosted container.
+        count = len(build_catalog(OUTPUT_DIRECTORY, catalog))
+        print(f"Catalogue built: {count} products", flush=True)
     else:
         print("Catalogue found, skipping download")
     try:
@@ -64,7 +66,7 @@ def main() -> int:
     except (OSError, ValueError):
         print("Customer seeding failed; check the seed terms against the catalogue.")
         return 1
-    print(f"Customers seeded: {customers}, history lines: {lines}")
+    print(f"Customers seeded: {customers}, history lines: {lines}", flush=True)
     return 0
 
 
