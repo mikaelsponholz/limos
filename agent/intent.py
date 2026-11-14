@@ -152,7 +152,7 @@ def _validated_facts(facts: TextFacts, today: date) -> tuple[TextFacts, list[str
 
 
 def _matching_order(
-    customer: Customer | None, event_type: str | None, words: list[str]
+    customer: Customer | None, event_type: str | None, words: list[str], *, scaling: bool = False
 ) -> PastOrder | None:
     if customer is None:
         return None
@@ -163,8 +163,18 @@ def _matching_order(
         if (event_type is not None and order.event_type == event_type)
         or (tokens and tokens <= set(re.findall(r"\w+", order.title.casefold())))
     ]
-    return (
-        max(matches, key=lambda order: order.date) if matches else customers.latest_order(customer)
+    if not scaling:
+        return (
+            max(matches, key=lambda order: order.date)
+            if matches
+            else customers.latest_order(customer)
+        )
+    # A new guest count can only scale an order whose guest count is known, so the newest
+    # such order wins over a newer one without it.
+    return max(
+        matches or customer.order_history,
+        key=lambda order: (order.guests is not None and order.guests > 0, order.date),
+        default=None,
     )
 
 
@@ -235,7 +245,8 @@ def resolve_request(
     event_type = request.event.type if request.event else facts.event_type if facts else None
     hint = facts.reorder if facts else ReorderHint()
     match_type = event_type if request.event else hint.event_type or event_type
-    past = _matching_order(customer, match_type, hint.title_words)
+    asked_guests = request.event.guests if request.event else facts.guests if facts else None
+    past = _matching_order(customer, match_type, hint.title_words, scaling=asked_guests is not None)
     if target and customer:
         past = next((o for o in customer.order_history if o.order_ref == target), None)
     elif hint.repeat:
