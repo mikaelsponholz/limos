@@ -14,6 +14,63 @@ from pydantic import BaseModel, JsonValue, TypeAdapter, ValidationError
 from gateway.settings import Settings
 
 
+def gemini_schema(model: type[BaseModel]) -> dict[str, JsonValue]:
+    """Inline local definitions and expose only Gemini-supported schema keywords.
+
+    This is only the wire schema; the original model still validates responses.
+    """
+    source: dict[str, JsonValue] = model.model_json_schema()
+    definitions = source.get("$defs", {})
+    supported = {
+        "type",
+        "properties",
+        "required",
+        "items",
+        "enum",
+        "anyOf",
+        "description",
+        "format",
+        "maxLength",
+        "minLength",
+        "nullable",
+        "propertyOrdering",
+    }
+
+    def reduce(value: JsonValue, resolving: frozenset[str]) -> JsonValue:
+        if isinstance(value, list):
+            return [reduce(item, resolving) for item in value]
+        if not isinstance(value, dict):
+            return value
+        result: dict[str, JsonValue] = {}
+        if "$ref" in value:
+            reference = value["$ref"]
+            if not isinstance(reference, str) or not reference.startswith("#/$defs/"):
+                raise ValueError(f"Unsupported Gemini schema reference: {reference!r}")
+            if reference in resolving:
+                raise ValueError(f"Recursive Gemini schema reference: {reference}")
+            name = reference.removeprefix("#/$defs/").replace("~1", "/").replace("~0", "~")
+            if not isinstance(definitions, dict) or not isinstance(definitions.get(name), dict):
+                raise ValueError(f"Unknown Gemini schema reference: {reference}")
+            expanded = reduce(definitions[name], resolving | {reference})
+            assert isinstance(expanded, dict)
+            result.update(expanded)
+        for key, child in value.items():
+            if key not in supported:
+                continue
+            if key == "properties" and isinstance(child, dict):
+                # Field names are data, including names such as `items` or `title`.
+                result[key] = {name: reduce(field, resolving) for name, field in child.items()}
+            elif key in {"items", "anyOf"}:
+                result[key] = reduce(child, resolving)
+            else:
+                result[key] = child
+        return result
+
+    result = reduce(source, frozenset())
+    assert isinstance(result, dict)
+    return result
+
+
 class LLMConfigurationError(Exception):
     """Required Gemini configuration is missing."""
 
@@ -139,7 +196,7 @@ class _ValidatedLLM(ABC):
         config = types.GenerateContentConfig(
             system_instruction=system,
             response_mime_type="application/json",
-            response_schema=schema,
+            response_json_schema=gemini_schema(schema),
         )
         contents = [_user(prompt + "\nReturn JSON matching the supplied response schema.")]
         for attempt in range(2):
@@ -189,7 +246,7 @@ class _ValidatedLLM(ABC):
             types.FunctionDeclaration(
                 name=tool.name,
                 description=tool.description,
-                parameters_json_schema=tool.arguments.model_json_schema(),
+                parameters_json_schema=gemini_schema(tool.arguments),
             )
             for tool in tools
         ]
