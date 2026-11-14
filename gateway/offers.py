@@ -104,16 +104,26 @@ class OfferDataError(GatewayError):
 
 
 def _lot(record: SlimRecord) -> Decimal:
+    if (record.sales_unit or "").upper() in {"KG", "L"}:
+        return Decimal(str(record.allowed_lot_size or 1))
     # For fractional lots, the numerator is the smallest lot multiple of whole packs.
     return Decimal(Decimal(str(record.allowed_lot_size or 1)).as_integer_ratio()[0])
 
 
 def _pack(record: SlimRecord, need_unit: str) -> PackSize | None:
+    sales_units: dict[str, Literal["kg", "L"]] = {"KG": "kg", "L": "L"}
+    sales_unit = sales_units.get((record.sales_unit or "").upper())
+    if sales_unit is not None:
+        return PackSize(value=1, unit=sales_unit) if sales_unit == need_unit else None
     pack = record.pack_size
-    if pack is None:
+    if pack is None or pack.unit != need_unit:
         pack, _ = resolve_pack_size(
             record.unit_conversions, record.names, record.sales_unit, record.base_unit, record.units
         )
+        if pack is not None and pack.unit != need_unit:
+            # Net weight can coexist with an explicit volume in the name. Use that
+            # volume evidence, never a density-based conversion from the weight.
+            pack, _ = resolve_pack_size([], record.names)
     return pack if pack is not None and pack.unit == need_unit else None
 
 
@@ -274,8 +284,10 @@ def _build_offer(
     if pack is None:
         flags.add("PACK_SIZE_UNKNOWN")
     else:
-        whole_packs = (need / Decimal(str(pack.value))).to_integral_value(rounding=ROUND_CEILING)
-        units = (whole_packs / lot).to_integral_value(rounding=ROUND_CEILING) * lot
+        packs = need / Decimal(str(pack.value))
+        if (record.sales_unit or "").upper() not in {"KG", "L"}:
+            packs = packs.to_integral_value(rounding=ROUND_CEILING)
+        units = (packs / lot).to_integral_value(rounding=ROUND_CEILING) * lot
 
     if fixed_units is not None:
         units = fixed_units

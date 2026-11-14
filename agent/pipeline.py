@@ -4,6 +4,7 @@ import asyncio
 import json
 from collections.abc import Sequence
 from fractions import Fraction
+from itertools import zip_longest
 from typing import Literal
 
 from agent.constraints import item_constraints
@@ -145,8 +146,8 @@ async def run_pipeline(
     env.store.save_request(detail)
 
     def search(item: IntentItem, terms: Sequence[str]) -> list[str]:
-        ids: list[str] = []
-        for term in terms[:2]:
+        groups: list[list[str]] = []
+        for term in list(dict.fromkeys(terms))[:2]:
             try:
                 products = tools.search_products(
                     SearchBody(
@@ -155,15 +156,17 @@ async def run_pipeline(
                         query=term,
                         constraints=item.constraints,
                         exclude_allergens=detail.intent.exclude_allergens,
-                        limit=5,
+                        limit=8,
                     ),
                     env,
                 ).products
             except Exception as exc:
                 exception(error_code(exc), item.item_id)
                 raise
-            ids.extend(product.product_id for product in products)
-        return list(dict.fromkeys(ids))[:5]
+            groups.append([product.product_id for product in products])
+        return list(
+            dict.fromkeys(code for row in zip_longest(*groups) for code in row if code is not None)
+        )[:8]
 
     def offer_body(item: IntentItem, ids: list[str]) -> OffersBody:
         return OffersBody(
@@ -210,7 +213,7 @@ async def run_pipeline(
             if past:
                 exception("PRODUCT_NOT_FOUND", item.item_id, past)
             shortlists[item.item_id] = search(
-                item, search_terms.get(item.item_id, [item.description])
+                item, search_terms.get(item.item_id, [item.description, item.description_fi])
             )
     base_ids = {key: list(ids) for key, ids in shortlists.items()}
     valio_ids: dict[str, set[str]] = {}
@@ -316,7 +319,7 @@ async def run_pipeline(
             item.item_id,
             entries[0].product_id if entries else None,
         )
-        terms = search_terms.get(item.item_id, [item.description])
+        terms = search_terms.get(item.item_id, [item.description, item.description_fi])
         for offer in offers[item.item_id]:
             record = env.catalog.lookup(offer.product_id)
             if not record or not usable(offer, contexts[item.item_id]):

@@ -50,6 +50,7 @@ class TextDish(TextModel):
 
 class TextItem(TextModel):
     description: str
+    description_fi: str | None = None
     # Null when the buyer names a product without an amount ("milk and cream").
     quantity: float | None = None
     unit: Unit | None = None
@@ -147,6 +148,10 @@ def parse_text(
             "Leave unstated fields null or empty; do not invent quantities, dishes or items. "
             "Use items for products the buyer names to buy, not event dishes; leave quantity "
             "and unit null when no amount is stated. "
+            "For items, description must be short plain English product words and "
+            "description_fi the Finnish base form (nominative singular, standard spelling): "
+            "kananmunia -> kananmuna / eggs, voita -> voi / butter, "
+            "maitoo -> maito / milk, kermaa -> kerma / cream. "
             "For a request to repeat a past order set reorder.repeat and any stated event "
             "type or title words. When the text only asks for a kind of product that a "
             "past_orders title names (for example 'cake' and 'Layer cakes for the board "
@@ -248,6 +253,7 @@ def resolve_request(
     merged = request.model_copy(deep=True)
     gaps: list[FilledGap] = []
     assumptions: list[str] = []
+    item_descriptions_fi: list[str] = []
 
     def record(field: str, value: JsonValue, source: str, note: str) -> None:
         gaps.append(
@@ -283,6 +289,7 @@ def resolve_request(
         if "items" not in request.model_fields_set and facts.items:
             merged.items = []
             for item in facts.items:
+                item_descriptions_fi.append(item.description_fi or item.description)
                 if item.quantity is None or item.unit is None:
                     # One pack, flagged for the buyer to change, beats asking a busy buyer.
                     merged.items.append(
@@ -423,7 +430,9 @@ def resolve_request(
         IntentItem(
             **item.model_dump(exclude={"constraints"}),
             item_id=f"it_{index}",
-            description_fi=item.description,
+            description_fi=(
+                item_descriptions_fi[index - 1] if item_descriptions_fi else item.description
+            ),
             used_in=[],
             constraints=item_constraints(
                 resolved.preferences, resolved.exclude_allergens, item.constraints

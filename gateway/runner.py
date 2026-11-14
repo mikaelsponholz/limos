@@ -6,7 +6,7 @@ import json
 from agent.constraints import item_constraints
 from agent.errors import error_code
 from agent.exceptions import ItemPlan
-from agent.expansion import build_event_items, expand_event
+from agent.expansion import build_event_items, expand_event, propose_dishes
 from agent.intent import (
     TextFacts,
     helsinki_today,
@@ -25,7 +25,9 @@ from gateway.api.dependencies import Resources
 from gateway.audit import append_step
 from gateway.errors import GatewayError
 from gateway.schemas import (
+    Dish,
     Error,
+    EventDish,
     IntentItem,
     Offer,
     OffersBody,
@@ -386,6 +388,28 @@ async def run(
             and not body.reorder_of
             and env.llm is not None
         ):
+            if not detail.intent.dishes and not detail.intent.items:
+                proposed = propose_dishes(
+                    env.llm,
+                    detail.intent.event,
+                    detail.intent.preferences,
+                    detail.intent.exclude_allergens,
+                )
+                names = proposed.value.dishes
+                detail.intent.dishes = [
+                    Dish(dish_id=f"d_{index}", name=name, servings=detail.intent.event.guests)
+                    for index, name in enumerate(names, 1)
+                ]
+                if body.event is not None:
+                    body.event.dishes = [
+                        EventDish(name=dish.name, servings=dish.servings)
+                        for dish in detail.intent.dishes
+                    ]
+                detail.intent.assumptions.append(
+                    f"No dishes were named; proposed {', '.join(names[:-1])} and {names[-1]}. "
+                    "Change them before approving."
+                )
+                env.store.save_request(detail)
             expanded = expand_event(
                 env.llm,
                 detail.intent.event,
