@@ -231,7 +231,7 @@ Fixture: `steps.json`.
 ```json
 {
   "customer_id": "c_pena",
-  "name": "Pena",
+  "name": "Frank",
   "company": "Ab Oy",
   "role": "Executive",
   "buyer_id": "ab-oy",
@@ -252,7 +252,7 @@ Fixture: `steps.json`.
 - `preferences`, `exclude_allergens` and `defaults` fill gaps in a request. Anything the request sets wins.
 - `defaults.priority` is `price`, `balanced` or `quality`. `typical_guests` and `budget` may be `null`.
 
-Fixtures: `customer.json` (Pena, with history), `customers.json` (list).
+Fixtures: `customer.json` (Frank, with history), `customers.json` (list).
 
 ### `PastOrder` (one entry in `order_history`)
 

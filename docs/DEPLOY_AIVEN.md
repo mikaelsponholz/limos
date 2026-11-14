@@ -20,7 +20,7 @@ The gateway (FastAPI) runs as a container next to our Aiven PostgreSQL. The deci
    - `STORE` = `postgres` and `PORT` = `8000` are already set in the image.
    - `MIGRATE_ON_START` = `true` explicitly enables startup migrations on Aiven Runtime.
 5. **Port:** 8000.
-6. After the first deploy, open `https://<app-url>/health`. Expect `{"status":"ok","valio_api":"ok","database":"ok"}`. Then `/customers` should list Pena and the chef.
+6. After the first deploy, open `https://<app-url>/health`. Expect `{"status":"ok","valio_api":"ok","database":"ok"}`. Then `/customers` should list Frank and the chef.
 
 Runtime does not redeploy on push. After new commits, redeploy from the console. Editing secrets or variables redeploys automatically.
 

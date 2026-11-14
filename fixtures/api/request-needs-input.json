@@ -82,13 +82,13 @@
       "at": "2026-11-14T10:00:01+02:00",
       "actor": "gateway",
       "type": "CUSTOMER_LOADED",
-      "title": "Loaded Pena at Ab Oy and two past orders",
+      "title": "Loaded Frank at Ab Oy and two past orders",
       "detail": {
         "customer_id": "c_pena"
       },
       "model": null,
       "prev_hash": "sha256:07c84b4fd08fcba0385bcbf97075795fb41af142897204b08a97a35bf537008e",
-      "hash": "sha256:34f69fa61a399e36eb944a21a52c8fec7984fd1d568b160cbc2cf749dd2af1f2"
+      "hash": "sha256:e9b13eb8a91ba3ec999acf1bab63f1eb6f7f10c5a2ee71e2234c2a53d3af0d7a"
     },
     {
       "seq": 3,
@@ -100,8 +100,8 @@
         "question_id": "qn_r_pena01"
       },
       "model": null,
-      "prev_hash": "sha256:34f69fa61a399e36eb944a21a52c8fec7984fd1d568b160cbc2cf749dd2af1f2",
-      "hash": "sha256:3562aecd94ed6c9e690f5acb0aa67be22710254459236864540c6043d774ec5e"
+      "prev_hash": "sha256:e9b13eb8a91ba3ec999acf1bab63f1eb6f7f10c5a2ee71e2234c2a53d3af0d7a",
+      "hash": "sha256:00f9548485ee33c4cb08d8a6876a54b947a5763f108c9e12f82771b8ff7f2d12"
     }
   ],
   "candidates": [],
