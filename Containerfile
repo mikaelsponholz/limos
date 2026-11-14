@@ -31,4 +31,7 @@ USER limos
 
 EXPOSE 8000
 
-CMD ["sh", "-c", ".venv/bin/python -m scripts.prepare_runtime && exec .venv/bin/uvicorn gateway.main:app --host 0.0.0.0 --port ${PORT}"]
+# The server listens at once and the Valio data is prepared in the background, so a slow
+# download cannot fail the host's start check and a failed one leaves /health to explain it.
+# Until the catalogue exists, catalogue routes answer 503 CATALOG_UNAVAILABLE.
+CMD ["sh", "-c", ".venv/bin/python -m scripts.prepare_runtime & exec .venv/bin/uvicorn gateway.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

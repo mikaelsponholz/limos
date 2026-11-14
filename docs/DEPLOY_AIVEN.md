@@ -5,7 +5,7 @@ The gateway (FastAPI) runs as a container next to our Aiven PostgreSQL. The deci
 ## What is in the repo
 
 - `Containerfile`: Python 3.12 image, installs the project and psycopg, exposes port 8000.
-- `scripts/prepare_runtime.py`: runs before the server. Downloads Valio's product, reliability and CO2 files with the `VALIO_API_KEY` secret, builds `catalog.slim.json`, and seeds the demo customers' history. Takes about 35 s. Prints counts only.
+- `scripts/prepare_runtime.py`: runs in the background while the server starts, so the host's start check never waits for it. Downloads Valio's product, reliability and CO2 files with the `VALIO_API_KEY` secret, builds `catalog.slim.json`, and seeds the demo customers' history. Takes about 35 s; until then catalogue routes answer 503. Prints counts only, so the app logs show which step failed.
 - `.containerignore` / `.dockerignore`: keep `.env`, `data/`, `.runtime/` and `web/` out of any build.
 
 ## Steps in the Aiven console
