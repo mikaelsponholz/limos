@@ -428,7 +428,7 @@ def cake_catalog():
         [
             product(
                 "990001",
-                names={"fi": "Example täytekakku"},
+                names={"fi": "Example juustokakku"},
                 substitutions=[{"product": "990001", "substituteProduct": "990002"}],
             ),
             product("990002", names={"en": "Example coffee drink"}),

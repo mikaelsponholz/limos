@@ -433,3 +433,17 @@ def test_llm_is_lazy_and_requires_both_settings(key: str, model: str, configured
         assert env.llm is llm
     else:
         assert llm is None
+
+
+@pytest.mark.parametrize(("guests", "target"), [(80, "invented-coffee"), (None, "invented-repeat")])
+def test_new_guest_count_repeats_the_newest_scalable_order(guests: int | None, target: str) -> None:
+    # A repeat placed today recorded no guest count; it cannot be scaled to 80 people.
+    customer = profile()
+    repeat = customer.order_history[1].model_copy(
+        update={"order_ref": "invented-repeat", "date": TODAY, "guests": None}
+    )
+    customer.order_history.insert(0, repeat)
+    resolved = resolve_request(
+        request(), customer, facts(guests=guests, reorder={"repeat": True}), TODAY
+    )
+    assert resolved.request.reorder_of == target

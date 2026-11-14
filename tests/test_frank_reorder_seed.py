@@ -14,7 +14,7 @@ from tests.test_offers import product
 
 def oat_catalog(*, lot: float | None = None, companion: str = "same_unit") -> Catalog:
     records = [
-        product("990101", names={"fi": "Example täytekakku"}),
+        product("990101", names={"fi": "Example juustokakku"}),
         product(
             "990102",
             names={"en": "Example oat drink iKaffe 1L"},
@@ -70,7 +70,7 @@ def test_verified_override_replaces_only_matching_history_line(
         "990101",
         "990103" if history_product_id == "900312" else "990102",
     ]
-    assert lines[0].name == "Example täytekakku"
+    assert lines[0].name == "Example juustokakku"
     assert [line.quantity_sales_units for line in lines] == [2, 6]
     assert [line.line_total for line in lines] == [77, 15]
     assert customer.order_history[0].total == 92
