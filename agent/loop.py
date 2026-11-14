@@ -53,6 +53,9 @@ def run_loop(
 ) -> Quote:
     client = GatewayClient(env.settings, env.gateway_http_client)
     items = {item.item_id: item for item in detail.intent.items}
+    max_steps = 3 * len(items) + 2
+    calls_used = 0
+    search_attempts: dict[str, int] = {}
     searched: dict[str, set[str]] = {}
     seen: dict[str, dict[str, Offer]] = {}
     quote: Quote | None = None
@@ -70,9 +73,26 @@ def run_loop(
     def error(code: str) -> dict[str, JsonValue]:
         return {"error": code}
 
+    def quote_due() -> bool:
+        # on_call already counted this attempt. Its error reply must leave one
+        # further tool call for request_quote, even for calls in the same batch.
+        return calls_used >= max_steps - 1 and all(seen.get(item_id) for item_id in items)
+
+    def quote_now() -> dict[str, JsonValue]:
+        return {"error": "QUOTE_NOW", "message": "Call request_quote now using the offers seen."}
+
     def search_products(item_id: str, query: str) -> object:
         if item_id not in items:
             return error("UNKNOWN_ITEM")
+        if search_attempts.get(item_id, 0) >= 2:
+            return {
+                "error": "SEARCH_LIMIT",
+                "message": "Choose from the results already returned for this item."
+                + (" Call request_quote now using the offers seen." if quote_due() else ""),
+            }
+        if quote_due():
+            return quote_now()
+        search_attempts[item_id] = search_attempts.get(item_id, 0) + 1
         try:
             response = client.search_products(
                 SearchBody(
@@ -92,6 +112,8 @@ def run_loop(
     def check_offers(item_id: str, product_ids: list[str]) -> object:
         if item_id not in items:
             return error("UNKNOWN_ITEM")
+        if quote_due():
+            return quote_now()
         if not set(product_ids) <= searched.get(item_id, set()):
             return error("PRODUCT_NOT_SEARCHED")
         item = items[item_id]
@@ -242,8 +264,9 @@ def run_loop(
     active_model = ""
 
     def on_call(name: str, model: str) -> None:
-        nonlocal active_model
+        nonlocal active_model, calls_used
         active_model = model
+        calls_used += 1
         safe_name = name if name in {tool.name for tool in available_tools} else "unknown"
         append_step(
             env.store,
@@ -276,10 +299,13 @@ def run_loop(
             system=(
                 "Search and check offers for each item. Choose the most relevant usable product, "
                 "then request one quote covering every item. Correct tool errors and try again. "
+                "A preference is not a requirement. Search at most twice per item; after one "
+                "retry, take the closest usable product already seen. Leave room to call "
+                "request_quote. On QUOTE_NOW, call request_quote immediately. "
                 "Use only returned product ids. Quantities, dates and prices are supplied by code. "
                 "After a successful quote, finish with a short acknowledgement."
             ),
-            max_steps=3 * len(items) + 2,
+            max_steps=max_steps,
             on_call=on_call,
         )
     except LLMOutputError:
