@@ -23,7 +23,9 @@ from tests.test_offers import NOW, FakeValio, price, product, schedule, stock
 EXPLANATION = {"text": "The selected products cover the available items. The quote is ready."}
 
 
-def environment(tmp_path, records, outputs, *, availability=None, playful=False, approval=False):
+def environment(
+    tmp_path, records, outputs, *, availability=None, playful=False, approval=False, insights=False
+):
     if playful:
         profile = {
             "customer_id": "invented-chef",
@@ -51,6 +53,8 @@ def environment(tmp_path, records, outputs, *, availability=None, playful=False,
     app = create_app(
         Settings(
             agent_mode="pipeline",
+            # Off by default here: these tests count the purchase path's Valio calls.
+            price_insights=insights,
             store="memory",
             gemini_api_key="",
             gemini_model="",

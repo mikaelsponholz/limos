@@ -2146,6 +2146,72 @@
         "title": "Presets",
         "type": "array"
       },
+      "PriceInsight": {
+        "additionalProperties": false,
+        "description": "A price fact for the buyer; it informs only and never changes the quote.",
+        "properties": {
+          "item_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Id"
+          },
+          "kind": {
+            "enum": [
+              "delivery_date",
+              "price_change",
+              "season",
+              "waste",
+              "pack_size",
+              "discount",
+              "per_guest",
+              "price_trend"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "product_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Id"
+          },
+          "saving": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saving"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "item_id",
+          "product_id",
+          "text",
+          "saving"
+        ],
+        "title": "PriceInsight",
+        "type": "object"
+      },
       "Quantity": {
         "additionalProperties": false,
         "properties": {
@@ -2894,6 +2960,13 @@
           },
           "input": {
             "$ref": "#/components/schemas/RequestInput"
+          },
+          "insights": {
+            "items": {
+              "$ref": "#/components/schemas/PriceInsight"
+            },
+            "title": "Insights",
+            "type": "array"
           },
           "intent": {
             "$ref": "#/components/schemas/Intent"

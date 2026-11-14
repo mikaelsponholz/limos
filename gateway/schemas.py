@@ -415,6 +415,26 @@ class Offer(ContractModel):
     flags: list[OfferFlag]
 
 
+class PriceInsight(ContractModel):
+    """A price fact for the buyer; it informs only and never changes the quote."""
+
+    kind: Literal[
+        "delivery_date",
+        "price_change",
+        "season",
+        "waste",
+        "pack_size",
+        "discount",
+        "per_guest",
+        "price_trend",
+    ]
+    item_id: str | None
+    product_id: str | None
+    text: str
+    # Euros the buyer could save by acting on it, when that is known.
+    saving: float | None
+
+
 class Suggestion(ContractModel):
     suggestion_id: str
     kind: Literal["seasonal", "holiday", "trend"]
@@ -522,6 +542,8 @@ class RequestDetail(ContractModel):
     approval_id: str | None
     order: Order | None
     error: Error | None
+    # Older stored requests have no insights; they are computed once the quote exists.
+    insights: list[PriceInsight] = Field(default_factory=list)
 
 
 class RequestListEntry(ContractModel):

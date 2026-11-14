@@ -8,6 +8,8 @@ from starlette.requests import Request
 @dataclass(frozen=True)
 class Settings:
     agent_mode: str = field(default_factory=lambda: os.getenv("AGENT_MODE", "pipeline"))
+    # Price insights re-price the quote on earlier days, so they cost extra Valio calls.
+    price_insights: bool = field(default_factory=lambda: os.getenv("PRICE_INSIGHTS", "1") != "0")
     valio_api_key: str = field(default_factory=lambda: os.getenv("VALIO_API_KEY", ""), repr=False)
     valio_base_url: str = field(default_factory=lambda: os.getenv("VALIO_BASE_URL", ""))
     valio_timeout_seconds: float = field(

@@ -17,6 +17,7 @@ from agent.intent import (
 from agent.llm import LLMOutputError
 from agent.loop import run_loop
 from agent.pipeline import run_pipeline
+from agent.pricing import price_insights
 from agent.purchasing import create_options, resolve_item
 from agent.question import apply_answer, choices_and_default, missing_field, word_question
 from agent.suggestions import propose_suggestions
@@ -106,6 +107,39 @@ def _replace(previous: RequestDetail, new_id: str, env: Resources) -> None:
             "REJECTED",
             title,
             {"replaced_by": new_id},
+            None,
+            env.now(),
+        )
+
+
+async def _add_insights(request_id: str, buyer_id: str, env: Resources) -> None:
+    """Price insights are optional; a failure leaves the quote and approval as they are."""
+    if not env.settings.price_insights:
+        return
+    try:
+        detail = env.store.get_request(request_id, buyer_id)
+        if detail is None or detail.quote is None:
+            return
+        customer = (
+            customers.get_customer(detail.customer_id, env.store, **env.customer_paths)
+            if detail.customer_id
+            else None
+        )
+        insights = await price_insights(detail, customer, env.valio, helsinki_today(env.now()))
+        with env.store.transaction():
+            latest = env.store.get_request(request_id, buyer_id)
+            if latest is None:
+                return
+            latest.insights = insights
+            env.store.save_request(latest)
+    except Exception as exc:  # noqa: BLE001 - insights inform only; the quote stands without them
+        append_step(
+            env.store,
+            request_id,
+            "gateway",
+            "EXCEPTION",
+            "Skipped optional price insights",
+            {"insights": "skipped", "exception_type": type(exc).__name__},
             None,
             env.now(),
         )
@@ -657,6 +691,7 @@ async def run(
         else:
             detail.status = "BLOCKED"
             env.store.save_request(detail)
+        await _add_insights(request_id, detail.buyer_id, env)
         try:
             await propose_suggestions(request_id, env)
         except Exception:  # noqa: BLE001 - ideas are optional; the quote stands without them

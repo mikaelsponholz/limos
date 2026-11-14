@@ -99,3 +99,47 @@ The many `OFFER_DATA_INVALID` exceptions are incomplete Valio data. Another prod
 - PR from `fix-pick-quality` into `main`.
 - After any seed change: re-seed, then run Frank's request and the chef's order live.
 - Aiven redeploy after merge. A new container shows CATALOG_UNAVAILABLE for 1 to 2 minutes.
+
+## 4. Price insights (branch `pricing-insights`, new feature)
+
+Johannes asked for price optimisation from the customer's point of view. It is built on branch `pricing-insights`, which starts from `fix-pick-quality` at `0e3bd13`. It is not merged anywhere. It breaks the feature freeze, so decide whether it ships.
+
+- **What it is:**
+  - `RequestDetail.insights: list[PriceInsight]` (`gateway/schemas.py`). Each insight has kind, item_id, product_id, text and saving.
+  - The field has a default of `[]`, so stored requests and fixtures stay valid. `contract/openapi.json` was regenerated.
+- **Insights only inform.** They never change the quote or skip an approval.
+- **Where it runs:** `gateway/runner.py` `_add_insights`, after the order or approval and before suggestions.
+  - It runs inside a try block. A failure appends an EXCEPTION step "Skipped optional price insights" and keeps the quote.
+  - `Settings.price_insights` (env `PRICE_INSIGHTS=0` turns it off) exists because the date check makes extra Valio calls.
+  - The `tests/test_pipeline.py` `environment()` turns it off by default, because those tests count the purchase path's Valio calls. Pass `insights=True` to turn it on.
+- **All logic is in `agent/pricing.py`, in code with no LLM:**
+
+  | Kind | What it shows |
+  |---|---|
+  | `delivery_date` | The basket repriced on up to 3 earlier weekdays (price plus availability). It names the cheapest day with everything in stock. |
+  | `price_change` | A product whose price changes by 3 % or more between those days and the delivery date. |
+  | `season` | A Finnish produce calendar: fresh berries, asparagus, chanterelles and so on are flagged out of season (frozen hint for berries) or in season. Preserved products are skipped. It also adds a Christmas note for December events. |
+  | `waste` | Leftover from pack sizes. Only the 3 costliest, at 3 € or more and 25 % or more of the pack. |
+  | `pack_size` | Another pack of the same product line, where only the size differs in the name, that covers the need for less money. |
+  | `discount` | One summary of how far the customer's prices are below Valio's list prices. A single line is called a sale only when its cut is at least 5 points deeper than the usual rate. In Junction data every product is 15 to 20 % below list price, which is the agreement, not a sale. |
+  | `per_guest` | The cost per guest. |
+  | `price_trend` | A comparison against earlier orders. It uses only orders with `source == "limos"`, because the seeded history has invented prices. |
+
+- **Tests:** `tests/test_pricing.py`, 9 tests. The full suite passes with 1091 tests (without the Postgres test). Ruff and mypy are clean.
+- **Live (real Gemini and Valio):**
+  - Frank's wedding for 80: per guest 2.64 €, and customer prices 45.14 € below list price.
+  - The chef's Christmas table: the Christmas note, two leftovers (vinegar 7.32 €, pickled cucumber 4.64 €) and per guest 1.17 €.
+  - The chef's strawberry cake: an out-of-season strawberry note in an earlier run, when Gemini expanded it into ingredients.
+  - `delivery_date` never fires live. A check of 200 random products priced on 6 dates over 45 days found no price changes.
+  - 196 of those 200 prices are open-ended (`validTo` 9999-12-31) and 4 end on 2026-12-31. `price_change` therefore also names a price whose `validTo` is within 60 days of delivery ("set until 2026-12-31; a new price may apply after that").
+- **Order:** `price_insights` returns the insights ranked for the chat: the cheaper delivery day first, then season, waste and pack size, then price changes and sales, then trend and per guest. The list-price summary comes last.
+- **Web:** branch `pricing-insights-ui`, built on `ui-polish` at `594b210`. It is a separate worktree on Johannes' machine, `Desktop/limos-ui`.
+  - `web/lib/types.ts` adds `PriceInsight` and an optional `insights` on `LimosRequest`.
+  - `web/components/ConversationReply.tsx` shows the top 3 under "Price tips" in the latest reply. `saving` is shown as "save X €", or "X € unused" for waste.
+  - Checked in the browser against a local gateway (memory store, live Valio and Gemini) with the chef's Christmas table: the Christmas note, vinegar 8.44 € unused and pickled cucumber 5.16 € unused, at phone width too.
+  - tsc and eslint are clean.
+
+### New bugs seen in these live runs (not price insights)
+
+- "Joulupöytä 40 hengelle 19.12., kinkku ja rosolli" quoted delivery on **2026-11-16**, a month early. A missing deliver_by should default relative to the event date, not to tomorrow.
+- The same request had **no ham line**, although "kinkku" was named.
