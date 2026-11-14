@@ -12,6 +12,17 @@ export type RequestStatus =
 
 export type PolicyOutcome = "AUTO" | "NEEDS_APPROVAL" | "BLOCK";
 
+export type CreateRequestBody = {
+  customer_id?: string;
+  text?: string;
+  reorder_of?: string;
+  revises?: string;
+  preferences?: unknown;
+  exclude_allergens?: unknown;
+  priority?: unknown;
+  budget?: unknown;
+};
+
 export interface Quantity {
   value: number;
   unit: string;

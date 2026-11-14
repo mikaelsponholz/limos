@@ -17,6 +17,7 @@ import {
   type ApprovalSummary,
   type Quote,
   type Audit,
+  type CreateRequestBody,
   type Customer,
   type CustomerSummary,
   type LimosRequest,
@@ -37,6 +38,7 @@ type Run = {
   overrides?: Overrides;
   startedAt?: number;
   asked?: { text: string; answer: string };
+  reorder_of?: string;
 };
 const runs = new Map<string, Run>();
 let counter = 0;
@@ -451,32 +453,57 @@ export const mock = {
     return { ...clone<CustomerSummary>(s), buyer_id: "demo-catering", order_history: s.last_order ? [{ ...s.last_order, guests: null, total: 0 }] : [] };
   },
 
-  async createRequest(body: { customer_id: string; text?: string; reorder_of?: string } & Record<string, unknown>) {
+  async createRequest(body: CreateRequestBody) {
+    let earlier: Run | undefined;
+    if (body.revises !== undefined) {
+      if (!body.text?.trim()) throw new ApiError(422, "VALIDATION_ERROR", "A revision requires text.");
+      earlier = runs.get(body.revises);
+      if (!earlier || (body.customer_id !== undefined && body.customer_id !== earlier.final.customer_id))
+        throw new ApiError(404, "NOT_FOUND", "Request not found");
+      if (Date.now() < earlier.readyAt || earlier.final.status === "RUNNING" || earlier.final.status === "ORDERED")
+        throw new ApiError(409, "NOT_REVISABLE", "This request cannot be revised.");
+    }
+    const customerId = body.customer_id ?? earlier?.final.customer_id;
+    if (!customerId) throw new ApiError(422, "VALIDATION_ERROR", "A customer is required.");
+    const orderRef = earlier ? earlier.reorder_of : body.reorder_of;
     const id = newId("r");
-    const text = body.text ?? "";
+    const text = earlier ? (earlier.final.input.text ?? "") + "\n" + body.text : body.text ?? "";
     let final: LimosRequest;
     if (/wedding/i.test(text)) {
-      final = { ...clone<LimosRequest>(requestWedding), request_id: id, customer_id: body.customer_id, approval_id: `a_${id}` };
+      final = { ...clone<LimosRequest>(requestWedding), request_id: id, customer_id: customerId, approval_id: `a_${id}` };
       final.input.text = text;
       if (final.quote) final.quote.quote_id = `q_${id}`;
-    } else if (body.customer_id === "c_pena") {
+    } else if (customerId === "c_pena") {
       const guests = guestsFrom(text);
-      if (guests || body.reorder_of) {
-        final = penaQuoted(id, text || "Same as last time", guests, false, body.reorder_of);
+      if (guests || orderRef) {
+        final = penaQuoted(id, text || "Same as last time", guests, false, orderRef);
       } else {
         final = { ...clone<LimosRequest>(requestNeedsInput), request_id: id };
         final.input.text = text;
       }
-    } else if (body.customer_id === "c_chef" && body.reorder_of) {
-      final = chefReorder(id, body.reorder_of);
+    } else if (customerId === "c_chef" && orderRef) {
+      final = chefReorder(id, orderRef);
     } else {
-      final = { ...clone<LimosRequest>(requestChef), request_id: id, customer_id: body.customer_id };
+      final = { ...clone<LimosRequest>(requestChef), request_id: id, customer_id: customerId };
       final.input.text = text || final.input.text;
       final.approval_id = `a_${id}`;
     }
+    final.input.text = text || final.input.text;
+    if (earlier) final.buyer_id = earlier.final.buyer_id;
     if (final.quote) final.quote.request_id = id;
     const overrides = overridesFrom(body);
-    runs.set(id, { final: settleAuto(applySettings(final, overrides)), readyAt: later(MOCK_DELAY_MS), overrides, startedAt: Date.now() });
+    const settled = settleAuto(applySettings(final, overrides));
+    if (earlier) {
+      earlier.final = {
+        ...earlier.final,
+        status: "REJECTED",
+        question: null,
+        suggestions: earlier.final.suggestions.map((s) => s.status === "OFFERED" ? { ...s, status: "DECLINED" } : s),
+      };
+      if (earlier.final.approval_id && !earlier.decision)
+        earlier.decision = { status: "REJECTED", by: "buyer", at: new Date().toISOString() };
+    }
+    runs.set(id, { final: settled, readyAt: later(MOCK_DELAY_MS), overrides, startedAt: Date.now(), reorder_of: orderRef });
     return { request_id: id, status: "RUNNING" as const };
   },
 

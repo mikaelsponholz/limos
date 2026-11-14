@@ -93,11 +93,12 @@ export default function OrderPage() {
 
   const start = async (body: { text?: string; reorder_of?: string }, refresh = false) => {
     if (!customer) return;
+    const revises = !refresh && inConversation ? req?.request_id : undefined;
+    if (!refresh && (busy || (inConversation && (!revises || req?.status === "RUNNING" || req?.status === "ORDERED")))) return;
     const activeVersion = ++version.current;
     if (timer.current) clearTimeout(timer.current);
     const orderRef = body.reorder_of ?? reorderOf;
-    const messages = turns.slice(orderRef ? 1 : 0).map((turn) => turn.userText);
-    const requestText = [...messages, ...(refresh ? [] : [body.text])].filter(Boolean).join("\n") || undefined;
+    const requestText = refresh ? req?.input.text ?? undefined : body.text;
     if (!refresh) {
       const previousLines = [...turns].reverse().find((turn) => turn.request?.quote)?.request?.quote?.lines;
       const title = customer.order_history.find((order) => order.order_ref === body.reorder_of)?.title ?? "past order";
@@ -118,14 +119,18 @@ export default function OrderPage() {
         customer_id: customer.customer_id,
         ...requestOverrides(readSettings(customer.customer_id)),
         text: requestText,
-        reorder_of: orderRef,
+        ...(revises ? { revises } : { reorder_of: orderRef }),
       });
       if (activeVersion === version.current) poll(request_id, activeVersion);
-    } catch {
+    } catch (e) {
       if (activeVersion !== version.current) return;
       setBusy(false);
       setRunning(null);
-      setError("We could not reach Limos. Please try again.");
+      setError(revises && e instanceof ApiError && e.status === 409 && e.code === "NOT_REVISABLE"
+        ? "That list can't be changed any more. Start a new request to order something else."
+        : revises && e instanceof ApiError && e.status === 404
+          ? "I couldn't find the list to change. Start a new request."
+          : "We could not reach Limos. Please try again.");
     }
   };
 
