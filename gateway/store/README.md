@@ -6,7 +6,7 @@ Stores requests, quotes, approvals, orders, customer history and the decision lo
 from gateway.store import create_store
 
 store = create_store(settings)  # STORE=file (default) | memory | postgres
-with store.transaction():       # all writes inside commit or roll back together
+with store.transaction():  # all writes inside commit or roll back together
     ...
 ```
 

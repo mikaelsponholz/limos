@@ -17,7 +17,10 @@ ROOT = Path(__file__).resolve().parents[1]
 def invented_catalog(path: Path) -> list[SlimRecord]:
     records = [
         SlimRecord(
-            product_id="900701", names=LocalizedText(fi="Example kerroskakku"), sales_unit="ST"
+            product_id="900701", names=LocalizedText(fi="Example juustokakku"), sales_unit="ST"
+        ),
+        SlimRecord(
+            product_id="900705", names=LocalizedText(fi="Example täytekakku"), sales_unit="ST"
         ),
         SlimRecord(
             product_id="900702",
@@ -26,12 +29,12 @@ def invented_catalog(path: Path) -> list[SlimRecord]:
             pack_size=PackSize(value=2.0, unit="kg"),
         ),
         SlimRecord(
-            product_id="900703", names=LocalizedText(fi="Example vehnajauho"), sales_unit="PRK"
+            product_id="900703", names=LocalizedText(fi="Example vehnäjauho"), sales_unit="PRK"
         ),
         SlimRecord(product_id="900704", names=LocalizedText(fi="Example peruna"), sales_unit="ST"),
         SlimRecord(
             product_id="900700",
-            names=LocalizedText(fi="Example kerroskakku blocked"),
+            names=LocalizedText(fi="Example juustokakku blocked"),
             sales_unit="ST",
             sales_block=True,
         ),
@@ -73,7 +76,7 @@ def test_cli_resolves_overlay_offline_with_only_count_output(tmp_path: Path) -> 
     assert {p.name for p in out.iterdir()} == {"c_pena.json", "c_chef.json"}
     expected = {
         "900310": "900701",
-        "900311": "900701",
+        "900311": "900705",
         "900401": "900702",
         "900402": "900703",
         "900403": "900704",
@@ -102,7 +105,7 @@ def test_custom_seed_directory_and_spec(tmp_path: Path) -> None:
     customer = load_customers(overlay_dir=None)["c_pena"]
     (seeds / "c_pena.json").write_text(customer.model_dump_json(), encoding="utf-8")
     spec = tmp_path / "queries.json"
-    spec.write_text('{"900310":"kerroskakku", "900311":"kerroskakku"}', encoding="utf-8")
+    spec.write_text('{"900310":"juustokakku", "900311":"täytekakku"}', encoding="utf-8")
     catalog_path = tmp_path / "catalog.slim.json"
     invented_catalog(catalog_path)
     assert seed_customers(

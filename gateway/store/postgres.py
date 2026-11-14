@@ -15,6 +15,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
+from threading import RLock
 from typing import Any
 
 from psycopg import Connection, errors, sql
@@ -62,6 +63,10 @@ class PostgresStore:
         self._tx: ContextVar[tuple[Connection[Any], int] | None] = ContextVar(
             f"limos_pg_tx_{id(self)}", default=None
         )
+        # Writers in this process queue here first, holding no connection while they wait.
+        # Without it, threads waiting for the advisory lock each hold a pool connection,
+        # and the writer that holds the lock could starve for one under heavy polling.
+        self._lock = RLock()
         if migrate:
             self.migrate()
 
@@ -88,7 +93,7 @@ class PostgresStore:
             finally:
                 self._tx.reset(token)
             return
-        with self._pool.connection() as conn:
+        with self._lock, self._pool.connection() as conn:
             try:
                 with conn.transaction():
                     conn.execute("SELECT pg_advisory_xact_lock(%s)", (_ENGINE_LOCK,))
