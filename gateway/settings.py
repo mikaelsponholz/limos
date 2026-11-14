@@ -26,6 +26,18 @@ class Settings:
             os.getenv("GEMINI_EXPANSION_MODEL", "") or os.getenv("GEMINI_MODEL", "")
         )
     )
+    nvidia_api_key: str = field(default_factory=lambda: os.getenv("NVIDIA_API_KEY", ""), repr=False)
+    nvidia_base_url: str = field(
+        default_factory=lambda: (
+            os.getenv("NVIDIA_BASE_URL") or "https://integrate.api.nvidia.com/v1"
+        )
+    )
+    nvidia_vision_model: str = field(
+        default_factory=lambda: os.getenv("NVIDIA_VISION_MODEL") or "nvidia/nemotron-nano-12b-v2-vl"
+    )
+    nvidia_timeout_seconds: float = field(
+        default_factory=lambda: float(os.getenv("NVIDIA_TIMEOUT_SECONDS", "60"))
+    )
     store: str = field(default_factory=lambda: os.getenv("STORE", "file"))
     catalog_path: str = field(
         default_factory=lambda: os.getenv("CATALOG_PATH", "data/valio/catalog.slim.json")

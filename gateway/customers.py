@@ -44,7 +44,12 @@ def load_customers(
                 customer.buyer_id,
             ):
                 raise ValueError("Customer overlay must retain customer and buyer ids.")
-            customer = resolved
+            # Overlays resolve history only; an older overlay keeps the committed stock list.
+            customer = (
+                resolved
+                if resolved.stock
+                else resolved.model_copy(update={"stock": customer.stock}, deep=True)
+            )
         customers[customer.customer_id] = customer
     return customers
 

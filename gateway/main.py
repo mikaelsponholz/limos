@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from agent.llm import LLM
-from gateway.api import approvals, audit, customers, gateway_tools, presets, requests
+from gateway.api import approvals, audit, customers, gateway_tools, presets, requests, stock
 from gateway.api.health import router as health_router
 from gateway.catalog.index import Catalog
 from gateway.customers import CUSTOMERS_DIR, OVERLAY_DIR
@@ -53,6 +53,8 @@ def create_app(
     application.state.valio = valio
     application.state.llm = llm
     application.state.gateway_http_client = gateway_http_client
+    # Tests replace the NVIDIA endpoint here; production uses the network.
+    application.state.vision_transport = None
     application.state.owns_valio = False
     application.state.clock = clock if clock is not None else lambda: datetime.now(UTC)
     application.state.id_generator = (
@@ -76,6 +78,7 @@ def create_app(
         requests.router,
         approvals.router,
         audit.router,
+        stock.router,
     ):
         application.include_router(router)
     return application

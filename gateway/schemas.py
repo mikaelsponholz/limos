@@ -199,6 +199,18 @@ class PastOrder(ContractModel):
     simulated: Literal[True]
 
 
+class StockItem(ContractModel):
+    """One stocked product and how much a full shelf holds, for refills from a stock photo."""
+
+    name: str
+    aliases: list[str] = Field(default_factory=list)
+    description: str
+    full_quantity: float = Field(gt=0)
+    unit: Unit
+    reorder_below_percent: float = Field(default=50, ge=0, le=100)
+    constraints: list[Constraint] = Field(default_factory=list)
+
+
 class Customer(ContractModel):
     customer_id: str
     name: str
@@ -212,6 +224,7 @@ class Customer(ContractModel):
     defaults: CustomerDefaults
     order_history: list[PastOrder]
     simulated: Literal[True]
+    stock: list[StockItem] = Field(default_factory=list)
 
 
 class LastOrder(ContractModel):
@@ -272,16 +285,41 @@ class RequestCreate(ContractModel):
     exclude_allergens: list[AllergenCode] = Field(default_factory=list)
     budget: float | None = None
     priority: Priority = "balanced"
+    # Fill levels in percent (0 = empty, 100 = full) by stocked product name, as read
+    # from a stock photo. Code turns them into refill items from the customer's stock.
+    stock_levels: dict[str, float] | None = None
 
     @model_validator(mode="after")
     def require_input(self) -> Self:
         if not (self.buyer_id or self.customer_id):
             raise ValueError("At least one of buyer_id or customer_id must be set.")
-        if not (self.preset_id or self.text or self.event or self.items or self.reorder_of):
+        if not (
+            self.preset_id
+            or self.text
+            or self.event
+            or self.items
+            or self.reorder_of
+            or self.stock_levels
+        ):
             raise ValueError(
-                "At least one of preset_id, text, event, items or reorder_of must be set."
+                "At least one of preset_id, text, event, items, reorder_of or stock_levels "
+                "must be set."
             )
+        if self.stock_levels and any(not 0 <= level <= 100 for level in self.stock_levels.values()):
+            raise ValueError("Stock levels are percentages from 0 to 100.")
         return self
+
+
+class StockReadBody(ContractModel):
+    customer_id: str
+    image_base64: str = Field(min_length=1)
+    mime_type: Literal["image/jpeg", "image/png", "image/webp"]
+
+
+class StockReading(ContractModel):
+    levels: dict[str, float]
+    unmatched: list[str]
+    model: str
 
 
 class RequestCreated(ContractModel):

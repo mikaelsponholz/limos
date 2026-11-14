@@ -36,5 +36,11 @@
       "simulated": true
     }
   ],
-  "simulated": true
+  "simulated": true,
+  "stock": [
+    {"name": "Milk", "aliases": ["maito"], "description": "täysmaito 1 l", "full_quantity": 40, "unit": "L", "reorder_below_percent": 50, "constraints": []},
+    {"name": "Cream", "aliases": ["kerma", "whipping cream"], "description": "kuohukerma", "full_quantity": 10, "unit": "L", "reorder_below_percent": 40, "constraints": []},
+    {"name": "Spoons", "aliases": ["lusikat", "lusikka"], "description": "lusikka vahattu puu", "full_quantity": 2000, "unit": "pcs", "reorder_below_percent": 30, "constraints": []},
+    {"name": "Coffee cups", "aliases": ["cups", "kupit", "kahvikupit"], "description": "kartonkinen kahvikuppi", "full_quantity": 1000, "unit": "pcs", "reorder_below_percent": 30, "constraints": []}
+  ]
 }
