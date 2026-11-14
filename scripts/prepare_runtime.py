@@ -8,6 +8,7 @@ Prints counts only, never URLs, keys or supplier data.
 """
 
 import asyncio
+import os
 import sys
 from pathlib import Path
 from urllib.parse import urljoin
@@ -46,25 +47,36 @@ async def fetch(settings: Settings) -> None:
 def main() -> int:
     settings = Settings()
     catalog = Path(settings.catalog_path)
-    if not catalog.exists():
-        if not (settings.valio_api_key and settings.valio_base_url):
-            print("Set VALIO_API_KEY and VALIO_BASE_URL to fetch the catalogue.")
-            return 1
-        try:
-            asyncio.run(fetch(settings))
-        except (httpx.HTTPError, OSError, ValueError):
-            print("Valio download failed. Check the key, the base URL and the network.")
-            return 1
-        # Keep only the count: holding the records while seeding loads the catalogue
-        # again would double the memory of a small hosted container.
-        count = len(build_catalog(OUTPUT_DIRECTORY, catalog))
-        print(f"Catalogue built: {count} products", flush=True)
-    else:
-        print("Catalogue found, skipping download")
+    if catalog.exists():
+        print("Catalogue found, skipping download", flush=True)
+        return seed(catalog)
+    if not (settings.valio_api_key and settings.valio_base_url):
+        print("Set VALIO_API_KEY and VALIO_BASE_URL to fetch the catalogue.", flush=True)
+        return 1
+    try:
+        asyncio.run(fetch(settings))
+    except (httpx.HTTPError, OSError, ValueError):
+        print("Valio download failed. Check the key, the base URL and the network.", flush=True)
+        return 1
+    # Build and seed under a temporary name and publish the catalogue last. The running
+    # gateway loads the catalogue as soon as the file exists; doing that while this process
+    # still holds its own copy doubled the memory of the small hosted container. It also
+    # means no request sees the catalogue before the customers' history is resolved.
+    building = catalog.with_name(catalog.name + ".building")
+    # Keep only the count, so the records are freed before seeding loads the catalogue.
+    count = len(build_catalog(OUTPUT_DIRECTORY, building))
+    print(f"Catalogue built: {count} products", flush=True)
+    status = seed(building)
+    os.replace(building, catalog)
+    print("Catalogue published", flush=True)
+    return status
+
+
+def seed(catalog: Path) -> int:
     try:
         customers, lines = seed_customers(catalog)
     except (OSError, ValueError):
-        print("Customer seeding failed; check the seed terms against the catalogue.")
+        print("Customer seeding failed; check the seed terms against the catalogue.", flush=True)
         return 1
     print(f"Customers seeded: {customers}, history lines: {lines}", flush=True)
     return 0
