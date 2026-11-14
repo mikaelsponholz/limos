@@ -336,6 +336,10 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 - 2026-11-14: Approve re-checks availability with a fresh Valio call and returns `409 AVAILABILITY_CHANGED` without ordering when a locked line is no longer deliverable. Requests with only text or an event end `FAILED` with `AGENT_NOT_AVAILABLE` until Phase 3.
 - 2026-11-14: Phase 1 added the contract routes, so `contract/openapi.json` was regenerated. Schemas, fixtures and `docs/api_contract.md` are unchanged. `CATALOG_PATH` is a new setting in `.env.example`.
 - 2026-11-15: MCP server uses the official `mcp` SDK 2.3.0 (v2 API, `MCPServer`), agent id `limos-mcp`, configured by `LIMOS_GATEWAY_URL`, `LIMOS_AGENT_ID` and `LIMOS_REQUEST_TIMEOUT_SECONDS`. The plain REST client uses agent id `limos-script`.
+- 2026-11-14: Event expansion uses Flash (`gemini-3.8-flash`); `GEMINI_EXPANSION_MODEL` stays empty. `scripts/eval_expansion.py` found no usable Pro-class model on our key: `gemini-2.5-pro` is listed but returns 404 "no longer available to new users", and `gemini-3.1-pro-preview` returns 404. Flash expanded all three event presets on the first attempt with plausible per-guest amounts. Re-run the script if a Pro model becomes available.
+- 2026-11-14: Gemini gets a reduced JSON schema (`agent/llm.py` `gemini_schema`): the API rejects `additionalProperties` and `maxItems`, which made every structured call fail live. Pydantic still validates the full model.
+- 2026-11-14: The Gemini agent (agent id `limos-gemini`) calls the gateway's search, offers and quote routes over HTTP at `LIMOS_GATEWAY_URL`. Gemini picks products; code fills quantities, constraints, ids and dates and places the order or requests approval. Item lists also go through the tool loop when Gemini is configured; without it the deterministic runner is unchanged. Reorders keep their past product ids.
+- 2026-11-14: An event date is never used as the delivery date. Without a delivery date, the next-day system default applies and is listed as a filled gap.
 - 2026-11-13: MCP server is its own phase right after the thin end-to-end flow.
 - 2026-11-13: Storage capacity rule is an add-on phase. Menu photo is stretch.
 - 2026-11-13: Pitch is time saving, without speed promises.
@@ -344,6 +348,8 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 ## Open questions
 
 - Mikael and Johannes: a quote made directly through `POST /gateway/quotes` (MCP or script, without a `request_id`) carries no item constraints or excluded allergens, so `ALLERGEN_*` and `DIETARY_*` rules can't fire for it. Fixing it needs a contract change (constraints on `QuoteBody` or `QuoteLine`), so it waits for agreement.
+- Mikael: event expansion writes preferences into item names ("organic rye bread") because the prompt passes the preference keys. That may narrow the catalogue search. Phase 4 or 5 should keep preferences out of the search words (code already applies them) and check it live against the catalogue.
+- Mikael: the Phase 3 agent path is checked live only for single Gemini calls (intent, question, expansion, tool declarations). A full run through the tool loop against the live gateway and Valio has not been done yet; Phase 4's demo checks cover it.
 - Johannes: agree contract v0.3 (customers, question, suggestions, per-line deadlines) and the shopping-list UI requirements in section 8b.
 
 - Organisers: is a past `closingTime` for Terminal products intended?

@@ -14,6 +14,12 @@ class Settings:
     )
     gemini_api_key: str = field(default_factory=lambda: os.getenv("GEMINI_API_KEY", ""), repr=False)
     gemini_model: str = field(default_factory=lambda: os.getenv("GEMINI_MODEL", ""))
+    limos_gateway_url: str = field(
+        default_factory=lambda: os.getenv("LIMOS_GATEWAY_URL", "http://127.0.0.1:8000")
+    )
+    limos_request_timeout_seconds: float = field(
+        default_factory=lambda: float(os.getenv("LIMOS_REQUEST_TIMEOUT_SECONDS", "10"))
+    )
     gemini_expansion_model: str = field(
         default_factory=lambda: (
             os.getenv("GEMINI_EXPANSION_MODEL", "") or os.getenv("GEMINI_MODEL", "")

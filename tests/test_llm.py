@@ -66,7 +66,8 @@ def test_fake_structured_success_and_call_recording() -> None:
     call = fake.calls[0]
     assert call.model_id == result.model_id
     assert call.config.system_instruction == "Use supplied facts."
-    assert call.config.response_schema is Item
+    assert call.config.response_schema is None
+    assert call.config.response_json_schema == llm_module.gemini_schema(Item)
     assert call.config.response_mime_type == "application/json"
     assert "Make an item." in call.contents[0].parts[0].text
 
@@ -277,7 +278,8 @@ def test_gemini_client_is_lazy_reused_and_translates_structured_requests(
     assert result.value.quantity == 2
     assert result.model_id == "invented-default"
     first, repair = stub.models.calls
-    assert first.config.response_schema is Item
+    assert first.config.response_schema is None
+    assert first.config.response_json_schema == llm_module.gemini_schema(Item)
     assert first.config.response_mime_type == "application/json"
     assert first.config.system_instruction == "Supplied facts only."
     assert "json_invalid" in repair.contents[-1].parts[0].text
@@ -315,7 +317,7 @@ def test_gemini_translation_preserves_signed_content_and_tool_call_ids() -> None
     assert first.config.automatic_function_calling.disable is True
     declaration = first.config.tools[0].function_declarations[0]
     assert declaration.name == "add"
-    assert declaration.parameters_json_schema == AddArguments.model_json_schema()
+    assert declaration.parameters_json_schema == llm_module.gemini_schema(AddArguments)
     assert following.contents[1] == signed_content
     reply = following.contents[2].parts[0].function_response
     assert reply.name == "add"

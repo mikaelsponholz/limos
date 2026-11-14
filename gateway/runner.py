@@ -1,22 +1,25 @@
-"""Deterministic item-list and reorder runner, without model calls."""
+"""Resolve intent and expand events before deterministic purchasing and reorder paths."""
 
-from datetime import timedelta
+import asyncio
+import json
 from fractions import Fraction
-from typing import cast
 
+from agent.constraints import item_constraints
+from agent.expansion import build_event_items, expand_event
+from agent.intent import TextFacts, helsinki_today, parse_text, resolve_request
+from agent.llm import LLMOutputError
+from agent.loop import run_loop
+from agent.question import apply_answer, choices_and_default, missing_field, word_question
 from gateway import customers, tools
 from gateway.api.dependencies import Resources
 from gateway.audit import append_step
 from gateway.errors import GatewayError
-from gateway.policy.engine import REQUIRE_HARD_DIETARY_KEYS
 from gateway.schemas import (
-    Constraint,
     Error,
-    FilledGap,
-    Intent,
     IntentItem,
     OffersBody,
     OrderBody,
+    Question,
     QuoteBody,
     QuoteLine,
     RequestApprovalBody,
@@ -36,52 +39,13 @@ def prepare(body: RequestCreate, env: Resources) -> tuple[RequestDetail, Request
         if body.customer_id
         else None
     )
-    resolved, gaps = customers.apply_profile(body, customer)
+    now = env.now()
+    resolution = resolve_request(body, customer, None, helsinki_today(now))
+    resolved = resolution.request
     buyer = resolved.buyer_id
     if buyer is None:
         raise GatewayError(422, "BUYER_REQUIRED", "A buyer is required.")
     env.permit(buyer, AGENT_ID)
-    now = env.now()
-    deliver_by = resolved.requested_date
-    if deliver_by is None:
-        deliver_by = now.date() + timedelta(days=1)
-        gaps.append(
-            FilledGap(
-                field="deliver_by",
-                value=deliver_by.isoformat(),
-                source="default",
-                note="Delivery requested for the next day.",
-            )
-        )
-    hard: list[Constraint] = [
-        p.key
-        for p in resolved.preferences
-        if p.level == "require" and p.key in REQUIRE_HARD_DIETARY_KEYS
-    ]
-    hard.extend(cast(Constraint, f"no_{code}") for code in resolved.exclude_allergens)
-    items = [
-        IntentItem(
-            **item.model_dump(exclude={"constraints"}),
-            item_id=f"it_{index}",
-            description_fi=item.description,
-            used_in=[],
-            constraints=list(dict.fromkeys([*item.constraints, *hard])),
-        )
-        for index, item in enumerate(resolved.items, 1)
-    ]
-    intent = Intent(
-        event=None,
-        dishes=[],
-        items=items,
-        deliver_by=deliver_by,
-        preferences=resolved.preferences,
-        exclude_allergens=resolved.exclude_allergens,
-        budget=resolved.budget,
-        priority=resolved.priority,
-        assumptions=[],
-        based_on=None,
-        filled_gaps=gaps,
-    )
     detail = RequestDetail(
         request_id=env.new_id("r_"),
         buyer_id=buyer,
@@ -90,7 +54,7 @@ def prepare(body: RequestCreate, env: Resources) -> tuple[RequestDetail, Request
         status="RUNNING",
         created_at=now,
         input=RequestInput(text=resolved.text, image_url=None),
-        intent=intent,
+        intent=resolution.intent,
         question=None,
         steps=[],
         candidates=[],
@@ -101,28 +65,244 @@ def prepare(body: RequestCreate, env: Resources) -> tuple[RequestDetail, Request
         error=None,
     )
     env.store.save_request(detail)
-    return detail, resolved
+    # Preserve which fields the buyer supplied until text precedence is resolved.
+    return detail, body.model_copy(deep=True)
 
 
-async def run(request_id: str, body: RequestCreate, env: Resources) -> None:
+def answer_question(
+    request_id: str, question_id: str, answer: str | None, env: Resources
+) -> RequestCreate:
+    with env.store.transaction():
+        detail = tools.request_detail(env, request_id, env.request_buyer(request_id))
+        question = detail.question
+        if (
+            detail.status != "NEEDS_INPUT"
+            or question is None
+            or question.question_id != question_id
+        ):
+            raise GatewayError(409, "NO_OPEN_QUESTION", "There is no matching open question.")
+        requested = next(
+            step for step in reversed(detail.steps) if step.type == "CLARIFICATION_REQUESTED"
+        )
+        body = RequestCreate.model_validate_json(json.dumps(requested.detail["resolved_request"]))
+        customer = (
+            customers.get_customer(detail.customer_id, env.store, **env.customer_paths)
+            if detail.customer_id
+            else None
+        )
+        try:
+            body, gaps, answer_model = apply_answer(
+                body, detail.intent, question, answer, customer, env.llm, helsinki_today(env.now())
+            )
+        except LLMOutputError:
+            detail.status = "FAILED"
+            detail.question = None
+            detail.error = Error(
+                code="LLM_OUTPUT_ERROR",
+                message="The answer parser returned invalid output after repair.",
+            )
+            env.store.save_request(detail)
+            append_step(
+                env.store,
+                request_id,
+                "gateway",
+                "ERROR",
+                detail.error.message,
+                {"code": detail.error.code},
+                None,
+                env.now(),
+            )
+        else:
+            detail.intent.filled_gaps = gaps
+            detail.question = None
+            detail.status = "RUNNING"
+            env.store.save_request(detail)
+            append_step(
+                env.store,
+                request_id,
+                "user",
+                "CLARIFICATION_ANSWERED",
+                "Clarifying question answered",
+                {
+                    "question_id": question_id,
+                    "field": question.field,
+                    "used_default": answer is None,
+                },
+                None,
+                env.now(),
+            )
+            if answer_model is not None:
+                append_step(
+                    env.store,
+                    request_id,
+                    "agent",
+                    "INTENT_PARSED",
+                    "Resolved what to order from your answer",
+                    {},
+                    answer_model,
+                    env.now(),
+                )
+    if detail.status == "FAILED" and detail.error is not None:
+        raise GatewayError(422, detail.error.code, detail.error.message)
+    return body
+
+
+async def run(
+    request_id: str, body: RequestCreate, env: Resources, *, resume: bool = False
+) -> None:
     detail = tools.request_detail(env, request_id, env.request_buyer(request_id))
 
     def log(kind: StepType, title: str) -> None:
         append_step(env.store, request_id, "agent", kind, title, {}, None, env.now())
 
     try:
-        append_step(
-            env.store,
-            request_id,
-            "user",
-            "REQUEST_RECEIVED",
-            "Request received",
-            {},
-            None,
-            env.now(),
-        )
-        if detail.customer_id:
+        if not resume:
+            append_step(
+                env.store,
+                request_id,
+                "user",
+                "REQUEST_RECEIVED",
+                "Request received",
+                {},
+                None,
+                env.now(),
+            )
+        if detail.customer_id and not resume:
             log("CUSTOMER_LOADED", "Customer profile loaded")
+        parsed_text = False
+        facts: TextFacts | None = None
+        model_id: str | None = None
+        if body.text and not resume:
+            llm = env.llm
+            if llm is None:
+                raise GatewayError(
+                    503, "AGENT_NOT_AVAILABLE", "Text parsing needs the Gemini agent."
+                )
+            today = helsinki_today(env.now())
+            parsed = parse_text(llm, body.text, today)
+            facts, model_id = parsed.value, parsed.model_id
+            parsed_text = True
+        customer = (
+            customers.get_customer(detail.customer_id, env.store, **env.customer_paths)
+            if detail.customer_id
+            else None
+        )
+        resolution = resolve_request(body, customer, facts, helsinki_today(env.now()))
+        body = resolution.request
+        if resume:
+            previous = {gap.field: gap for gap in detail.intent.filled_gaps}
+            previous.update(
+                {
+                    gap.field: gap
+                    for gap in resolution.intent.filled_gaps
+                    if gap.field not in previous
+                }
+            )
+            resolution.intent.filled_gaps = list(previous.values())
+            resolution.intent.assumptions = detail.intent.assumptions
+        detail.intent = resolution.intent
+        env.store.save_request(detail)
+        if parsed_text:
+            append_step(
+                env.store,
+                request_id,
+                "agent",
+                "INTENT_PARSED",
+                "Resolved the buyer's text and requirements",
+                {
+                    "text_fields": [
+                        gap.field for gap in detail.intent.filled_gaps if gap.source == "text"
+                    ]
+                },
+                model_id,
+                env.now(),
+            )
+        elif not resume:
+            log("INTENT_PARSED", "Item quantities and requirements resolved")
+        asked_before = any(step.type == "CLARIFICATION_REQUESTED" for step in detail.steps)
+        field = missing_field(detail.intent, body.reorder_of)
+        # Preserve pre-agent item-list and reorder behaviour when no LLM is configured.
+        if field is not None and not asked_before and env.llm is not None:
+            choices, default = choices_and_default(
+                field, detail.intent, customer, helsinki_today(env.now())
+            )
+            event_type = detail.intent.event.type if detail.intent.event else None
+            if any(
+                gap.field == "event.type" and gap.source == "default"
+                for gap in detail.intent.filled_gaps
+            ):
+                event_type = None
+            wording = word_question(env.llm, field, event_type, choices)
+            detail.question = Question(
+                question_id=env.new_id("qn_"),
+                field=field,
+                text=wording.text,
+                choices=choices,
+                default=default,
+                asked_at=env.now(),
+            )
+            detail.status = "NEEDS_INPUT"
+            with env.store.transaction():
+                env.store.save_request(detail)
+                append_step(
+                    env.store,
+                    request_id,
+                    "agent",
+                    "CLARIFICATION_REQUESTED",
+                    wording.text,
+                    {
+                        "field": field,
+                        "fallback_used": wording.fallback_used,
+                        "resolved_request": body.model_dump(mode="json"),
+                    },
+                    wording.model,
+                    env.now(),
+                )
+            return
+        placeholder_event = any(
+            gap.field == "event.type" and gap.source == "default"
+            for gap in detail.intent.filled_gaps
+        )
+        if (
+            detail.intent.event is not None
+            and (detail.intent.dishes or not placeholder_event)
+            and not body.reorder_of
+            and env.llm is not None
+        ):
+            expanded = expand_event(
+                env.llm,
+                detail.intent.event,
+                detail.intent.dishes,
+                detail.intent.preferences,
+                detail.intent.exclude_allergens,
+            )
+            result = build_event_items(
+                expanded.value,
+                detail.intent.event,
+                detail.intent.dishes,
+                detail.intent.preferences,
+                detail.intent.exclude_allergens,
+                waste_percent=env.permit(detail.buyer_id, AGENT_ID).waste_percent,
+                explicit_items=detail.intent.items,
+            )
+            detail.intent.dishes = result.dishes
+            detail.intent.items = result.items
+            detail.intent.assumptions.extend(result.assumptions)
+            env.store.save_request(detail)
+            append_step(
+                env.store,
+                request_id,
+                "agent",
+                "EVENT_EXPANDED",
+                "Expanded event dishes into purchase items",
+                {"dish_count": len(result.dishes), "item_count": len(result.items)},
+                expanded.model_id,
+                env.now(),
+            )
+            if not detail.intent.items:
+                raise GatewayError(
+                    422, "NO_EVENT_ITEMS", "Event expansion produced no valid purchase items."
+                )
         lines: list[QuoteLine] = []
         if body.reorder_of:
             if detail.customer_id is None:
@@ -144,18 +324,8 @@ async def run(request_id: str, body: RequestCreate, env: Resources) -> None:
                         description_fi=line.name,
                         quantity=float(line.quantity_sales_units),
                         unit="pcs",
-                        constraints=list(
-                            dict.fromkeys(
-                                [
-                                    p.key
-                                    for p in detail.intent.preferences
-                                    if p.level == "require" and p.key in REQUIRE_HARD_DIETARY_KEYS
-                                ]
-                                + [
-                                    cast(Constraint, f"no_{code}")
-                                    for code in detail.intent.exclude_allergens
-                                ]
-                            )
+                        constraints=item_constraints(
+                            detail.intent.preferences, detail.intent.exclude_allergens
                         ),
                         used_in=[],
                     )
@@ -173,12 +343,11 @@ async def run(request_id: str, body: RequestCreate, env: Resources) -> None:
                 "AGENT_NOT_AVAILABLE",
                 "Text and event requests need the Gemini agent, which is not available yet.",
             )
-        log("INTENT_PARSED", "Item quantities and requirements resolved")
         env.store.save_request(detail)
         if body.reorder_of:
             log("CANDIDATES", f"Resolved {len(lines)} products from the past order")
-            log("CHOICE", "Selected the past order's products and scaled sales units")
-        if not body.reorder_of:
+        agent_loop = not body.reorder_of and env.llm is not None
+        if not body.reorder_of and not agent_loop:
             for item in detail.intent.items:
                 tools.tool_step(env, request_id, "search_products")
                 shortlist = tools.search_products(
@@ -253,18 +422,23 @@ async def run(request_id: str, body: RequestCreate, env: Resources) -> None:
                         quantity_sales_units=units,
                     )
                 )
-        tools.tool_step(env, request_id, "request_quote")
-        quote = await tools.request_quote(
-            QuoteBody(
-                buyer_id=detail.buyer_id,
-                agent_id=AGENT_ID,
-                request_id=request_id,
-                requested_date=detail.intent.deliver_by,
-                lines=lines,
-                budget=detail.intent.budget,
-            ),
-            env,
-        )
+        if agent_loop:
+            llm = env.llm
+            assert llm is not None
+            quote = await asyncio.to_thread(run_loop, llm, detail, env)
+        else:
+            tools.tool_step(env, request_id, "request_quote")
+            quote = await tools.request_quote(
+                QuoteBody(
+                    buyer_id=detail.buyer_id,
+                    agent_id=AGENT_ID,
+                    request_id=request_id,
+                    requested_date=detail.intent.deliver_by,
+                    lines=lines,
+                    budget=detail.intent.budget,
+                ),
+                env,
+            )
         if body.reorder_of:
             detail.candidates = quote.lines
         detail.quote = quote
@@ -274,7 +448,7 @@ async def run(request_id: str, body: RequestCreate, env: Resources) -> None:
             tools.place_order(
                 OrderBody(
                     buyer_id=detail.buyer_id,
-                    agent_id=AGENT_ID,
+                    agent_id=quote.agent_id,
                     quote_id=quote.quote_id,
                     idempotency_key=f"{request_id}-{quote.quote_id}",
                 ),
@@ -286,8 +460,9 @@ async def run(request_id: str, body: RequestCreate, env: Resources) -> None:
                 quote.quote_id,
                 RequestApprovalBody(
                     buyer_id=detail.buyer_id,
-                    agent_id=AGENT_ID,
-                    explanation="Human approval is required: "
+                    agent_id=quote.agent_id,
+                    explanation=quote.agent_explanation
+                    or "Human approval is required: "
                     + "; ".join(rule.description for rule in quote.policy.rules_fired),
                 ),
                 env,
@@ -298,11 +473,17 @@ async def run(request_id: str, body: RequestCreate, env: Resources) -> None:
     except Exception as exc:
         detail = env.store.get_request(request_id, detail.buyer_id) or detail
         detail.status = "FAILED"
-        detail.error = (
-            Error(code=exc.code, message=exc.message)
-            if isinstance(exc, GatewayError)
-            else Error(code="INTERNAL_ERROR", message="The request could not be completed.")
-        )
+        if isinstance(exc, GatewayError):
+            detail.error = Error(code=exc.code, message=exc.message)
+        elif isinstance(exc, LLMOutputError):
+            detail.error = Error(
+                code="LLM_OUTPUT_ERROR",
+                message="The agent returned invalid output after repair.",
+            )
+        else:
+            detail.error = Error(
+                code="INTERNAL_ERROR", message="The request could not be completed."
+            )
         append_step(
             env.store,
             request_id,

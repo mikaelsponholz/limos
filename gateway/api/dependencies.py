@@ -7,9 +7,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 
+import httpx
 from fastapi import Request
 from pydantic import BaseModel, BeforeValidator
 
+from agent.llm import LLM, GeminiLLM
 from gateway.catalog.index import Catalog, load_catalog
 from gateway.errors import GatewayError
 from gateway.offers import OfferValio
@@ -67,6 +69,20 @@ class Resources:
 
     def now(self) -> datetime:
         return cast(Callable[[], datetime], self.state.clock)()
+
+    @property
+    def gateway_http_client(self) -> httpx.Client | None:
+        return cast(httpx.Client | None, self.state.gateway_http_client)
+
+    @property
+    def llm(self) -> LLM | None:
+        if (
+            self.state.llm is None
+            and self.settings.gemini_api_key.strip()
+            and self.settings.gemini_model.strip()
+        ):
+            self.state.llm = GeminiLLM(self.settings)
+        return cast(LLM | None, self.state.llm)
 
     def new_id(self, prefix: str) -> str:
         return prefix + cast(Callable[[], str], self.state.id_generator)()

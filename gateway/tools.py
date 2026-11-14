@@ -208,6 +208,21 @@ async def request_quote(body: QuoteBody, env: Resources) -> Quote:
     return quote
 
 
+def set_agent_explanation(quote: Quote, explanation: str, env: Resources) -> None:
+    """Store a code-validated explanation without changing the locked quote content."""
+    with env.store.transaction():
+        stored = env.store.get_quote(quote.quote_id, quote.buyer_id)
+        if stored is None:
+            raise GatewayError(404, "NOT_FOUND", "Quote not found.")
+        stored.agent_explanation = explanation
+        env.store.save_quote(stored)
+        detail = env.store.get_request(quote.request_id, quote.buyer_id)
+        if detail is not None:
+            detail.quote = stored
+            env.store.save_request(detail)
+        quote.agent_explanation = explanation
+
+
 def request_approval(
     quote_id: str, body: RequestApprovalBody, env: Resources
 ) -> RequestApprovalResponse:
