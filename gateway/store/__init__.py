@@ -1,28 +1,23 @@
-"""Limos storage layer. Use get_store() to pick the implementation from env STORE."""
-from __future__ import annotations
+"""Select a store without opening any file until explicitly constructed."""
 
-import os
+from pathlib import Path
 
-from .base import ChainConflict, NotFound, OrderConflict, StorageError, Store
-from .file import FileStore
-from .memory import MemoryStore
+from gateway.settings import Settings
+from gateway.store.base import Store
+from gateway.store.file import FileStore
+from gateway.store.memory import MemoryStore
+from gateway.store.models import ApprovalRecord
 
-__all__ = [
-    "Store", "MemoryStore", "FileStore", "get_store",
-    "StorageError", "ChainConflict", "NotFound", "OrderConflict",
-]
+__all__ = ["ApprovalRecord", "FileStore", "MemoryStore", "Store", "create_store"]
 
 
-def get_store() -> Store:
-    """STORE=file (default, same as gateway.settings), memory, or postgres (needs DATABASE_URL)."""
-    kind = os.environ.get("STORE", "file").lower()
-    if kind == "memory":
-        return MemoryStore()
-    if kind == "file":
-        return FileStore()
-    if kind == "postgres":
-        from .postgres import PostgresStore  # imported lazily so memory mode needs no psycopg
-        store = PostgresStore()
-        store.migrate()
-        return store
-    raise ValueError(f"unknown STORE={kind!r}, use memory, file or postgres")
+def create_store(settings: Settings, *, path: str | Path = Path(".runtime/store.json")) -> Store:
+    match settings.store:
+        case "memory":
+            return MemoryStore()
+        case "file":
+            return FileStore(path)
+        case "postgres":
+            raise NotImplementedError("Postgres store is not available yet.")
+        case _:
+            raise ValueError(f"Unknown store implementation: {settings.store}.")

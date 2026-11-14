@@ -1,0 +1,40 @@
+{
+  "customer_id": "c_chef",
+  "name": "Alex Example",
+  "company": "Bistro Example Oy",
+  "role": "Chef",
+  "buyer_id": "bistro-example",
+  "age_group": "under_35",
+  "playful": true,
+  "preferences": [{"key": "organic", "level": "prefer"}, {"key": "low_carbon", "level": "prefer"}],
+  "exclude_allergens": [],
+  "defaults": {"priority": "balanced", "typical_guests": null, "budget": null},
+  "order_history": [
+    {
+      "order_ref": "ph_chef_01",
+      "date": "2026-10-23",
+      "title": "Tasting menu evening for 40",
+      "event_type": "tasting_menu",
+      "guests": 40,
+      "lines": [{"product_id": "900401", "name": "Example Farm organic beetroot 1 kg", "quantity_sales_units": 4, "sales_unit": "ST", "quantity_text": "4 x 1 kg", "unit_price": 3.5, "line_total": 14.0}],
+      "total": 14.0,
+      "source": "seeded",
+      "simulated": true
+    },
+    {
+      "order_ref": "ph_chef_02",
+      "date": "2026-10-16",
+      "title": "Weekly pantry staples",
+      "event_type": "restaurant_weekly",
+      "guests": null,
+      "lines": [
+        {"product_id": "900402", "name": "Example Mill organic flour 5 kg", "quantity_sales_units": 3, "sales_unit": "ST", "quantity_text": "3 x 5 kg", "unit_price": 8.0, "line_total": 24.0},
+        {"product_id": "900403", "name": "Example Farm potatoes 5 kg", "quantity_sales_units": 2, "sales_unit": "ST", "quantity_text": "2 x 5 kg", "unit_price": 6.5, "line_total": 13.0}
+      ],
+      "total": 37.0,
+      "source": "seeded",
+      "simulated": true
+    }
+  ],
+  "simulated": true
+}

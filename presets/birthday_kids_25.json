@@ -1,0 +1,42 @@
+{
+  "preset_id": "birthday_kids_25",
+  "title": "Children's birthday for 25",
+  "description": "Cake, sandwiches and a fruit plate. Strictly nut-free.",
+  "expected": "A product that may contain nuts goes to approval with a safe option.",
+  "request": {
+    "buyer_id": "demo-catering",
+    "preset_id": "birthday_kids_25",
+    "text": "Children's birthday party for 25 on Sunday 22 November. Strawberry cake, ham sandwiches and a fruit plate. No nuts or peanuts at all.",
+    "requested_date": "2026-11-20",
+    "event": {
+      "type": "birthday",
+      "date": "2026-11-22",
+      "guests": 25,
+      "dishes": [
+        {
+          "name": "Strawberry cake",
+          "servings": null
+        },
+        {
+          "name": "Ham sandwiches",
+          "servings": null
+        },
+        {
+          "name": "Fruit plate",
+          "servings": null
+        }
+      ]
+    },
+    "items": [],
+    "preferences": [],
+    "exclude_allergens": [
+      "tree_nuts",
+      "peanuts"
+    ],
+    "budget": 250,
+    "priority": "balanced",
+    "customer_id": null,
+    "reorder_of": null
+  },
+  "customer_id": null
+}

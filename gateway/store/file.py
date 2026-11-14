@@ -1,53 +1,36 @@
-"""File-backed Store: MemoryStore that writes a JSON snapshot after every change.
+"""Single-process JSON persistence with atomic replacement on transaction commit."""
 
-For local dev without a database (STORE=file). Path from env STORE_PATH
-(default .limos-store.json in the working directory, gitignored).
-"""
-from __future__ import annotations
-
-import json
 import os
 from pathlib import Path
-from typing import Any, Optional
+from tempfile import NamedTemporaryFile
 
-from .memory import MemoryStore
-
-_TABLES = ("_requests", "_quotes", "_approvals", "_orders", "_steps")
-_WRITES = (
-    "save_request", "update_request_status", "save_quote", "update_quote_status",
-    "create_approval", "decide_approval", "create_order", "append_step",
-)
+from gateway.store.memory import MemoryStore
+from gateway.store.models import StoreState
 
 
 class FileStore(MemoryStore):
-    def __init__(self, path: Optional[str] = None) -> None:
+    def __init__(self, path: str | Path = Path(".runtime/store.json")) -> None:
         super().__init__()
-        self.path = Path(path or os.environ.get("STORE_PATH", ".limos-store.json"))
+        self.path = Path(path)
         if self.path.exists():
-            data = json.loads(self.path.read_text(encoding="utf-8"))
-            for t in _TABLES:
-                setattr(self, t, data.get(t.lstrip("_"), {}))
+            self._state = StoreState.model_validate_json(self.path.read_bytes())
 
-    def _flush(self) -> None:
-        data = {t.lstrip("_"): getattr(self, t) for t in _TABLES}
-        tmp = self.path.with_suffix(self.path.suffix + ".tmp")
-        tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-        tmp.replace(self.path)  # atomic swap, a crash never leaves half a file
-
-
-def _persisting(name: str):
-    method = getattr(MemoryStore, name)
-
-    def wrapper(self: FileStore, *args: Any, **kwargs: Any) -> Any:
-        with self._lock:
-            result = method(self, *args, **kwargs)
-            self._flush()
-            return result
-
-    wrapper.__name__ = name
-    wrapper.__doc__ = method.__doc__
-    return wrapper
-
-
-for _name in _WRITES:
-    setattr(FileStore, _name, _persisting(_name))
+    def _persist(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        temporary: Path | None = None
+        try:
+            with NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=self.path.parent,
+                prefix=f".{self.path.name}.",
+                delete=False,
+            ) as handle:
+                temporary = Path(handle.name)
+                handle.write(self._state.model_dump_json())
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, self.path)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)

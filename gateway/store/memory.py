@@ -1,142 +1,172 @@
-"""In-memory Store. Same behaviour as PostgresStore, for local dev and tests."""
-from __future__ import annotations
+"""Isolated snapshots and serialized, rollback-capable engine transactions."""
 
-import copy
-import threading
-from typing import Optional
+from collections.abc import Iterator
+from contextlib import contextmanager
+from threading import RLock
 
-from .base import (
-    ChainConflict, NotFound, Obj, OrderConflict, Store, approval_keys, check_link, now_iso,
-)
+from gateway.schemas import Order, PastOrder, Quote, RequestDetail, Step
+from gateway.store.models import ApprovalRecord, StoreState
 
 
-class MemoryStore(Store):
+class MemoryStore:
     def __init__(self) -> None:
-        self._lock = threading.RLock()
-        self._requests: dict[str, Obj] = {}
-        self._quotes: dict[str, Obj] = {}
-        self._approvals: dict[str, Obj] = {}
-        self._orders: dict[str, Obj] = {}
-        self._steps: dict[str, list[Obj]] = {}
+        self._state = StoreState()
+        self._lock = RLock()
+        self._depth = 0
 
-    # Requests
-    def save_request(self, req: Obj) -> Obj:
+    def _persist(self) -> None:
+        pass
+
+    @contextmanager
+    def transaction(self) -> Iterator[None]:
         with self._lock:
-            self._requests[req["request_id"]] = copy.deepcopy(req)
-            return copy.deepcopy(req)
+            outer = self._depth == 0
+            snapshot = self._state.model_copy(deep=True) if outer else None
+            self._depth += 1
+            try:
+                yield
+                if outer and self._state != snapshot:
+                    self._persist()
+            except BaseException:
+                if snapshot is not None:
+                    self._state = snapshot
+                raise
+            finally:
+                self._depth -= 1
 
-    def update_request_status(self, request_id: str, status: str) -> None:
+    def _claim_request(self, request_id: str, buyer_id: str) -> None:
+        if request_id:
+            owner = self._state.request_buyers.setdefault(request_id, buyer_id)
+            if owner != buyer_id:
+                raise ValueError("Request belongs to another buyer.")
+
+    def request_buyer(self, request_id: str) -> str | None:
         with self._lock:
-            if request_id not in self._requests:
-                raise NotFound(request_id)
-            self._requests[request_id]["status"] = status
+            return self._state.request_buyers.get(request_id)
 
-    def get_request(self, request_id: str) -> Optional[Obj]:
+    def save_request(self, request: RequestDetail) -> None:
+        with self.transaction():
+            self._claim_request(request.request_id, request.buyer_id)
+            self._state.requests[request.request_id] = request.model_copy(deep=True)
+
+    def get_request(self, request_id: str, buyer_id: str) -> RequestDetail | None:
         with self._lock:
-            r = self._requests.get(request_id)
-            return copy.deepcopy(r) if r else None
+            record = self._state.requests.get(request_id)
+            return record.model_copy(deep=True) if record and record.buyer_id == buyer_id else None
 
-    def list_requests(self, buyer_id: Optional[str] = None, limit: int = 20) -> list[Obj]:
+    def list_requests(self, buyer_id: str) -> list[RequestDetail]:
         with self._lock:
-            rows = [r for r in self._requests.values() if buyer_id is None or r.get("buyer_id") == buyer_id]
-            rows.sort(key=lambda r: r["created_at"], reverse=True)
-            return copy.deepcopy(rows[:limit])
+            return [
+                r.model_copy(deep=True)
+                for r in self._state.requests.values()
+                if r.buyer_id == buyer_id
+            ]
 
-    # Quotes
-    def save_quote(self, quote: Obj) -> Obj:
+    def save_quote(self, quote: Quote) -> None:
+        with self.transaction():
+            old = self._state.quotes.get(quote.quote_id)
+            if old and old.buyer_id != quote.buyer_id:
+                raise ValueError("Quote belongs to another buyer.")
+            self._claim_request(quote.request_id, quote.buyer_id)
+            self._state.quotes[quote.quote_id] = quote.model_copy(deep=True)
+
+    def get_quote(self, quote_id: str, buyer_id: str) -> Quote | None:
         with self._lock:
-            self._quotes[quote["quote_id"]] = copy.deepcopy(quote)
-            return copy.deepcopy(quote)
+            record = self._state.quotes.get(quote_id)
+            return record.model_copy(deep=True) if record and record.buyer_id == buyer_id else None
 
-    def update_quote_status(self, quote_id: str, status: str) -> None:
+    def list_quotes(self, request_id: str, buyer_id: str) -> list[Quote]:
         with self._lock:
-            if quote_id not in self._quotes:
-                raise NotFound(quote_id)
-            self._quotes[quote_id]["status"] = status
+            return [
+                q.model_copy(deep=True)
+                for q in self._state.quotes.values()
+                if q.buyer_id == buyer_id and q.request_id == request_id
+            ]
 
-    def get_quote(self, quote_id: str) -> Optional[Obj]:
+    def save_approval(self, approval: ApprovalRecord) -> None:
+        with self.transaction():
+            old = self._state.approvals.get(approval.approval_id)
+            if old and old.buyer_id != approval.buyer_id:
+                raise ValueError("Approval belongs to another buyer.")
+            self._state.approvals[approval.approval_id] = approval.model_copy(deep=True)
+
+    def get_approval(self, approval_id: str, buyer_id: str) -> ApprovalRecord | None:
         with self._lock:
-            q = self._quotes.get(quote_id)
-            return copy.deepcopy(q) if q else None
+            record = self._state.approvals.get(approval_id)
+            return record.model_copy(deep=True) if record and record.buyer_id == buyer_id else None
 
-    # Approvals
-    def create_approval(self, approval: Obj) -> Obj:
+    def list_approvals(self, buyer_id: str) -> list[ApprovalRecord]:
         with self._lock:
-            keys = approval_keys(approval)
-            if keys["quote_id"] not in self._quotes:
-                raise NotFound(f"quote {keys['quote_id']} must be saved before its approval")
-            a = copy.deepcopy(approval)
-            a.setdefault("status", "PENDING")
-            a.setdefault("decided_by", None)
-            a.setdefault("decided_at", None)
-            a.setdefault("comment", None)
-            a["_keys"] = keys
-            self._approvals[a["approval_id"]] = a
-            return self._public(a)
+            return [
+                a.model_copy(deep=True)
+                for a in self._state.approvals.values()
+                if a.buyer_id == buyer_id
+            ]
 
-    @staticmethod
-    def _public(a: Obj) -> Obj:
-        out = copy.deepcopy(a)
-        out.pop("_keys", None)
-        return out
+    def save_order(self, order: Order, buyer_id: str) -> None:
+        with self.transaction():
+            quote = self.get_quote(order.quote_id, buyer_id)
+            if quote is None or quote.request_id != order.request_id:
+                raise ValueError("Order requires a quote of the same buyer and request.")
+            if order.order_id in self._state.orders:
+                raise ValueError("Orders are immutable.")
+            index = self._state.idempotency.setdefault(buyer_id, {})
+            if order.idempotency_key in index:
+                raise ValueError("Idempotency key is already in use.")
+            if order.request_id and self.order_for_request(order.request_id, buyer_id):
+                raise ValueError("Request already has an order.")
+            self._state.orders[order.order_id] = order.model_copy(deep=True)
+            index[order.idempotency_key] = order.order_id
 
-    def get_approval(self, approval_id: str) -> Optional[Obj]:
+    def get_order(self, order_id: str, buyer_id: str) -> Order | None:
         with self._lock:
-            a = self._approvals.get(approval_id)
-            return self._public(a) if a else None
+            record = self._state.orders.get(order_id)
+            return (
+                record.model_copy(deep=True)
+                if record and self.get_quote(record.quote_id, buyer_id)
+                else None
+            )
 
-    def list_approvals(self, status: Optional[str] = "PENDING", limit: int = 50) -> list[Obj]:
+    def order_for_request(self, request_id: str, buyer_id: str) -> Order | None:
         with self._lock:
-            rows = [a for a in self._approvals.values() if status is None or a["status"] == status]
-            rows.sort(key=lambda a: a["_keys"]["created_at"], reverse=True)
-            return [self._public(a) for a in rows[:limit]]
+            if not request_id or self.request_buyer(request_id) != buyer_id:
+                return None
+            return next(
+                (
+                    o.model_copy(deep=True)
+                    for o in self._state.orders.values()
+                    if o.request_id == request_id
+                ),
+                None,
+            )
 
-    def decide_approval(self, approval_id, status, decided_by, approved_quote_id=None,
-                        approved_hash=None, comment=None) -> bool:
-        if status not in ("APPROVED", "REJECTED", "EXPIRED"):
-            raise ValueError(f"bad decision status {status}")
-        if status == "APPROVED" and not (approved_quote_id and approved_hash and decided_by):
-            raise ValueError("APPROVED needs decided_by, approved_quote_id and approved_hash")
+    def get_idempotent_order(self, key: str, buyer_id: str) -> Order | None:
         with self._lock:
-            a = self._approvals.get(approval_id)
-            if a is None or a["status"] != "PENDING":
-                return False
-            a.update(status=status, decided_by=decided_by, decided_at=now_iso(), comment=comment,
-                     approved_quote_id=approved_quote_id, approved_hash=approved_hash)
-            return True
+            order_id = self._state.idempotency.get(buyer_id, {}).get(key)
+            return self.get_order(order_id, buyer_id) if order_id else None
 
-    # Orders
-    def create_order(self, order: Obj) -> Obj:
+    def get_steps(self, request_id: str, buyer_id: str) -> list[Step]:
         with self._lock:
-            key = order["idempotency_key"]
-            for o in self._orders.values():
-                if o["idempotency_key"] == key:
-                    return copy.deepcopy(o)
-            if order["quote_id"] not in self._quotes:
-                raise NotFound(f"quote {order['quote_id']} must be saved before its order")
-            rid = order.get("request_id")
-            if rid is not None and order.get("status") != "FAILED":
-                for o in self._orders.values():
-                    if o.get("request_id") == rid and o.get("status") != "FAILED":
-                        raise OrderConflict(f"request {rid} already has order {o['order_id']}")
-            self._orders[order["order_id"]] = copy.deepcopy(order)
-            return copy.deepcopy(order)
+            if self.request_buyer(request_id) != buyer_id:
+                return []
+            return [s.model_copy(deep=True) for s in self._state.steps.get(request_id, [])]
 
-    def get_order(self, order_id: str) -> Optional[Obj]:
-        with self._lock:
-            o = self._orders.get(order_id)
-            return copy.deepcopy(o) if o else None
+    def append_step(self, request_id: str, buyer_id: str, step: Step) -> None:
+        with self.transaction():
+            self._claim_request(request_id, buyer_id)
+            steps = self._state.steps.setdefault(request_id, [])
+            if step.seq != len(steps) + 1 or step.prev_hash != (steps[-1].hash if steps else None):
+                raise ValueError("Step must extend the decision log.")
+            steps.append(step.model_copy(deep=True))
 
-    # Decision log
-    def append_step(self, request_id: str, step: Obj) -> Obj:
-        with self._lock:
-            chain = self._steps.setdefault(request_id, [])
-            check_link(chain[-1] if chain else None, step, request_id)
-            if any(s["hash"] == step["hash"] for c in self._steps.values() for s in c):
-                raise ChainConflict(f"hash {step['hash']} already exists")
-            chain.append(copy.deepcopy(step))
-            return copy.deepcopy(step)
+    def append_past_order(self, customer_id: str, buyer_id: str, order: PastOrder) -> None:
+        with self.transaction():
+            orders = self._state.past_orders.setdefault(buyer_id, {}).setdefault(customer_id, [])
+            orders.append(order.model_copy(deep=True))
 
-    def get_steps(self, request_id: str) -> list[Obj]:
+    def get_past_orders(self, customer_id: str, buyer_id: str) -> list[PastOrder]:
         with self._lock:
-            return copy.deepcopy(self._steps.get(request_id, []))
+            return [
+                o.model_copy(deep=True)
+                for o in self._state.past_orders.get(buyer_id, {}).get(customer_id, [])
+            ]

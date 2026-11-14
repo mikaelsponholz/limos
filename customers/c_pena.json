@@ -1,0 +1,37 @@
+{
+  "customer_id": "c_pena",
+  "name": "Pena",
+  "company": "Ab Oy",
+  "role": "Executive",
+  "buyer_id": "ab-oy",
+  "age_group": "55_plus",
+  "playful": false,
+  "preferences": [{"key": "finnish_origin", "level": "prefer"}],
+  "exclude_allergens": [],
+  "defaults": {"priority": "quality", "typical_guests": 30, "budget": null},
+  "order_history": [
+    {
+      "order_ref": "ph_pena_01",
+      "date": "2026-10-30",
+      "title": "Layer cakes for the board meeting",
+      "event_type": "company_meeting",
+      "guests": 30,
+      "lines": [{"product_id": "900310", "name": "Example Bakery layer cake 24 portions", "quantity_sales_units": 2, "sales_unit": "ST", "quantity_text": "2 x 24 portions", "unit_price": 38.5, "line_total": 77.0}],
+      "total": 77.0,
+      "source": "seeded",
+      "simulated": true
+    },
+    {
+      "order_ref": "ph_pena_02",
+      "date": "2026-10-02",
+      "title": "Layer cake for the staff coffee table",
+      "event_type": "staff_coffee",
+      "guests": 20,
+      "lines": [{"product_id": "900311", "name": "Example Bakery layer cake 20 portions", "quantity_sales_units": 1, "sales_unit": "ST", "quantity_text": "1 x 20 portions", "unit_price": 32.0, "line_total": 32.0}],
+      "total": 32.0,
+      "source": "seeded",
+      "simulated": true
+    }
+  ],
+  "simulated": true
+}
