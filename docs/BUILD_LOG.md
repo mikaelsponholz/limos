@@ -56,4 +56,5 @@ How Limos was built, step by step. Each phase in `docs/PLAN.md` runs through the
 | Step | Tag | What was built | Builder | Reviewer | Fix rounds | Tests | Commit |
 |---|---|---|---|---|---|---|---|
 | Merge | DB_RLS | Johannes's PostgresStore with database-level guarantees, catalogue-price rule, hosting files; merged from the web branch with the psycopg dependencies | Johannes (by hand, with his own tools) | Gemini 3.8 Flash, strict: FAIL | 1 (next row) | 816 | 43ea418 |
-| Fix | DB_RLS | No migration on start unless `MIGRATE_ON_START`, a migration command, decided approvals final (migration 002), a thread guard for store transactions | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 0 | 843 | see git log |
+| Fix | DB_RLS | No migration on start unless `MIGRATE_ON_START`, a migration command, decided approvals final (migration 002), a thread guard for store transactions | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 0 | 843 | 5fee80e |
+| Allergen gap | ENGINE | Every quote gets the buyer's own profile rules (excluded allergens, required dietary keys), also standalone MCP and script quotes; optional quote fields only add restrictions; contract v0.4 | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 0 | 863 | see git log |

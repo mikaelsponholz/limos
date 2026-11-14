@@ -1,4 +1,4 @@
-"""Public API contract v0.3. Money and quantities serialize as JSON numbers."""
+"""Public API contract v0.4. Money and quantities serialize as JSON numbers."""
 
 from datetime import date
 from typing import Literal, Self
@@ -17,7 +17,7 @@ from gateway.catalog.models import AllergenCode as AllergenCode
 from gateway.catalog.models import ClaimCode as ClaimCode
 from gateway.catalog.models import LabelCode as LabelCode
 
-CONTRACT_VERSION = "0.3"
+CONTRACT_VERSION = "0.4"
 
 PreferenceKey = Literal[
     "lactose_free", "gluten_free", "finnish_origin", "organic", "vegetarian", "vegan", "low_carbon"
@@ -661,6 +661,8 @@ class QuoteBody(AgentIdentity):
     lines: list[QuoteLine]
     budget: float | None = None
     option_label: str | None = None
+    exclude_allergens: list[AllergenCode] = Field(default_factory=list)
+    constraints: list[Constraint] = Field(default_factory=list)
 
 
 class RequestApprovalBody(AgentIdentity):

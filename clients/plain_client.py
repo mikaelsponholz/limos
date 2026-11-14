@@ -27,16 +27,25 @@ def _post(client: httpx.Client, path: str, body: dict[str, Any]) -> dict[str, An
     return response.json()
 
 
-def run_flow(client: httpx.Client, buyer_id: str = "demo-catering") -> int:
+def run_flow(
+    client: httpx.Client,
+    buyer_id: str = "demo-catering",
+    *,
+    exclude_allergens: list[str] | None = None,
+    constraints: list[str] | None = None,
+) -> int:
     """Use an injected HTTP client and print only the order or approval summary."""
     identity = {"buyer_id": buyer_id, "agent_id": AGENT_ID}
     try:
         lines = []
-        for item_id, query, quantity, unit, constraints in (
+        for item_id, query, quantity, unit, item_constraints in (
             ("it_butter", "butter", 5.0, "kg", []),
             ("it_milk", "milk", 40.0, "L", ["lactose_free"]),
         ):
-            requirements = {"constraints": constraints, "exclude_allergens": []}
+            requirements = {
+                "constraints": list(dict.fromkeys([*item_constraints, *(constraints or [])])),
+                "exclude_allergens": exclude_allergens or [],
+            }
             products = _post(
                 client,
                 "/gateway/search",
@@ -73,7 +82,13 @@ def run_flow(client: httpx.Client, buyer_id: str = "demo-catering") -> int:
         quote = _post(
             client,
             "/gateway/quotes",
-            {**identity, "requested_date": REQUESTED_DATE, "lines": lines},
+            {
+                **identity,
+                "requested_date": REQUESTED_DATE,
+                "lines": lines,
+                "exclude_allergens": exclude_allergens or [],
+                "constraints": constraints or [],
+            },
         )
         outcome = quote["policy"]["outcome"]
         reference = None
@@ -125,11 +140,23 @@ def main(argv: list[str] | None = None, *, client: httpx.Client | None = None) -
     parser = argparse.ArgumentParser(description="Order butter and lactose-free milk through Limos")
     parser.add_argument("--base-url", default="http://localhost:8000")
     parser.add_argument("--buyer-id", default="demo-catering")
+    parser.add_argument("--exclude-allergens", nargs="*", default=[])
+    parser.add_argument("--constraints", nargs="*", default=[])
     args = parser.parse_args(argv)
     if client is not None:
-        return run_flow(client, args.buyer_id)
+        return run_flow(
+            client,
+            args.buyer_id,
+            exclude_allergens=args.exclude_allergens,
+            constraints=args.constraints,
+        )
     with httpx.Client(base_url=args.base_url.rstrip("/"), timeout=10) as http_client:
-        return run_flow(http_client, args.buyer_id)
+        return run_flow(
+            http_client,
+            args.buyer_id,
+            exclude_allergens=args.exclude_allergens,
+            constraints=args.constraints,
+        )
 
 
 if __name__ == "__main__":

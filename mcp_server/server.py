@@ -87,20 +87,27 @@ def create_server(*, client: httpx.AsyncClient | None = None) -> MCPServer[None]
         request_id: str | None = None,
         budget: float | None = None,
         option_label: str | None = None,
+        exclude_allergens: list[AllergenCode] | None = None,
+        constraints: list[Constraint] | None = None,
     ) -> dict[str, JsonValue]:
         """Create a price-locked quote with the gateway's policy decision."""
+        body = QuoteBody(
+            buyer_id=buyer_id,
+            agent_id=gateway.agent_id,
+            requested_date=requested_date,
+            lines=lines,
+            request_id=request_id,
+            budget=budget,
+            option_label=option_label,
+        )
+        if exclude_allergens is not None:
+            body.exclude_allergens = exclude_allergens
+        if constraints is not None:
+            body.constraints = constraints
         return await gateway.request(
             "POST",
             "/gateway/quotes",
-            QuoteBody(
-                buyer_id=buyer_id,
-                agent_id=gateway.agent_id,
-                requested_date=requested_date,
-                lines=lines,
-                request_id=request_id,
-                budget=budget,
-                option_label=option_label,
-            ),
+            body,
         )
 
     @server.tool(structured_output=True)

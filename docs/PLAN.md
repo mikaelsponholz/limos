@@ -350,7 +350,6 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 
 ## Open questions
 
-- Mikael and Johannes: a quote made directly through `POST /gateway/quotes` (MCP or script, without a `request_id`) carries no item constraints or excluded allergens, so `ALLERGEN_*` and `DIETARY_*` rules can't fire for it. Fixing it needs a contract change (constraints on `QuoteBody` or `QuoteLine`), so it waits for agreement.
 - Mikael: event expansion writes preferences into item names ("organic rye bread") because the prompt passes the preference keys. That may narrow the catalogue search. Phase 4 or 5 should keep preferences out of the search words (code already applies them) and check it live against the catalogue.
 - Mikael: the Phase 3 agent path is checked live only for single Gemini calls (intent, question, expansion, tool declarations). A full run through the tool loop against the live gateway and Valio has not been done yet; Phase 4's demo checks cover it.
 - Johannes: agree contract v0.3 (customers, question, suggestions, per-line deadlines) and the shopping-list UI requirements in section 8b.

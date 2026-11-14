@@ -2386,6 +2386,72 @@
             "title": "Buyer Id",
             "type": "string"
           },
+          "constraints": {
+            "items": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "lactose_free",
+                    "gluten_free",
+                    "finnish_origin",
+                    "organic",
+                    "vegetarian",
+                    "vegan",
+                    "low_carbon"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "enum": [
+                    "no_milk",
+                    "no_lactose",
+                    "no_gluten",
+                    "no_wheat",
+                    "no_egg",
+                    "no_fish",
+                    "no_crustaceans",
+                    "no_molluscs",
+                    "no_peanuts",
+                    "no_tree_nuts",
+                    "no_soy",
+                    "no_sesame",
+                    "no_celery",
+                    "no_mustard",
+                    "no_sulphites",
+                    "no_lupin"
+                  ],
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Constraints",
+            "type": "array"
+          },
+          "exclude_allergens": {
+            "items": {
+              "enum": [
+                "milk",
+                "lactose",
+                "gluten",
+                "wheat",
+                "egg",
+                "fish",
+                "crustaceans",
+                "molluscs",
+                "peanuts",
+                "tree_nuts",
+                "soy",
+                "sesame",
+                "celery",
+                "mustard",
+                "sulphites",
+                "lupin"
+              ],
+              "type": "string"
+            },
+            "title": "Exclude Allergens",
+            "type": "array"
+          },
           "lines": {
             "items": {
               "$ref": "#/components/schemas/QuoteLine"
@@ -3520,7 +3586,7 @@
   },
   "info": {
     "title": "Limos",
-    "version": "0.3"
+    "version": "0.4"
   },
   "openapi": "3.1.0",
   "paths": {

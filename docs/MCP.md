@@ -17,6 +17,8 @@ There is no approve tool. An agent can ask for approval, but only a person can g
 
 Every tool takes a `buyer_id`. The server adds its own agent id (`limos-mcp` by default), and the gateway checks it against that buyer's mandate.
 
+The gateway always enforces the buyer's allergen and dietary rules: standalone quotes use the union of that buyer's customer profiles, while quotes with a `request_id` keep the request's per-item rules. The optional `request_quote` fields `exclude_allergens` and `constraints` apply to every line and can only add restrictions. Omitting them or sending empty lists cannot remove existing rules.
+
 ## Run it
 
 1. Start the gateway:

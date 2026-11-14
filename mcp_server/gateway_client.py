@@ -20,7 +20,7 @@ class GatewayClient:
         self._client = client
 
     async def request(self, method: str, path: str, body: AgentIdentity) -> dict[str, JsonValue]:
-        payload = body.model_dump(mode="json", exclude_none=True)
+        payload = body.model_dump(mode="json", exclude_none=True, exclude_unset=True)
         try:
             if self._client is not None:
                 response = await self._send(self._client, method, path, payload)

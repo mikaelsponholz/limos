@@ -1,4 +1,4 @@
-# Limos API contract (v0.3)
+# Limos API contract (v0.4)
 
 Contract between the **web** (Johannes) and the **backend** (gateway + Gemini agent, Mikael). v0.2 merged Johannes's v0.1 with Mikael's contract. v0.3 adds customer profiles, reorder, one clarifying question, optional suggestions and per-line delivery and order deadlines (Valio mentor requirements, 2026-11-14). Every earlier field keeps its name and meaning, and new fields are additions. Change it only by agreement, and bump the version.
 
@@ -14,6 +14,11 @@ Three kinds of endpoints:
 - **Buyer side**: the kitchen user starts a request and follows it.
 - **Approver side**: a human approves or rejects. Never callable by an agent, and not exposed over MCP.
 - **Gateway tools**: what any buying agent calls (our Gemini agent, Claude Desktop over MCP, a plain script).
+
+## Changes from v0.3 to v0.4
+
+- `QuoteBody` gains optional `exclude_allergens` and `constraints`, both defaulting to `[]` and applying to every line. They only add restrictions to the existing context.
+- Standalone quotes always apply the union of the buyer's customer-profile allergen exclusions and require-level dietary preferences. Quotes with a `request_id` keep that request's per-item rules; body additions are merged into either context.
 
 ## Changes from v0.2
 
@@ -455,10 +460,12 @@ Every call carries `buyer_id` and `agent_id`. The gateway checks the agent again
 |---|---|---|---|
 | `POST /gateway/search` | `search_products` | `{query, constraints, exclude_allergens, limit}` | `{"products": [{product_id, name, vendor, sales_unit, pack_size, country_of_origin, labels, allergens}]}` from the local catalogue, never the Valio API |
 | `POST /gateway/offers` | `check_offers` | `{product_ids, item_id, quantity, unit, requested_date, constraints, exclude_allergens}` | `{"offers": [Offer]}`. Calls Valio price and availability for this shortlist only |
-| `POST /gateway/quotes` | `request_quote` | `{request_id?, buyer_id, agent_id, requested_date, lines: [{item_id, product_id, quantity_sales_units}], budget?, option_label?}` | `Quote` with the policy decision |
+| `POST /gateway/quotes` | `request_quote` | `{request_id?, buyer_id, agent_id, requested_date, lines: [{item_id, product_id, quantity_sales_units}], budget?, option_label?, exclude_allergens?: [], constraints?: []}` | `Quote` with the policy decision |
 | `POST /gateway/quotes/{quote_id}/request-approval` | `request_approval` | `{agent_id, explanation, alternative_quote_ids?}` | `{"approval_id", "status": "PENDING"}` |
 | `POST /gateway/orders` | `place_order` | `{quote_id, agent_id, idempotency_key}` | `Order`. `403 NEEDS_APPROVAL` without a matching approval, `410 QUOTE_EXPIRED`, `422 BLOCKED`. Same key → same order |
 | `GET /gateway/orders/{order_id}` | `get_order_status` | | `Order`, or the pending approval state |
+
+`QuoteBody.exclude_allergens` uses the allergen codes above. `QuoteBody.constraints` accepts preference keys and `no_<allergen>` values (for example `lactose_free` or `no_milk`). Both lists default to `[]` and are merged without duplicates, preserving order, into every line's rules. Standalone profile rules include only this buyer's customers, including profile overlays, and only require-level `lactose_free`, `gluten_free`, `vegetarian` and `vegan` preferences. Empty lists cannot remove those rules. Fired rules appear in the existing `policy.rules_fired` descriptions.
 
 ## Openness
 

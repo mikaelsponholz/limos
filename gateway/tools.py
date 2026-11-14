@@ -5,10 +5,11 @@ from typing import cast
 from gateway import orders, quotes
 from gateway.api.dependencies import Resources
 from gateway.audit import append_step
-from gateway.customers import append_placed_order
+from gateway.customers import append_placed_order, load_customers
 from gateway.errors import GatewayError
 from gateway.offers import _check, build_offers, price_fixed_lines
 from gateway.policy import ItemContext
+from gateway.policy.engine import REQUIRE_HARD_DIETARY_KEYS
 from gateway.schemas import (
     Allergens,
     Constraint,
@@ -115,12 +116,55 @@ def contexts(detail: RequestDetail | None, item_ids: list[str]) -> dict[str, Ite
     }
 
 
+def quote_contexts(
+    body: QuoteBody, detail: RequestDetail | None, env: Resources
+) -> dict[str, ItemContext]:
+    context = contexts(detail, [line.item_id for line in body.lines])
+    profiles = (
+        [
+            customer
+            for customer in load_customers(**env.customer_paths).values()
+            if customer.buyer_id == body.buyer_id
+        ]
+        if detail is None
+        else []
+    )
+    for key, item in context.items():
+        context[key] = ItemContext(
+            constraints=list(dict.fromkeys([*item.constraints, *body.constraints])),
+            required_preferences=list(
+                dict.fromkeys(
+                    [
+                        *item.required_preferences,
+                        *(
+                            preference.key
+                            for customer in profiles
+                            for preference in customer.preferences
+                            if preference.level == "require"
+                            and preference.key in REQUIRE_HARD_DIETARY_KEYS
+                        ),
+                    ]
+                )
+            ),
+            exclude_allergens=list(
+                dict.fromkeys(
+                    [
+                        *item.exclude_allergens,
+                        *(code for customer in profiles for code in customer.exclude_allergens),
+                        *body.exclude_allergens,
+                    ]
+                )
+            ),
+        )
+    return context
+
+
 async def request_quote(body: QuoteBody, env: Resources) -> Quote:
     mandate = env.permit(body.buyer_id, body.agent_id)
     detail = request_detail(env, body.request_id, body.buyer_id) if body.request_id else None
     if not body.lines:
         raise GatewayError(422, "INVALID_LINES", "A quote needs at least one line.")
-    context = contexts(detail, [line.item_id for line in body.lines])
+    context = quote_contexts(body, detail, env)
     needs = (
         {
             item.item_id: Quantity(value=item.quantity, unit=item.unit)
