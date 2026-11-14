@@ -13,6 +13,7 @@ from agent.intent import helsinki_today
 from gateway import customers, tools
 from gateway.api.dependencies import Resources
 from gateway.audit import append_step
+from gateway.errors import GatewayError
 from gateway.policy import ItemContext
 from gateway.schemas import IntentItem, OffersBody, SearchBody, Suggestion
 
@@ -80,17 +81,20 @@ async def propose_suggestions(request_id: str, env: Resources) -> None:
             item.constraints if item else (),
         )
         tools.tool_step(env, request_id, "search_products")
-        products = tools.search_products(
-            SearchBody(
-                buyer_id=detail.buyer_id,
-                agent_id=agent_id,
-                query=idea.query,
-                constraints=constraints,
-                exclude_allergens=detail.intent.exclude_allergens,
-                limit=5,
-            ),
-            env,
-        ).products
+        try:
+            products = tools.search_products(
+                SearchBody(
+                    buyer_id=detail.buyer_id,
+                    agent_id=agent_id,
+                    query=idea.query,
+                    constraints=constraints,
+                    exclude_allergens=detail.intent.exclude_allergens,
+                    limit=5,
+                ),
+                env,
+            ).products
+        except GatewayError:
+            continue
         ids = [product.product_id for product in products if product.product_id not in occupied]
         if not ids:
             continue
@@ -118,20 +122,25 @@ async def propose_suggestions(request_id: str, env: Resources) -> None:
             None,
         )
         tools.tool_step(env, request_id, "check_offers")
-        offers = await tools.check_offers(
-            OffersBody(
-                buyer_id=detail.buyer_id,
-                agent_id=agent_id,
-                product_ids=ids,
-                item_id=item.item_id,
-                quantity=need.value if need else item.quantity,
-                unit=need.unit if need else item.unit,
-                requested_date=detail.intent.deliver_by,
-                constraints=list(dict.fromkeys([*constraints, *required])),
-                exclude_allergens=detail.intent.exclude_allergens,
-            ),
-            env,
-        )
+        try:
+            offers = await tools.check_offers(
+                OffersBody(
+                    buyer_id=detail.buyer_id,
+                    agent_id=agent_id,
+                    product_ids=ids,
+                    item_id=item.item_id,
+                    quantity=need.value if need else item.quantity,
+                    unit=need.unit if need else item.unit,
+                    requested_date=detail.intent.deliver_by,
+                    constraints=list(dict.fromkeys([*constraints, *required])),
+                    exclude_allergens=detail.intent.exclude_allergens,
+                ),
+                env,
+            )
+        except GatewayError:
+            # Bad Valio data for one idea (seen live: OFFER_DATA_INVALID) drops that idea;
+            # it must never fail a quote that already waits for approval.
+            continue
         context = ItemContext(
             constraints=constraints,
             required_preferences=required,

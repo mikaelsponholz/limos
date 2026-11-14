@@ -520,7 +520,19 @@ async def run(
         else:
             detail.status = "BLOCKED"
             env.store.save_request(detail)
-        await propose_suggestions(request_id, env)
+        try:
+            await propose_suggestions(request_id, env)
+        except Exception:  # noqa: BLE001 - ideas are optional; the quote stands without them
+            append_step(
+                env.store,
+                request_id,
+                "gateway",
+                "EXCEPTION",
+                "Skipped optional suggestions",
+                {"suggestions": "skipped"},
+                None,
+                env.now(),
+            )
     except Exception as exc:
         detail = env.store.get_request(request_id, detail.buyer_id) or detail
         detail.status = "FAILED"
