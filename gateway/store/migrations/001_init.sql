@@ -1,109 +1,130 @@
--- Limos storage schema, migration 001.
+-- Limos storage schema for gateway.store.PostgresStore, migration 001.
 -- Idempotent: safe to run more than once. Runs in the current search_path schema.
 -- Needs PostgreSQL 14+ (CREATE OR REPLACE TRIGGER). Aiven runs PostgreSQL 18.
+--
+-- Each record is stored whole as jsonb (the contract model), next to the columns
+-- the store filters on. `pos` keeps insertion order, like the memory store.
 
--- Requests: one row per purchase request (preset, event, item list or free text).
-CREATE TABLE IF NOT EXISTS requests (
-    request_id  text        PRIMARY KEY,
-    buyer_id    text        NOT NULL,
-    status      text        NOT NULL,
-    created_at  timestamptz NOT NULL,
-    updated_at  timestamptz NOT NULL DEFAULT now(),
-    payload     jsonb       NOT NULL
+-- Which buyer owns a request id. Claimed once, never moved to another buyer.
+CREATE TABLE IF NOT EXISTS limos_request_owners (
+    request_id  text PRIMARY KEY,
+    buyer_id    text NOT NULL
 );
-CREATE INDEX IF NOT EXISTS requests_buyer_created ON requests (buyer_id, created_at DESC);
 
--- Quotes: a locked price for a set of lines. The content hash is what a human approves.
-CREATE TABLE IF NOT EXISTS quotes (
-    quote_id      text        PRIMARY KEY,
-    request_id    text,
-    buyer_id      text        NOT NULL,
-    status        text        NOT NULL,
-    content_hash  text        NOT NULL,
-    expires_at    timestamptz NOT NULL,
-    created_at    timestamptz NOT NULL,
-    payload       jsonb       NOT NULL
+CREATE TABLE IF NOT EXISTS limos_requests (
+    request_id  text      PRIMARY KEY,
+    buyer_id    text      NOT NULL,
+    pos         bigserial NOT NULL,
+    payload     jsonb     NOT NULL
 );
-CREATE INDEX IF NOT EXISTS quotes_request ON quotes (request_id);
+CREATE INDEX IF NOT EXISTS limos_requests_buyer ON limos_requests (buyer_id, pos);
 
--- Approvals: a human decision about one or more quote options. Decided at most once.
-CREATE TABLE IF NOT EXISTS approvals (
-    approval_id        text        PRIMARY KEY,
-    request_id         text,
-    quote_id           text        NOT NULL REFERENCES quotes (quote_id),
-    buyer_id           text        NOT NULL,
-    status             text        NOT NULL DEFAULT 'PENDING'
-                       CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'EXPIRED')),
-    created_at         timestamptz NOT NULL,
-    expires_at         timestamptz,
-    decided_by         text,
-    decided_at         timestamptz,
-    approved_quote_id  text        REFERENCES quotes (quote_id),
-    approved_hash      text,
-    comment            text,
-    payload            jsonb       NOT NULL,
-    -- A decided approval always says who decided and when.
-    CHECK (status = 'PENDING' OR (decided_at IS NOT NULL)),
-    -- An approved approval always names the exact quote and hash that was approved.
-    CHECK (status <> 'APPROVED' OR (approved_quote_id IS NOT NULL AND approved_hash IS NOT NULL AND decided_by IS NOT NULL))
+-- Quotes change status (PENDING_APPROVAL, ORDERED...), so they are upserted.
+CREATE TABLE IF NOT EXISTS limos_quotes (
+    quote_id    text      PRIMARY KEY,
+    buyer_id    text      NOT NULL,
+    request_id  text      NOT NULL,
+    pos         bigserial NOT NULL,
+    payload     jsonb     NOT NULL
 );
-CREATE INDEX IF NOT EXISTS approvals_status_created ON approvals (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS limos_quotes_request ON limos_quotes (buyer_id, request_id, pos);
 
--- Orders: simulated orders placed from a quote.
-CREATE TABLE IF NOT EXISTS orders (
-    order_id         text        PRIMARY KEY,
-    quote_id         text        NOT NULL REFERENCES quotes (quote_id),
-    request_id       text,
-    idempotency_key  text        NOT NULL UNIQUE,   -- same key can never create a second order
-    status           text        NOT NULL,
-    placed_at        timestamptz NOT NULL,
-    payload          jsonb       NOT NULL
+CREATE TABLE IF NOT EXISTS limos_approvals (
+    approval_id  text      PRIMARY KEY,
+    buyer_id     text      NOT NULL,
+    status       text      NOT NULL
+                 CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'EXPIRED')),
+    pos          bigserial NOT NULL,
+    payload      jsonb     NOT NULL
 );
--- One live order per request ("one order per event"). Failed attempts do not count.
-CREATE UNIQUE INDEX IF NOT EXISTS orders_one_per_request
-    ON orders (request_id) WHERE request_id IS NOT NULL AND status <> 'FAILED';
+CREATE INDEX IF NOT EXISTS limos_approvals_buyer ON limos_approvals (buyer_id, pos);
+
+-- Guarantee: a decided approval is final. Its decision can never be changed afterwards.
+CREATE OR REPLACE FUNCTION limos_approval_decided_once() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF OLD.status <> 'PENDING' AND NEW.payload IS DISTINCT FROM OLD.payload THEN
+        RAISE EXCEPTION 'approval % is already %', OLD.approval_id, OLD.status
+            USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+CREATE OR REPLACE TRIGGER limos_approvals_decided_once
+    BEFORE UPDATE ON limos_approvals
+    FOR EACH ROW EXECUTE FUNCTION limos_approval_decided_once();
+
+-- Orders: immutable, one per request, and an idempotency key is used once per buyer.
+CREATE TABLE IF NOT EXISTS limos_orders (
+    order_id         text      PRIMARY KEY,
+    buyer_id         text      NOT NULL,
+    quote_id         text      NOT NULL REFERENCES limos_quotes (quote_id),
+    request_id       text      NOT NULL UNIQUE,
+    idempotency_key  text      NOT NULL,
+    pos              bigserial NOT NULL,
+    payload          jsonb     NOT NULL,
+    UNIQUE (buyer_id, idempotency_key)
+);
 
 -- Decision log: append-only, hash-chained steps per request.
-CREATE TABLE IF NOT EXISTS audit_steps (
-    request_id  text        NOT NULL,
-    seq         integer     NOT NULL CHECK (seq >= 1),
-    at          timestamptz NOT NULL,
-    actor       text        NOT NULL,
-    type        text        NOT NULL,
+CREATE TABLE IF NOT EXISTS limos_steps (
+    request_id  text    NOT NULL,
+    seq         integer NOT NULL CHECK (seq >= 1),
     prev_hash   text,
-    hash        text        NOT NULL UNIQUE,
-    payload     jsonb       NOT NULL,
+    hash        text    NOT NULL,
+    payload     jsonb   NOT NULL,
     PRIMARY KEY (request_id, seq),
     -- Only the first step of a chain may lack a previous hash.
     CHECK ((seq = 1) = (prev_hash IS NULL))
 );
 
--- Guarantee 1: the decision log can never be edited or deleted, only appended to.
-CREATE OR REPLACE FUNCTION limos_audit_append_only() RETURNS trigger
+-- Past orders that Limos appends to a customer's history.
+CREATE TABLE IF NOT EXISTS limos_past_orders (
+    buyer_id     text      NOT NULL,
+    customer_id  text      NOT NULL,
+    pos          bigserial PRIMARY KEY,
+    payload      jsonb     NOT NULL
+);
+CREATE INDEX IF NOT EXISTS limos_past_orders_customer ON limos_past_orders (buyer_id, customer_id, pos);
+
+-- Guarantee: orders, the decision log and order history can never be edited or deleted.
+CREATE OR REPLACE FUNCTION limos_append_only() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
-    RAISE EXCEPTION 'audit_steps is append-only: % is not allowed', TG_OP
+    RAISE EXCEPTION '% is append-only: % is not allowed', TG_TABLE_NAME, TG_OP
         USING ERRCODE = 'insufficient_privilege';
 END;
 $$;
 
-CREATE OR REPLACE TRIGGER audit_steps_no_update_delete
-    BEFORE UPDATE OR DELETE ON audit_steps
-    FOR EACH ROW EXECUTE FUNCTION limos_audit_append_only();
+CREATE OR REPLACE TRIGGER limos_orders_no_update_delete
+    BEFORE UPDATE OR DELETE ON limos_orders
+    FOR EACH ROW EXECUTE FUNCTION limos_append_only();
+CREATE OR REPLACE TRIGGER limos_orders_no_truncate
+    BEFORE TRUNCATE ON limos_orders
+    FOR EACH STATEMENT EXECUTE FUNCTION limos_append_only();
+CREATE OR REPLACE TRIGGER limos_steps_no_update_delete
+    BEFORE UPDATE OR DELETE ON limos_steps
+    FOR EACH ROW EXECUTE FUNCTION limos_append_only();
+CREATE OR REPLACE TRIGGER limos_steps_no_truncate
+    BEFORE TRUNCATE ON limos_steps
+    FOR EACH STATEMENT EXECUTE FUNCTION limos_append_only();
+CREATE OR REPLACE TRIGGER limos_past_orders_no_update_delete
+    BEFORE UPDATE OR DELETE ON limos_past_orders
+    FOR EACH ROW EXECUTE FUNCTION limos_append_only();
+CREATE OR REPLACE TRIGGER limos_past_orders_no_truncate
+    BEFORE TRUNCATE ON limos_past_orders
+    FOR EACH STATEMENT EXECUTE FUNCTION limos_append_only();
 
-CREATE OR REPLACE TRIGGER audit_steps_no_truncate
-    BEFORE TRUNCATE ON audit_steps
-    FOR EACH STATEMENT EXECUTE FUNCTION limos_audit_append_only();
-
--- Guarantee 2: a new step must link to the previous one (seq + 1 and prev_hash = previous hash).
-CREATE OR REPLACE FUNCTION limos_audit_check_chain() RETURNS trigger
+-- Guarantee: a new step must link to the previous one (seq + 1 and prev_hash = previous hash),
+-- checked by the database itself, so no client can write a broken chain.
+CREATE OR REPLACE FUNCTION limos_steps_check_chain() RETURNS trigger
 LANGUAGE plpgsql AS $$
 DECLARE
     last_seq  integer;
     last_hash text;
 BEGIN
     SELECT s.seq, s.hash INTO last_seq, last_hash
-      FROM audit_steps s
+      FROM limos_steps s
      WHERE s.request_id = NEW.request_id
      ORDER BY s.seq DESC
      LIMIT 1;
@@ -120,7 +141,6 @@ BEGIN
     RETURN NEW;
 END;
 $$;
-
-CREATE OR REPLACE TRIGGER audit_steps_check_chain
-    BEFORE INSERT ON audit_steps
-    FOR EACH ROW EXECUTE FUNCTION limos_audit_check_chain();
+CREATE OR REPLACE TRIGGER limos_steps_check_chain
+    BEFORE INSERT ON limos_steps
+    FOR EACH ROW EXECUTE FUNCTION limos_steps_check_chain();

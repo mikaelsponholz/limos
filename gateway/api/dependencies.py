@@ -15,7 +15,7 @@ from gateway.errors import GatewayError
 from gateway.offers import OfferValio
 from gateway.policy import MandateEntry
 from gateway.settings import Settings
-from gateway.store import FileStore, MemoryStore, Store
+from gateway.store import FileStore, MemoryStore, Store, create_store
 from gateway.valio.client import ValioClient, ValioError
 
 
@@ -41,6 +41,8 @@ class Resources:
                 self.state.store = MemoryStore()
             elif self.settings.store == "file":
                 self.state.store = FileStore()
+            elif self.settings.store == "postgres" and self.settings.database_url:
+                self.state.store = create_store(self.settings)
             else:
                 raise GatewayError(503, "STORE_UNAVAILABLE", "Store backend is not available.")
         return cast(Store, self.state.store)
