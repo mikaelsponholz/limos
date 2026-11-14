@@ -1,0 +1,44 @@
+{
+  "preset_id": "company_lunch_60",
+  "title": "Company lunch for 60",
+  "description": "Salmon soup, rye bread and a green salad. Finnish ingredients only.",
+  "expected": "The total goes over the budget and a cheaper option goes to approval.",
+  "request": {
+    "buyer_id": "demo-catering",
+    "preset_id": "company_lunch_60",
+    "text": "Company lunch for 60 on Thursday 19 November. Salmon soup, rye bread with butter, green salad. Kotimainen only. Budget 300 euros.",
+    "requested_date": "2026-11-18",
+    "event": {
+      "type": "company_lunch",
+      "date": "2026-11-19",
+      "guests": 60,
+      "dishes": [
+        {
+          "name": "Salmon soup",
+          "servings": null
+        },
+        {
+          "name": "Rye bread with butter",
+          "servings": null
+        },
+        {
+          "name": "Green salad",
+          "servings": null
+        }
+      ]
+    },
+    "items": [],
+    "preferences": [
+      {
+        "key": "finnish_origin",
+        "level": "require"
+      }
+    ],
+    "exclude_allergens": [],
+    "budget": 300,
+    "priority": "balanced",
+    "customer_id": null,
+    "reorder_of": null
+  },
+  "customer_id": null
+}

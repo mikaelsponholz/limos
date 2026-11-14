@@ -20,6 +20,9 @@ class Settings:
         )
     )
     store: str = field(default_factory=lambda: os.getenv("STORE", "file"))
+    catalog_path: str = field(
+        default_factory=lambda: os.getenv("CATALOG_PATH", "data/valio/catalog.slim.json")
+    )
     database_url: str = field(default_factory=lambda: os.getenv("DATABASE_URL", ""), repr=False)
     web_origin: str = field(
         default_factory=lambda: os.getenv("WEB_ORIGIN", "http://localhost:3000")

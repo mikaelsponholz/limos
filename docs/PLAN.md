@@ -329,6 +329,12 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 - 2026-11-14: History is back for seeded customers only and is used for recognition, reorder and gap filling. Guardrails and approvals are unchanged; the history-based rules stay dropped.
 - 2026-11-14: `age_group` is profile information only. No rule or ranking uses it.
 - 2026-11-14: pytest uses `--basetemp=.pytest-tmp` (in `pyproject.toml`) because a sandbox-created temp folder under `%TEMP%` can be unreadable.
+- 2026-11-14: Policy: required dietary preferences (`lactose_free`, `gluten_free`, `vegetarian`, `vegan`) and item constraints are hard (`DIETARY_VIOLATED` blocks, `DIETARY_UNKNOWN` needs approval). Required sourcing preferences (`finnish_origin`, `organic`, `low_carbon`) fire `PREFERENCE_REQUIRED_UNMET`. `prefer` never fires a rule.
+- 2026-11-14: `CUTOFF_PASSED` is an offer flag only, not a fired rule, so AUTO keeps an empty `rules_fired`.
+- 2026-11-14: An offer with `PRICE_MISSING` carries 0.0 in its price fields (the schema requires numbers). An unknown pack size orders one lot and flags `PACK_SIZE_UNKNOWN`.
+- 2026-11-14: Committed customer seeds in `customers/` use invented placeholder products. `scripts/seed_customers.py --catalog data/valio/catalog.slim.json` writes real catalogue codes to `.runtime/customers/` (git-ignored), which the loader overlays.
+- 2026-11-14: Approve re-checks availability with a fresh Valio call and returns `409 AVAILABILITY_CHANGED` without ordering when a locked line is no longer deliverable. Requests with only text or an event end `FAILED` with `AGENT_NOT_AVAILABLE` until Phase 3.
+- 2026-11-14: Phase 1 added the contract routes, so `contract/openapi.json` was regenerated. Schemas, fixtures and `docs/api_contract.md` are unchanged. `CATALOG_PATH` is a new setting in `.env.example`.
 - 2026-11-13: MCP server is its own phase right after the thin end-to-end flow.
 - 2026-11-13: Storage capacity rule is an add-on phase. Menu photo is stretch.
 - 2026-11-13: Pitch is time saving, without speed promises.

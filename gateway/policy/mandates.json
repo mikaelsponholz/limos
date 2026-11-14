@@ -1,0 +1,32 @@
+[
+  {
+    "buyer_id": "demo-catering",
+    "auto_limit": 1500,
+    "line_limit": 250,
+    "hard_cap": 5000,
+    "max_overbuy_percent": 25,
+    "waste_percent": 5,
+    "allowed_agents": ["limos-gemini", "limos-runner", "limos-mcp", "limos-script"],
+    "terminal_reliability_threshold": 0.90
+  },
+  {
+    "buyer_id": "ab-oy",
+    "auto_limit": 1500,
+    "line_limit": 250,
+    "hard_cap": 5000,
+    "max_overbuy_percent": 25,
+    "waste_percent": 5,
+    "allowed_agents": ["limos-gemini", "limos-runner", "limos-mcp", "limos-script"],
+    "terminal_reliability_threshold": 0.90
+  },
+  {
+    "buyer_id": "bistro-example",
+    "auto_limit": 1500,
+    "line_limit": 250,
+    "hard_cap": 5000,
+    "max_overbuy_percent": 25,
+    "waste_percent": 5,
+    "allowed_agents": ["limos-gemini", "limos-runner", "limos-mcp", "limos-script"],
+    "terminal_reliability_threshold": 0.90
+  }
+]
