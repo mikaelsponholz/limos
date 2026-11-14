@@ -10,7 +10,7 @@ import requestChef from "./fixtures/request-chef.json";
 import requestNeedsInput from "./fixtures/request-needs-input.json";
 import requestWedding from "./fixtures/request.json";
 import { day } from "./format";
-import { ALLERGENS, PREFERENCES } from "./settings";
+import { PRIORITY_WORDS, allergenLabel, listWords, prefLabel } from "./settings";
 import {
   ApiError,
   type ApprovalDetail,
@@ -65,6 +65,8 @@ function titleOf(run: Run): string {
 }
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const later = (ms: number) => Date.now() + ms;
+// A real reorder takes 7 to 20 s; set NEXT_PUBLIC_MOCK_DELAY_MS=12000 to work on the loading state.
+const MOCK_DELAY_MS = Number(process.env.NEXT_PUBLIC_MOCK_DELAY_MS) || 1800;
 const fakeHash = () => "sha256:" + Math.random().toString(16).slice(2).padEnd(16, "0");
 
 function newId(prefix: string) {
@@ -88,15 +90,8 @@ function guestsFrom(text: string): number | null {
 // ---- Settings: the mock runs the same rules the gateway runs (docs/PLAN.md section 4) ----
 type Overrides = { preferences?: Preference[]; exclude_allergens?: string[]; priority?: Priority; budget?: number | null };
 
-const allergenLabel = (k: string) => (ALLERGENS.find((a) => a.key === k)?.label ?? k.replace(/_/g, " ")).toLowerCase();
-const prefLabel = (k: string) => {
-  const label = PREFERENCES.find((p) => p.key === k)?.label ?? k.replace(/_/g, " ");
-  return label === "Finnish" ? label : label.toLowerCase();
-};
-const listWords = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
 const HARD_DIET = new Set(["lactose_free", "gluten_free", "vegetarian", "vegan"]);
 const TIER: Record<Priority, "good" | "better" | "best"> = { price: "good", balanced: "better", quality: "best" };
-const PRIORITY_WORDS: Record<Priority, string> = { price: "lowest price", balanced: "balanced", quality: "best quality" };
 
 function overridesFrom(body: Record<string, unknown>): Overrides {
   const o: Overrides = {};
@@ -480,14 +475,15 @@ export const mock = {
     }
     if (final.quote) final.quote.request_id = id;
     const overrides = overridesFrom(body);
-    runs.set(id, { final: settleAuto(applySettings(final, overrides)), readyAt: later(1800), overrides, startedAt: Date.now() });
+    runs.set(id, { final: settleAuto(applySettings(final, overrides)), readyAt: later(MOCK_DELAY_MS), overrides, startedAt: Date.now() });
     return { request_id: id, status: "RUNNING" as const };
   },
 
   async getRequest(id: string): Promise<LimosRequest> {
     const run = runs.get(id);
     if (!run) throw new ApiError(404, "NOT_FOUND", "Request not found");
-    if (Date.now() < run.readyAt) return { ...clone<LimosRequest>(run.final), status: "RUNNING", quote: null, question: null, suggestions: [] };
+    // No steps while running, so the progress card moves on time alone, as if Valio were slow.
+    if (Date.now() < run.readyAt) return { ...clone<LimosRequest>(run.final), status: "RUNNING", quote: null, question: null, suggestions: [], steps: [] };
     return clone(run.final);
   },
 

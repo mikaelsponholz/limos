@@ -41,6 +41,15 @@ export const ALLERGENS: { key: string; label: string }[] = [
   { key: "mustard", label: "Mustard" },
 ];
 
+// Plain words for settings, shared by the mock rules and the "We assumed" lines.
+export const allergenLabel = (k: string) => (ALLERGENS.find((a) => a.key === k)?.label ?? k.replace(/_/g, " ")).toLowerCase();
+export const prefLabel = (k: string) => {
+  const label = PREFERENCES.find((p) => p.key === k)?.label ?? k.replace(/_/g, " ");
+  return label === "Finnish" ? label : label.toLowerCase();
+};
+export const listWords = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`);
+export const PRIORITY_WORDS: Record<Priority, string> = { price: "lowest price", balanced: "balanced", quality: "best quality" };
+
 const key = (customerId: string) => `limos.settings.${customerId}`;
 
 export function readSettings(customerId: string | undefined): Settings {

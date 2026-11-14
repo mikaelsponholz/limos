@@ -4,9 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useCustomer } from "@/lib/customer";
 import { readSettings, requestOverrides } from "@/lib/settings";
+import { assumedLines } from "@/lib/assumed";
 import OrderLine from "@/components/OrderLine";
+import Progress from "@/components/Progress";
 import { ICONS, day, dayTime, eur } from "@/lib/format";
-import { ApiError, type LimosRequest, type Suggestion } from "@/lib/types";
+import { ApiError, type LimosRequest, type Step, type Suggestion } from "@/lib/types";
 
 const POLL_MS = 1500;
 
@@ -16,6 +18,8 @@ export default function OrderPage() {
   const [req, setReq] = useState<LimosRequest | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set while a list is being made: the gateway's steps so far, and the past order tapped (if any).
+  const [running, setRunning] = useState<{ steps: Step[]; startedAt: number; reorderOf?: string } | null>(null);
   const field = useRef<HTMLTextAreaElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -24,6 +28,7 @@ export default function OrderPage() {
     setReq(null);
     setText("");
     setError(null);
+    setRunning(null);
   }, [customer?.customer_id]);
 
   const poll = useCallback((id: string) => {
@@ -33,13 +38,16 @@ export default function OrderPage() {
         const r = await api.getRequest(id);
         if (r.status === "RUNNING") {
           setBusy(true);
+          setRunning((p) => (p ? { ...p, steps: r.steps ?? [] } : p));
           timer.current = setTimeout(tick, POLL_MS);
           return;
         }
         setReq(r);
         setBusy(false);
+        setRunning(null);
       } catch (e) {
         setBusy(false);
+        setRunning(null);
         setError(e instanceof ApiError ? e.message : "Something went wrong. Please try again.");
       }
     };
@@ -56,6 +64,7 @@ export default function OrderPage() {
     if (!customer) return;
     setError(null);
     setBusy(true);
+    setRunning({ steps: [], startedAt: Date.now(), reorderOf: body.reorder_of });
     try {
       const { request_id } = await api.createRequest({
         customer_id: customer.customer_id,
@@ -65,6 +74,7 @@ export default function OrderPage() {
       poll(request_id);
     } catch {
       setBusy(false);
+      setRunning(null);
       setError("We could not reach Limos. Please try again.");
     }
   };
@@ -72,6 +82,7 @@ export default function OrderPage() {
   const answer = async (value: string | null) => {
     if (!req?.question) return;
     setBusy(true);
+    setRunning({ steps: [], startedAt: Date.now() });
     await api.answer(req.request_id, req.question.question_id, value);
     poll(req.request_id);
   };
@@ -79,6 +90,7 @@ export default function OrderPage() {
   const accept = async (s: Suggestion) => {
     if (!req) return;
     setBusy(true);
+    setRunning({ steps: [], startedAt: Date.now() });
     await api.acceptSuggestion(req.request_id, s.suggestion_id);
     poll(req.request_id);
   };
@@ -107,14 +119,14 @@ export default function OrderPage() {
     }
   };
 
-  if (!customer) return <main className="max-w-[1080px] mx-auto px-6 py-10 text-muted">Loading…</main>;
+  if (!customer) return <main className="max-w-[1080px] mx-auto px-4 sm:px-6 py-10 text-muted">Loading…</main>;
 
   const first = customer.name.split(" ")[0];
   const history = customer.order_history.slice(0, 3);
   const last = history[0];
 
   return (
-    <main className="max-w-[1080px] mx-auto px-6 pt-8 pb-12 flex flex-col gap-6">
+    <main className="max-w-[1080px] mx-auto px-4 sm:px-6 pt-8 pb-12 flex flex-col gap-6">
       <section className="flex flex-col gap-3">
         <h1 className="text-[30px] leading-tight font-bold tracking-tight">
           {last ? `Hi ${first}! Same as last time?` : `Hi ${first}, what would you like to order?`}
@@ -149,6 +161,8 @@ export default function OrderPage() {
             {busy ? "Checking prices…" : "Make my list"}
           </button>
         </form>
+        {/* Under the form for typed orders and new lists; a tapped past order shows it under that row. */}
+        {running && !(running.reorderOf && !req) && <Progress steps={running.steps} startedAt={running.startedAt} />}
         {history.length > 0 && !req && (
           <section aria-labelledby="again-h" className="flex flex-col gap-2 mt-2">
             <h2 id="again-h" className="text-lg font-bold m-0">
@@ -161,7 +175,9 @@ export default function OrderPage() {
                     type="button"
                     disabled={busy}
                     onClick={() => start({ reorder_of: o.order_ref })}
-                    className="w-full text-left bg-white rounded-2xl shadow-card px-4 sm:px-5 py-3.5 min-h-16 flex items-center gap-4 hover:ring-2 hover:ring-petrol-ring disabled:opacity-60"
+                    className={`w-full text-left bg-white rounded-2xl shadow-card px-4 sm:px-5 py-3.5 min-h-16 flex items-center gap-3 sm:gap-4 hover:ring-2 hover:ring-petrol-ring ${
+                      running?.reorderOf === o.order_ref ? "ring-2 ring-petrol" : "disabled:opacity-60"
+                    }`}
                   >
                     <span className="flex-none w-9 h-9 rounded-full bg-petrol-tint text-petrol font-bold flex items-center justify-center">
                       {i + 1}
@@ -169,12 +185,25 @@ export default function OrderPage() {
                     <span className="flex-1 min-w-0">
                       <span className="block font-semibold leading-snug">{o.title}</span>
                       <span className="block text-[15px] text-muted">
-                        Last ordered {day(o.date)}
-                        {o.guests ? ` · ${o.guests} people` : ""}
+                        {running?.reorderOf === o.order_ref ? (
+                          <span className="text-petrol font-semibold">Getting today&apos;s prices…</span>
+                        ) : (
+                          <>
+                            Last ordered {day(o.date)}
+                            {o.guests ? ` · ${o.guests} people` : ""}
+                            {/* On a phone the price sits on this line, so the title gets the full width. */}
+                            {o.total > 0 && <span className="sm:hidden font-bold text-ink tabular-nums"> · {eur(o.total)}</span>}
+                          </>
+                        )}
                       </span>
                     </span>
-                    {o.total > 0 && <span className="flex-none font-bold tabular-nums">{eur(o.total)}</span>}
+                    {o.total > 0 && <span className="hidden sm:block flex-none font-bold tabular-nums">{eur(o.total)}</span>}
                   </button>
+                  {running?.reorderOf === o.order_ref && (
+                    <div className="mt-2">
+                      <Progress steps={running.steps} startedAt={running.startedAt} />
+                    </div>
+                  )}
                 </li>
               ))}
             </ol>
@@ -236,11 +265,11 @@ function ListView({
   const ordered = req.status === "ORDERED";
   const blocked = req.status === "BLOCKED" || q.policy.outcome === "BLOCK";
   const vat = q.total_with_tax - q.total;
-  const gaps = req.intent?.filled_gaps ?? [];
+  const gaps = assumedLines(req.intent?.filled_gaps ?? []);
   const offered = req.suggestions.filter((s) => s.status === "OFFERED");
 
   return (
-    <div className={`flex flex-col gap-6 transition-opacity ${busy ? "opacity-40" : ""}`}>
+    <div className={`flex flex-col gap-6 transition-opacity ${busy ? "opacity-60" : ""}`}>
       <div className="flex items-center gap-3 bg-good-bg rounded-xl px-4 py-3 text-[17px]">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#3F6000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d={ICONS.truck} />
@@ -261,13 +290,13 @@ function ListView({
         <ul className="flex flex-col gap-1 text-[17px] text-soft">
           {gaps.map((g, i) => (
             <li key={i}>
-              {g.source === "form" ? g.note : `We assumed: ${g.note}`}{" "}
-              {g.source === "form" ? (
-                <Link href="/settings" className="text-petrol underline font-semibold">
+              {g.text}{" "}
+              {g.toSettings ? (
+                <Link href="/settings" className="inline-flex items-center min-h-11 -my-2.5 text-petrol underline font-semibold">
                   Change
                 </Link>
               ) : (
-                <button onClick={onChange} className="text-petrol underline font-semibold">
+                <button onClick={onChange} className="inline-flex items-center min-h-11 -my-2.5 text-petrol underline font-semibold">
                   Change
                 </button>
               )}

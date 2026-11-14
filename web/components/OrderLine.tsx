@@ -20,7 +20,8 @@ export default function OrderLine({ l }: { l: Offer }) {
       : `order by ${dayTime(l.order_deadline)}`;
   return (
     <div className="flex items-center gap-3 sm:gap-3.5 py-3.5 border-t border-hair">
-      <span className="flex-none w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center" style={{ background: c.tile }}>
+      {/* The tile is decoration; on a phone the product name needs the room more. */}
+      <span className="hidden sm:flex flex-none w-12 h-12 rounded-xl items-center justify-center" style={{ background: c.tile }}>
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={c.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d={c.icon} />
         </svg>
