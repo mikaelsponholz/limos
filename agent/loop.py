@@ -287,6 +287,12 @@ def run_loop(
             on_call=on_call,
         )
     except LLMOutputError:
+        # An item the catalogue has nothing for keeps the agent searching until its steps
+        # run out; say that plainly instead of a generic agent failure.
+        if quote is None and any(searched.get(item_id) == set() for item_id in items):
+            raise GatewayError(
+                404, "NO_CANDIDATES", "No products match the requested item."
+            ) from None
         raise GatewayError(
             422, "AGENT_FAILED", "The purchasing agent could not finish its tool calls."
         ) from None

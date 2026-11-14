@@ -223,6 +223,18 @@ def test_failed_agent_has_clear_code(tmp_path: Path, mode: str) -> None:
     assert verify_chain(detail.steps)
 
 
+def test_item_without_products_reports_no_candidates(tmp_path: Path) -> None:
+    turns = [
+        [ToolRequest("search_products", {"item_id": "it_1", "query": "zzqx dragon scales"})]
+    ] * 8
+    llm = FakeLLM(tool_responses=turns)
+    with environment(tmp_path, llm) as client:
+        detail = start(client)
+    assert detail.status == "FAILED" and detail.error.code == "NO_CANDIDATES"
+    assert detail.quote is None and detail.order is None
+    assert verify_chain(detail.steps)
+
+
 @pytest.mark.parametrize(
     "text",
     [
