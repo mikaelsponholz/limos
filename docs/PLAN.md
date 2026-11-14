@@ -345,6 +345,12 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 - 2026-11-14: PostgresStore (Johannes, b824823) is merged. The gateway never migrates on start unless `MIGRATE_ON_START=true`, which only the Aiven deployment sets explicitly. Otherwise migrations run with `uv run python -m scripts.migrate_db`. A decided approval can't change status, be deleted or be truncated (migration 002). Deleting quotes is still possible, listed as a known limitation. The table owner can disable the triggers; in production the gateway uses a separate role without owner rights (README production step).
 - 2026-11-14: Allergen gap (agreed with Johannes): the gateway always applies the buyer's own customer profile rules (excluded allergens, required dietary keys) to every quote, including standalone MCP and script quotes. `QuoteBody` gains optional `exclude_allergens` and `constraints` that can only add restrictions. Contract v0.4.
 - 2026-11-14: Pena's orders always need his approval (one tap), even within the mandate: Ab Oy's mandate sets `always_require_approval`, which fires `APPROVAL_ALWAYS_REQUIRED` (NEEDS_APPROVAL) on every quote that isn't blocked. The chef's bistro keeps AUTO within its mandate. Policy reads only the mandate, never the customer profile or history. Contract v0.5 (mandate field and rule id); the web needs a label for the new rule.
+- 2026-11-14: Phase 4 split step 1 into 1a (in-quote exceptions, approval options) and 1b (cheaper option, re-quote on expiry), and added 3a (the `POLICY_DECISION` step names the mandate: "Within the <buyer> mandate, so the agent may order") because `restaurant_weekly` must show what allowed it.
+- 2026-11-14: Contract v0.6 (Mikael): `QuoteLine` gains optional `substitute_for` and `substitute_source`; an item may have two lines (the second `is_split`). Johannes needs to know; the web reads the existing `Offer` fields.
+- 2026-11-14: When Gemini picks an undeliverable product, code moves to the next candidate instead of returning `OFFER_EXCLUDED` (section 6). An allergen or violated constraint pick still returns `OFFER_EXCLUDED`.
+- 2026-11-14: Approving an expired quote returns `410 QUOTE_EXPIRED` and re-quotes it once with all its options; the new quote always waits for a human. The old approval stays stored `PENDING` and reads `EXPIRED` through the API (its quote expired).
+- 2026-11-14: Suggestions are offered only while a quote waits for approval. An AUTO quote orders as before and gets none, so `restaurant_weekly` shows no suggestions for the chef. Accepting one expires the old approval and the new quote always waits for a human.
+- 2026-11-14: Presets link their customers: `restaurant_weekly` → `c_chef` (`bistro-example`), `company_lunch_60` → `c_pena` (`ab-oy`). Weekly eggs are 10 kg. `fixtures/api/presets.json` mirrors these values (shape unchanged).
 - 2026-11-13: MCP server is its own phase right after the thin end-to-end flow.
 - 2026-11-13: Storage capacity rule is an add-on phase. Menu photo is stretch.
 - 2026-11-13: Pitch is time saving, without speed promises.
@@ -354,6 +360,9 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 
 - Mikael: event expansion writes preferences into item names ("organic rye bread") because the prompt passes the preference keys. That may narrow the catalogue search. Phase 4 or 5 should keep preferences out of the search words (code already applies them) and check it live against the catalogue.
 - Mikael: the Phase 3 agent path is checked live only for single Gemini calls (intent, question, expansion, tool declarations). A full run through the tool loop against the live gateway and Valio has not been done yet; Phase 4's demo checks cover it.
+- Mikael: run `scripts/find_demo_cases.py --live` with `VALIO_API_KEY` set to confirm each preset's case still exists in live Valio data (not run in Phase 4: the scripts read the key from the environment only).
+- Phase 4 known limits: an expired re-quote fails as a whole if any alternative option comes back blocked (it could drop that option instead); a failed suggestion accept leaves the request `FAILED` with the old approval already expired (nothing is ordered).
+- Johannes: contract v0.6 (`QuoteLine` substitute fields) and the preset fixture values (customers and buyers).
 - Johannes: agree contract v0.3 (customers, question, suggestions, per-line deadlines) and the shopping-list UI requirements in section 8b.
 
 - Organisers: is a past `closingTime` for Terminal products intended?
