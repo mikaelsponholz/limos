@@ -424,6 +424,13 @@ async def price_fixed_lines(
         raise ValueError("Maximum overbuy percent must be finite and nonnegative.")
     records = []
     for line in lines:
+        if line.substitute_source == "valio":
+            original = catalog.lookup(line.substitute_for or "")
+            if original is None or not any(
+                rule.product == line.substitute_for and rule.substitute_product == line.product_id
+                for rule in original.substitutions
+            ):
+                raise GatewayError(422, "VALIDATION_ERROR", "No matching Valio substitution.")
         record = catalog.lookup(line.product_id)
         if record is None:
             raise UnknownProductError(line.product_id)
@@ -438,23 +445,31 @@ async def price_fixed_lines(
     availability = await valio.availability(codes, requested_date)
     prices_by_id = {entry.product_id: entry for entry in prices.products}
     stock_by_id = {entry.product_id: entry for entry in availability.products}
+    inferred: dict[str, Quantity] = {}
+    for line, record in zip(lines, records, strict=True):
+        if needs and line.item_id in needs:
+            continue
+        pack = next((pack for unit in ("kg", "L", "pcs") if (pack := _pack(record, unit))), None)
+        amount = (
+            Decimal(str(pack.value)) * Decimal(str(line.quantity_sales_units))
+            if pack
+            else Decimal(0)
+        )
+        unit = pack.unit if pack else "pcs"
+        previous = inferred.get(line.item_id)
+        if previous is not None and previous.unit != unit:
+            raise GatewayError(422, "VALIDATION_ERROR", "Split lines need compatible units.")
+        inferred[line.item_id] = Quantity(
+            value=float(amount + (Decimal(str(previous.value)) if previous else Decimal(0))),
+            unit=unit,
+        )
     result = []
+    seen_items: set[str] = set()
     for line, record in zip(lines, records, strict=True):
         stock = stock_by_id.get(line.product_id)
         if stock is None:
             raise OfferDataError(f"Missing availability for {line.product_id}.")
-        need = (needs or {}).get(line.item_id)
-        if need is None:
-            pack = next(
-                (pack for unit in ("kg", "L", "pcs") if (pack := _pack(record, unit))),
-                None,
-            )
-            need = Quantity(
-                value=float(Decimal(str(pack.value)) * Decimal(str(line.quantity_sales_units)))
-                if pack
-                else 0.0,
-                unit=pack.unit if pack else "pcs",
-            )
+        need = (needs or {}).get(line.item_id) or inferred[line.item_id]
         if not isfinite(need.value) or need.value < 0:
             raise ValueError("Item need must be finite and nonnegative.")
         context = (item_context or {}).get(line.item_id, ItemContext())
@@ -480,4 +495,9 @@ async def price_fixed_lines(
                 Decimal(str(line.quantity_sales_units)),
             )
         )
+        result[-1].is_split = line.item_id in seen_items
+        result[-1].is_substitute = line.substitute_for is not None
+        result[-1].substitute_for = line.substitute_for
+        result[-1].substitute_source = line.substitute_source
+        seen_items.add(line.item_id)
     return result

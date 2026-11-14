@@ -2519,6 +2519,34 @@
           "quantity_sales_units": {
             "title": "Quantity Sales Units",
             "type": "number"
+          },
+          "substitute_for": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Substitute For"
+          },
+          "substitute_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "valio",
+                  "agent"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Substitute Source"
           }
         },
         "required": [
@@ -3593,7 +3621,7 @@
   },
   "info": {
     "title": "Limos",
-    "version": "0.5"
+    "version": "0.6"
   },
   "openapi": "3.1.0",
   "paths": {

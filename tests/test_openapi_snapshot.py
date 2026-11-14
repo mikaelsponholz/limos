@@ -29,7 +29,7 @@ def test_every_contract_model_is_exported() -> None:
     }
     assert models <= components.keys(), f"Missing contract models: {models - components.keys()}"
     assert document["openapi"] == "3.1.0"
-    assert document["info"]["version"] == schemas.CONTRACT_VERSION == "0.5"
+    assert document["info"]["version"] == schemas.CONTRACT_VERSION == "0.6"
     health_schema = document["paths"]["/health"]["get"]["responses"]["200"]["content"][
         "application/json"
     ]["schema"]

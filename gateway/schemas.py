@@ -1,4 +1,4 @@
-"""Public API contract v0.5. Money and quantities serialize as JSON numbers."""
+"""Public API contract v0.6. Money and quantities serialize as JSON numbers."""
 
 from datetime import date
 from typing import Literal, Self
@@ -17,7 +17,7 @@ from gateway.catalog.models import AllergenCode as AllergenCode
 from gateway.catalog.models import ClaimCode as ClaimCode
 from gateway.catalog.models import LabelCode as LabelCode
 
-CONTRACT_VERSION = "0.5"
+CONTRACT_VERSION = "0.6"
 
 PreferenceKey = Literal[
     "lactose_free", "gluten_free", "finnish_origin", "organic", "vegetarian", "vegan", "low_carbon"
@@ -655,6 +655,14 @@ class QuoteLine(ContractModel):
     item_id: str
     product_id: str
     quantity_sales_units: float
+    substitute_for: str | None = None
+    substitute_source: Literal["valio", "agent"] | None = None
+
+    @model_validator(mode="after")
+    def paired_substitute_fields(self) -> Self:
+        if (self.substitute_for is None) != (self.substitute_source is None):
+            raise ValueError("Substitute fields must be set together.")
+        return self
 
 
 class QuoteBody(AgentIdentity):
@@ -665,6 +673,15 @@ class QuoteBody(AgentIdentity):
     option_label: str | None = None
     exclude_allergens: list[AllergenCode] = Field(default_factory=list)
     constraints: list[Constraint] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def at_most_two_lines_per_item(self) -> Self:
+        counts: dict[str, int] = {}
+        for line in self.lines:
+            counts[line.item_id] = counts.get(line.item_id, 0) + 1
+            if counts[line.item_id] > 2:
+                raise ValueError("An item may have at most two quote lines.")
+        return self
 
 
 class RequestApprovalBody(AgentIdentity):

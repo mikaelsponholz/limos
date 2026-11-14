@@ -2,13 +2,14 @@
 
 import asyncio
 import json
-from fractions import Fraction
 
 from agent.constraints import item_constraints
+from agent.exceptions import ItemPlan
 from agent.expansion import build_event_items, expand_event
 from agent.intent import TextFacts, helsinki_today, parse_text, resolve_request
 from agent.llm import LLMOutputError
 from agent.loop import run_loop
+from agent.purchasing import create_options, resolve_item
 from agent.question import apply_answer, choices_and_default, missing_field, word_question
 from gateway import customers, tools
 from gateway.api.dependencies import Resources
@@ -17,9 +18,11 @@ from gateway.errors import GatewayError
 from gateway.schemas import (
     Error,
     IntentItem,
+    Offer,
     OffersBody,
     OrderBody,
     Question,
+    Quote,
     QuoteBody,
     QuoteLine,
     RequestApprovalBody,
@@ -347,6 +350,8 @@ async def run(
         if body.reorder_of:
             log("CANDIDATES", f"Resolved {len(lines)} products from the past order")
         agent_loop = not body.reorder_of and env.llm is not None
+        plans: list[ItemPlan] = []
+        alternative_ids: list[str] = []
         if not body.reorder_of and not agent_loop:
             for item in detail.intent.items:
                 tools.tool_step(env, request_id, "search_products")
@@ -395,37 +400,71 @@ async def run(
                     raise GatewayError(
                         404, "NO_CANDIDATES", "No products match the requested item."
                     )
-                safe = [
-                    offer
-                    for offer in offers
-                    if not (
-                        {"NOT_DELIVERABLE", "SALES_BLOCK", "PRICE_MISSING"} & set(offer.flags)
-                        or set(offer.allergens.contains) & set(detail.intent.exclude_allergens)
-                        or any(
-                            offer.dietary_check.get(key) == "violated" for key in item.constraints
-                        )
+
+                async def fetch(ids: list[str], item: IntentItem = item) -> list[Offer]:
+                    tools.tool_step(env, request_id, "check_offers")
+                    return await tools.check_offers(
+                        OffersBody(
+                            buyer_id=detail.buyer_id,
+                            agent_id=AGENT_ID,
+                            product_ids=ids,
+                            item_id=item.item_id,
+                            quantity=item.quantity,
+                            unit=item.unit,
+                            requested_date=detail.intent.deliver_by,
+                            constraints=list(
+                                dict.fromkeys(
+                                    [
+                                        *item.constraints,
+                                        *[
+                                            p.key
+                                            for p in detail.intent.preferences
+                                            if p.level == "require"
+                                        ],
+                                    ]
+                                )
+                            ),
+                            exclude_allergens=detail.intent.exclude_allergens,
+                        ),
+                        env,
                     )
-                ]
-                chosen = (safe or offers)[0]
-                record = env.catalog.lookup(chosen.product_id)
-                assert record is not None
-                # An undeliverable offer can contain zero units. Lock one valid lot
-                # so fixed-line pricing records its BLOCK evidence in the quote.
-                units = chosen.quantity_sales_units or float(
-                    Fraction(str(record.allowed_lot_size or 1)).numerator
-                )
-                log("CHOICE", f"Selected product {chosen.product_id} for {item.description}")
-                lines.append(
-                    QuoteLine(
-                        item_id=item.item_id,
-                        product_id=chosen.product_id,
-                        quantity_sales_units=units,
+
+                def search(query: str, item: IntentItem = item) -> list[str]:
+                    return [
+                        product.product_id
+                        for product in tools.search_products(
+                            SearchBody(
+                                buyer_id=detail.buyer_id,
+                                agent_id=AGENT_ID,
+                                query=query,
+                                constraints=item.constraints,
+                                exclude_allergens=detail.intent.exclude_allergens,
+                                limit=5,
+                            ),
+                            env,
+                        ).products
+                    ]
+
+                plan = await resolve_item(item, offers, detail, env, fetch, search, None)
+                plans.append(plan)
+                for planned_line in plan.recommended:
+                    log(
+                        "CHOICE",
+                        f"Selected product {planned_line.product_id} for {item.description}",
                     )
-                )
         if agent_loop:
             llm = env.llm
             assert llm is not None
-            quote = await asyncio.to_thread(run_loop, llm, detail, env)
+            quote = await asyncio.to_thread(run_loop, llm, detail, env, alternative_ids)
+        elif plans:
+
+            async def create(body: QuoteBody) -> Quote:
+                tools.tool_step(env, request_id, "request_quote")
+                return await tools.request_quote(body, env)
+
+            quote = await create_options(
+                detail, detail.intent.items, plans, AGENT_ID, create, alternative_ids
+            )
         else:
             tools.tool_step(env, request_id, "request_quote")
             quote = await tools.request_quote(
@@ -441,7 +480,16 @@ async def run(
             )
         if body.reorder_of:
             detail.candidates = quote.lines
+        if not agent_loop:
+            missing_preferences = [
+                rule.description
+                for rule in quote.policy.rules_fired
+                if rule.rule_id == "PREFERENCE_REQUIRED_UNMET"
+            ]
+            if missing_preferences:
+                tools.set_agent_explanation(quote, " ".join(missing_preferences), env)
         detail.quote = quote
+        detail.status = "BLOCKED" if quote.policy.outcome == "BLOCK" else "RUNNING"
         env.store.save_request(detail)
         if quote.policy.outcome == "AUTO":
             tools.tool_step(env, request_id, "place_order")
@@ -464,6 +512,7 @@ async def run(
                     explanation=quote.agent_explanation
                     or "Human approval is required: "
                     + "; ".join(rule.description for rule in quote.policy.rules_fired),
+                    alternative_quote_ids=alternative_ids or None,
                 ),
                 env,
             )
