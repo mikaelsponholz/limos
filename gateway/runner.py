@@ -1,5 +1,6 @@
 """Resolve intent and expand events before deterministic purchasing and reorder paths."""
 
+import asyncio
 import json
 from fractions import Fraction
 
@@ -7,6 +8,7 @@ from agent.constraints import item_constraints
 from agent.expansion import build_event_items, expand_event
 from agent.intent import TextFacts, helsinki_today, parse_text, resolve_request
 from agent.llm import LLMOutputError
+from agent.loop import run_loop
 from agent.question import apply_answer, choices_and_default, missing_field, word_question
 from gateway import customers, tools
 from gateway.api.dependencies import Resources
@@ -344,8 +346,8 @@ async def run(
         env.store.save_request(detail)
         if body.reorder_of:
             log("CANDIDATES", f"Resolved {len(lines)} products from the past order")
-            log("CHOICE", "Selected the past order's products and scaled sales units")
-        if not body.reorder_of:
+        agent_loop = not body.reorder_of and env.llm is not None
+        if not body.reorder_of and not agent_loop:
             for item in detail.intent.items:
                 tools.tool_step(env, request_id, "search_products")
                 shortlist = tools.search_products(
@@ -420,18 +422,23 @@ async def run(
                         quantity_sales_units=units,
                     )
                 )
-        tools.tool_step(env, request_id, "request_quote")
-        quote = await tools.request_quote(
-            QuoteBody(
-                buyer_id=detail.buyer_id,
-                agent_id=AGENT_ID,
-                request_id=request_id,
-                requested_date=detail.intent.deliver_by,
-                lines=lines,
-                budget=detail.intent.budget,
-            ),
-            env,
-        )
+        if agent_loop:
+            llm = env.llm
+            assert llm is not None
+            quote = await asyncio.to_thread(run_loop, llm, detail, env)
+        else:
+            tools.tool_step(env, request_id, "request_quote")
+            quote = await tools.request_quote(
+                QuoteBody(
+                    buyer_id=detail.buyer_id,
+                    agent_id=AGENT_ID,
+                    request_id=request_id,
+                    requested_date=detail.intent.deliver_by,
+                    lines=lines,
+                    budget=detail.intent.budget,
+                ),
+                env,
+            )
         if body.reorder_of:
             detail.candidates = quote.lines
         detail.quote = quote
@@ -441,7 +448,7 @@ async def run(
             tools.place_order(
                 OrderBody(
                     buyer_id=detail.buyer_id,
-                    agent_id=AGENT_ID,
+                    agent_id=quote.agent_id,
                     quote_id=quote.quote_id,
                     idempotency_key=f"{request_id}-{quote.quote_id}",
                 ),
@@ -453,8 +460,9 @@ async def run(
                 quote.quote_id,
                 RequestApprovalBody(
                     buyer_id=detail.buyer_id,
-                    agent_id=AGENT_ID,
-                    explanation="Human approval is required: "
+                    agent_id=quote.agent_id,
+                    explanation=quote.agent_explanation
+                    or "Human approval is required: "
                     + "; ".join(rule.description for rule in quote.policy.rules_fired),
                 ),
                 env,

@@ -10,6 +10,7 @@ from agent.intent import resolve_request
 from agent.llm import FakeLLM, LLMConfigurationError
 from agent.question import FALLBACK_TEXT, choices_and_default, missing_field
 from gateway.audit import verify_chain
+from tests.agent_loop_support import EXPLANATION, purchase
 from tests.test_e2e import poll
 from tests.test_intent import TODAY, client_for, facts, gap_sources, post_text, profile, request
 
@@ -87,7 +88,9 @@ def test_guest_answer_resumes_to_quote_without_a_second_question(
                     }
                 ]
             },
-        ]
+            EXPLANATION,
+        ],
+        tool_responses=purchase(),
     )
     with client_for(tmp_path, llm) as client:
         detail = post_text(client, text="Lunch for the team, including 2 kg flour")
@@ -108,7 +111,7 @@ def test_guest_answer_resumes_to_quote_without_a_second_question(
         assert sum(step.type == "CLARIFICATION_REQUESTED" for step in result.steps) == 1
         assert sum(step.type == "CLARIFICATION_ANSWERED" for step in result.steps) == 1
         assert sum(step.type == "REQUEST_RECEIVED" for step in result.steps) == 1
-        assert len(llm.calls) == 3  # Expansion adds one call; the text is not parsed twice.
+        assert len(llm.calls) == 8  # Expansion, four tool turns and the explanation.
         assert sum(step.type == "EVENT_EXPANDED" for step in result.steps) == 1
         assert verify_chain(result.steps)
         replay = client.post(
@@ -141,7 +144,12 @@ def test_invalid_guests_and_wrong_question_leave_question_open(tmp_path: Path, a
 @pytest.mark.parametrize("answer", ["2026-11-20", None, "2026-11-13", "20261120", "bad-date"])
 def test_delivery_answer_validation(tmp_path: Path, answer: str | None) -> None:
     llm = FakeLLM(
-        structured_outputs=[{"items": ITEMS}, {"text": "What delivery date do you need?"}]
+        structured_outputs=[
+            {"items": ITEMS},
+            {"text": "What delivery date do you need?"},
+            EXPLANATION,
+        ],
+        tool_responses=purchase(),
     )
     with client_for(tmp_path, llm) as client:
         detail = post_text(client)
@@ -188,7 +196,9 @@ def test_items_free_text_is_parsed_and_invalid_text_keeps_question(
             {},
             {"text": "What would you like to order?"},
             {"items": ITEMS} if valid else {},
-        ]
+            EXPLANATION,
+        ],
+        tool_responses=purchase(),
     )
     with client_for(tmp_path, llm) as client:
         detail = post_text(client)
@@ -216,7 +226,7 @@ def test_items_free_text_is_parsed_and_invalid_text_keeps_question(
         else:
             assert response.status_code == 422
             assert result.status == "NEEDS_INPUT" and result.question == detail.question
-        assert len(llm.calls) == 3
+        assert len(llm.calls) == (8 if valid else 3)
 
 
 def test_items_null_without_history_leaves_system_default(tmp_path: Path) -> None:

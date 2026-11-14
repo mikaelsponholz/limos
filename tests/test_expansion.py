@@ -20,6 +20,7 @@ from gateway.schemas import Event, EventDish, IntentItem, Preference, Unit
 from gateway.settings import Settings
 from gateway.store import MemoryStore
 from scripts.eval_expansion import Evaluation, format_report, main
+from tests.agent_loop_support import EXPLANATION, bind_client, purchase
 from tests.engine_support import BUYER, mandate
 from tests.test_e2e import poll
 from tests.test_offers import NOW, FakeValio, price, product, stock
@@ -216,7 +217,7 @@ def test_invalid_units_nonfinite_numbers_and_unbounded_output_fail(
 
 def client_for(tmp_path: Path, llm: FakeLLM | None, waste: float = 10) -> TestClient:
     ids = count(1)
-    return TestClient(
+    client = TestClient(
         create_app(
             Settings(gemini_api_key="", gemini_model="", gemini_expansion_model=""),
             catalog=Catalog([product()]),
@@ -230,6 +231,7 @@ def client_for(tmp_path: Path, llm: FakeLLM | None, waste: float = 10) -> TestCl
             llm=llm,
         )
     )
+    return bind_client(client, llm)
 
 
 @pytest.mark.parametrize("from_text", [False, True])
@@ -241,7 +243,8 @@ def test_event_runs_to_search_and_quote_with_explicit_items(
     if from_text:
         outputs.append({"event_type": "invented_lunch", "guests": 10, "dishes": [{"name": "Cake"}]})
     outputs.append(proposal(("Cake", [ingredient(200)])))
-    llm = FakeLLM(structured_outputs=outputs)
+    outputs.append(EXPLANATION)
+    llm = FakeLLM(structured_outputs=outputs, tool_responses=purchase("900101"))
     body: dict[str, JsonValue] = {
         "buyer_id": BUYER,
         "requested_date": "2026-11-20",
@@ -280,7 +283,9 @@ def test_expansion_waits_for_answer_then_uses_resolved_servings(
             {"event_type": "invented_lunch", "dishes": [{"name": "Cake"}]},
             {"text": "How many guests?"},
             proposal(("Cake", [ingredient(100)])),
-        ]
+            EXPLANATION,
+        ],
+        tool_responses=purchase("900101"),
     )
     with client_for(tmp_path, llm, waste=0) as client:
         response = client.post(
@@ -301,7 +306,7 @@ def test_expansion_waits_for_answer_then_uses_resolved_servings(
     assert result.intent.dishes[0].servings == guests
     assert sum(step.type == "CLARIFICATION_REQUESTED" for step in result.steps) == 1
     assert sum(step.type == "EVENT_EXPANDED" for step in result.steps) == 1
-    assert len(llm.calls) == 3 and verify_chain(result.steps)
+    assert len(llm.calls) == 8 and verify_chain(result.steps)
 
 
 @pytest.mark.parametrize("mode", ["no_llm", "invalid", "empty"])

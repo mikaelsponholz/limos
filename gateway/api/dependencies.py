@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 
+import httpx
 from fastapi import Request
 from pydantic import BaseModel, BeforeValidator
 
@@ -68,6 +69,10 @@ class Resources:
 
     def now(self) -> datetime:
         return cast(Callable[[], datetime], self.state.clock)()
+
+    @property
+    def gateway_http_client(self) -> httpx.Client | None:
+        return cast(httpx.Client | None, self.state.gateway_http_client)
 
     @property
     def llm(self) -> LLM | None:

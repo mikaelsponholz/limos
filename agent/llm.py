@@ -85,6 +85,7 @@ class LLM(Protocol):
         system: str | None = None,
         model: str | None = None,
         max_steps: int = 10,
+        on_call: Callable[[str, str], None] | None = None,
     ) -> ToolResult: ...
 
 
@@ -171,6 +172,7 @@ class _ValidatedLLM(ABC):
         system: str | None = None,
         model: str | None = None,
         max_steps: int = 10,
+        on_call: Callable[[str, str], None] | None = None,
     ) -> ToolResult:
         """Bound attempted tool calls, including errors and calls in a batch.
 
@@ -212,6 +214,8 @@ class _ValidatedLLM(ABC):
             for request in requested:
                 if len(calls) >= max_steps:
                     raise LLMMaxStepsError(model_id, calls)
+                if on_call is not None:
+                    on_call(request.name or "", model_id)
                 call = _execute_tool(request, by_name)
                 calls.append(call)
                 replies.append(

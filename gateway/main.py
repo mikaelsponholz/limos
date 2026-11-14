@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -33,6 +34,7 @@ def create_app(
     customers_dir: Path = CUSTOMERS_DIR,
     customer_overlay_dir: Path = OVERLAY_DIR,
     llm: LLM | None = None,
+    gateway_http_client: httpx.Client | None = None,
 ) -> FastAPI:
     config = settings if settings is not None else Settings()
 
@@ -50,6 +52,7 @@ def create_app(
     application.state.catalog = catalog
     application.state.valio = valio
     application.state.llm = llm
+    application.state.gateway_http_client = gateway_http_client
     application.state.owns_valio = False
     application.state.clock = clock if clock is not None else lambda: datetime.now(UTC)
     application.state.id_generator = (

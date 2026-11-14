@@ -20,6 +20,7 @@ from gateway.runner import AGENT_ID
 from gateway.schemas import Customer, RequestCreate, RequestDetail
 from gateway.settings import Settings
 from gateway.store import MemoryStore
+from tests.agent_loop_support import EXPLANATION, bind_client, purchase
 from tests.engine_support import BUYER, mandate
 from tests.test_e2e import poll
 from tests.test_offers import NOW, FakeValio, price, product, stock
@@ -261,7 +262,7 @@ def client_for(tmp_path: Path, llm: FakeLLM | None, *, now: datetime = NOW) -> T
     customer.preferences.clear()
     (tmp_path / "invented-customer.json").write_text(customer.model_dump_json(), encoding="utf-8")
     ids = count(1)
-    return TestClient(
+    client = TestClient(
         create_app(
             Settings(store="memory", gemini_api_key="", gemini_model="", valio_api_key=""),
             llm=llm,
@@ -275,6 +276,7 @@ def client_for(tmp_path: Path, llm: FakeLLM | None, *, now: datetime = NOW) -> T
             customer_overlay_dir=tmp_path / "overlays",
         )
     )
+    return bind_client(client, llm)
 
 
 def post_text(client: TestClient, **body: JsonValue) -> RequestDetail:
@@ -323,8 +325,10 @@ def test_text_items_run_existing_order_path_and_helsinki_date(tmp_path: Path) ->
             {
                 "items": [{"description": "flour", "quantity": 2.0, "unit": "kg"}],
                 "deliver_by": "2026-11-20",
-            }
-        ]
+            },
+            EXPLANATION,
+        ],
+        tool_responses=purchase(),
     )
     with client_for(tmp_path, llm, now=datetime(2026, 11, 13, 23, tzinfo=UTC)) as client:
         detail = post_text(client, text="2 kg flour by 20 November")
