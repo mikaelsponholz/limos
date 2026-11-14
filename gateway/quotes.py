@@ -125,11 +125,16 @@ def create_quote(
                 quote.request_id,
                 "policy",
                 "POLICY_DECISION",
-                "Policy evaluated",
+                {
+                    "AUTO": f"Within the {policy.mandate.buyer_id} mandate, so the agent may order",
+                    "NEEDS_APPROVAL": f"Needs approval under the {policy.mandate.buyer_id} mandate",
+                    "BLOCK": f"Blocked under the {policy.mandate.buyer_id} mandate",
+                }[policy.outcome],
                 {
                     "quote_id": quote.quote_id,
                     "outcome": policy.outcome,
                     "rules": [rule.rule_id for rule in policy.rules_fired],
+                    "mandate": policy.mandate.buyer_id,
                 },
                 None,
                 now,
