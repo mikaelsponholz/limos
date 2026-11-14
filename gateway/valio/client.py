@@ -128,10 +128,20 @@ class ValioClient:
         return await self._products("price", product_codes, requested_date, customer, PriceResponse)
 
     async def availability(
-        self, product_codes: Iterable[str], requested_date: date, *, customer: str = "123"
+        self,
+        product_codes: Iterable[str],
+        requested_date: date,
+        *,
+        customer: str = "123",
+        refresh: bool = False,
     ) -> AvailabilityResponse:
         return await self._products(
-            "availability", product_codes, requested_date, customer, AvailabilityResponse
+            "availability",
+            product_codes,
+            requested_date,
+            customer,
+            AvailabilityResponse,
+            refresh=refresh,
         )
 
     async def _products[M: (PriceResponse, AvailabilityResponse)](
@@ -141,6 +151,8 @@ class ValioClient:
         requested_date: date,
         customer: str,
         model: type[M],
+        *,
+        refresh: bool = False,
     ) -> M:
         codes = list(product_codes)
         if not codes:
@@ -148,7 +160,9 @@ class ValioClient:
         entries: dict[str, M] = {}
         missing: list[str] = []
         for code in dict.fromkeys(codes):
-            cached = self._cache.get(CacheKey(kind, code, requested_date, customer))
+            cached = (
+                None if refresh else self._cache.get(CacheKey(kind, code, requested_date, customer))
+            )
             if isinstance(cached, model):
                 entries[code] = cached
             else:

@@ -1,0 +1,55 @@
+{
+  "preset_id": "restaurant_weekly",
+  "title": "Restaurant weekly order",
+  "description": "Routine weekly order of staples for a lunch restaurant.",
+  "expected": "Every line passes the rules and the agent orders on its own.",
+  "request": {
+    "buyer_id": "demo-catering",
+    "preset_id": "restaurant_weekly",
+    "text": null,
+    "requested_date": "2026-11-17",
+    "event": null,
+    "items": [
+      {
+        "description": "lactose-free milk",
+        "quantity": 40,
+        "unit": "L",
+        "constraints": [
+          "lactose_free"
+        ]
+      },
+      {
+        "description": "butter",
+        "quantity": 5,
+        "unit": "kg",
+        "constraints": []
+      },
+      {
+        "description": "potatoes",
+        "quantity": 25,
+        "unit": "kg",
+        "constraints": [
+          "finnish_origin"
+        ]
+      },
+      {
+        "description": "eggs",
+        "quantity": 180,
+        "unit": "pcs",
+        "constraints": []
+      }
+    ],
+    "preferences": [
+      {
+        "key": "finnish_origin",
+        "level": "prefer"
+      }
+    ],
+    "exclude_allergens": [],
+    "budget": null,
+    "priority": "price",
+    "customer_id": null,
+    "reorder_of": null
+  },
+  "customer_id": null
+}
