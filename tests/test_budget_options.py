@@ -125,7 +125,7 @@ async def test_split_swaps_preserve_item_coverage_and_substitution_source() -> N
 
 
 def set_price(code: str, amount: float):
-    return price(
+    result = price(
         code,
         catalogPrice={
             "value": str(amount),
@@ -135,6 +135,10 @@ def set_price(code: str, amount: float):
             "validTo": "2026-12-31",
         },
     )
+    # These fixtures are 1 kg packs, so the comparison price must track their price.
+    assert result.catalog_price is not None and result.comparison_price is not None
+    result.comparison_price.value = result.catalog_price.value
+    return result
 
 
 def start_budget(client, budget: float = 100):

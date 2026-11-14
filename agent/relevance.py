@@ -31,6 +31,8 @@ SYSTEM = (
     "eggs for egg, never Meadow egg noodles; for lactose-free cheese choose a cheese that "
     "does not contradict lactose-free, never Invented Blue cheese containing lactose; "
     "Invented chilli paste is not sugar paste, and Invented pudding is not cake. "
+    "For a raw ingredient, prefer the plain fresh or frozen form over dried, freeze-dried, "
+    "powdered, puréed, juice, jam or ready-made variants, unless the item names that form. "
     "Valio substitutions also need this suitability judgment. Availability can be handled "
     "by code with suitable alternatives. Respect the item's own words and preferences. "
     "Code decides quantities, dates, prices and rules."

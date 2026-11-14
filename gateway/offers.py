@@ -279,7 +279,28 @@ def _build_offer(
     need_unit, factor = _NEED_UNITS[body.unit]
     need = Decimal(str(body.quantity)) * factor
     pack = _pack(record, need_unit)
+    if (
+        pack is not None
+        and (record.sales_unit or "").upper() not in {"KG", "L"}
+        and price is not None
+        and not price.error
+        and price.catalog_price is not None
+        and price.catalog_price.value > 0
+        and price.comparison_price is not None
+        and price.comparison_price.value > 0
+        and price.comparison_unit in {"KG", "L"}
+        and price.comparison_unit.casefold() == need_unit.casefold()
+    ):
+        # Catalogue sizes may describe a consumer pack inside the priced carton.
+        content = (price.catalog_price.value / price.comparison_price.value).quantize(
+            Decimal("0.001"), rounding=ROUND_HALF_UP
+        )
+        if content > Decimal(str(pack.value)) * Decimal("1.5"):
+            pack = PackSize(value=float(content), unit=pack.unit)
     lot = _lot(record)
+    if pack is None and lot < 1:
+        # Without a conversion to the need, fractional KG/L lots prove no coverage.
+        lot = (Decimal(1) / lot).to_integral_value(rounding=ROUND_CEILING) * lot
     units = lot
     if pack is None:
         flags.add("PACK_SIZE_UNKNOWN")
