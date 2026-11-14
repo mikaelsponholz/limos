@@ -48,17 +48,25 @@ class QuoteArguments(Arguments):
     choices: list[Selection] = Field(min_length=1)
 
 
+def step_budget(item_count: int) -> int:
+    """Tool calls allowed for a run: per item a search, an offer check and one retry, plus
+    the quote and its repair. A six-item recipe needs this headroom (3n + 2 ran out at 6)."""
+    return 4 * item_count + 3
+
+
 def run_loop(
     llm: LLM, detail: RequestDetail, env: Resources, alternative_ids: list[str] | None = None
 ) -> Quote:
     client = GatewayClient(env.settings, env.gateway_http_client)
     items = {item.item_id: item for item in detail.intent.items}
-    max_steps = 3 * len(items) + 2
+    max_steps = step_budget(len(items))
     calls_used = 0
     search_attempts: dict[str, int] = {}
     searched: dict[str, set[str]] = {}
     seen: dict[str, dict[str, Offer]] = {}
     quote: Quote | None = None
+    # Set when the gateway has no catalogue yet (a container that is still preparing it).
+    catalog_missing = False
 
     def constraints(item: IntentItem) -> list[Constraint]:
         return list(
@@ -80,6 +88,15 @@ def run_loop(
 
     def quote_now() -> dict[str, JsonValue]:
         return {"error": "QUOTE_NOW", "message": "Call request_quote now using the offers seen."}
+
+    def note_unavailable(code: str) -> None:
+        nonlocal catalog_missing
+        catalog_missing = catalog_missing or code == "CATALOG_UNAVAILABLE"
+
+    def catalog_loading() -> GatewayError:
+        return GatewayError(
+            503, "CATALOG_UNAVAILABLE", "The catalogue is still loading. Try again in a moment."
+        )
 
     def search_products(item_id: str, query: str) -> object:
         if item_id not in items:
@@ -105,6 +122,7 @@ def run_loop(
                 )
             )
         except GatewayClientError as exc:
+            note_unavailable(exc.code)
             return error(exc.code)
         searched.setdefault(item_id, set()).update(p.product_id for p in response.products)
         return response
@@ -132,6 +150,7 @@ def run_loop(
                 )
             )
         except GatewayClientError as exc:
+            note_unavailable(exc.code)
             return error(exc.code)
         seen.setdefault(item_id, {}).update((o.product_id, o) for o in response.offers)
         detail.candidates = [offer for offers in seen.values() for offer in offers.values()]
@@ -265,6 +284,10 @@ def run_loop(
 
     def on_call(name: str, model: str) -> None:
         nonlocal active_model, calls_used
+        # Retrying cannot help while the catalogue is missing; on_call runs outside the
+        # tool's error handling, so this ends the loop at the next call.
+        if catalog_missing:
+            raise catalog_loading()
         active_model = model
         calls_used += 1
         safe_name = name if name in {tool.name for tool in available_tools} else "unknown"
@@ -309,10 +332,23 @@ def run_loop(
             on_call=on_call,
         )
     except LLMOutputError:
+        if catalog_missing:
+            raise catalog_loading() from None
+        # An item the catalogue has nothing usable for keeps the agent searching until its
+        # steps run out. Searched but never worth an offer check means nothing matched, so
+        # say that plainly instead of a generic agent failure.
+        if quote is None and any(
+            item_id in searched and not seen.get(item_id) for item_id in items
+        ):
+            raise GatewayError(
+                404, "NO_CANDIDATES", "No products match the requested item."
+            ) from None
         raise GatewayError(
             422, "AGENT_FAILED", "The purchasing agent could not finish its tool calls."
         ) from None
     if quote is None:
+        if catalog_missing:
+            raise catalog_loading()
         raise GatewayError(422, "AGENT_FAILED", "The purchasing agent did not request a quote.")
     explanation = explain(llm, quote, result.model_id)
     tools.set_agent_explanation(quote, explanation.text, env)

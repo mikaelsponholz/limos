@@ -392,7 +392,7 @@ function ListView({
                 {req.order.approved_by ? `Thanks ${req.order.approved_by.split(" ")[0]}, order placed.` : "Ordered automatically."}
               </strong>
               {!req.order.approved_by && (
-                <span className="text-[15px]">Nothing needed your check, and it is within your company's ordering limits.</span>
+                <span className="text-[15px]">Nothing needed your check, and it is within your company&apos;s ordering limits.</span>
               )}
               <span className="text-[15px]">Arrives {day(req.order.delivery_date)}.</span>
               <Link href={`/audit/${req.request_id}`} className="text-[15px] text-petrol underline">

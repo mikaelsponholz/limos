@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from agent.expansion import build_event_items, expand_event
 from agent.gateway_client import GatewayClient
 from agent.llm import FakeLLM, ToolRequest
+from agent.loop import step_budget
 from gateway.audit import verify_chain
 from gateway.schemas import (
     EventDish,
@@ -128,7 +129,16 @@ def test_third_search_at_quote_margin_keeps_search_limit_and_requests_quote(
 ) -> None:
     search, check = purchase("900702")[:2]
     llm = FakeLLM(
-        tool_responses=[search, search, check, search, [quote_call(1)], "The quote is ready."],
+        tool_responses=[
+            search,
+            search,
+            check,
+            # Invalid arguments fill the budget so the third search lands on the quote margin.
+            *[[ToolRequest("search_products", {"item_id": "it_1"})]] * (step_budget(1) - 5),
+            search,
+            [quote_call(1)],
+            "The quote is ready.",
+        ],
         structured_outputs=[EXPLANATION],
     )
     with environment(tmp_path, llm) as client:
@@ -157,8 +167,11 @@ def test_quote_now_leaves_a_call_after_its_error_reply(
         for turn in purchase("900702", f"it_{index}")[:2]
         for call in turn
     ]
-    # Invalid arguments still consume calls, without entering a tool function.
-    calls += [ToolRequest("search_products", {"item_id": "it_1"})] * count
+    # Invalid arguments still consume calls, without entering a tool function. Fill up to
+    # the quote margin: 2 calls per item, the fillers, the margin call and the quote.
+    calls += [ToolRequest("search_products", {"item_id": "it_1"})] * (
+        step_budget(count) - 2 * count - 2
+    )
     calls.append(
         ToolRequest(
             tool,
@@ -181,7 +194,7 @@ def test_quote_now_leaves_a_call_after_its_error_reply(
     assert "quote_id" in outputs[-1]["output"]
     assert len(gateway_calls[0]) == count and len(gateway_calls[1]) == count
     assert sum(step.type == "TOOL_CALL" and step.model == "fake" for step in detail.steps) == (
-        3 * count + 2
+        step_budget(count)
     )
     assert verify_chain(detail.steps)
 
@@ -193,9 +206,10 @@ def test_missing_offers_keep_tools_open_at_the_budget_margin(
     tool: str,
 ) -> None:
     search, check = purchase("900702")[:2]
-    # With one item the budget is five: call four is normally the quote-now guard.
+    # The call before the last one is normally the quote-now guard.
     margin_call = search if tool == "search_products" else check
-    turns = [search, [ToolRequest("unknown_tool")], [ToolRequest("unknown_tool")], margin_call]
+    fillers = [[ToolRequest("unknown_tool")]] * (step_budget(1) - 3)
+    turns = [search, *fillers, margin_call]
     if tool == "search_products":
         turns.append(check)
     turns.append("Finished without a quote.")

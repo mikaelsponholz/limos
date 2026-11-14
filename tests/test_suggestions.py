@@ -418,3 +418,40 @@ async def test_generation_does_not_overwrite_a_decision_during_offer_checks(
         await propose_suggestions(detail.request_id, env)
         current = env.store.get_request(detail.request_id, BUYER)
         assert current.status == "REJECTED" and current.suggestions == []
+
+
+def test_bad_offer_data_for_one_idea_keeps_the_waiting_quote(tmp_path: Path, monkeypatch):
+    # Seen live: Valio returned an unsupported logistic model for a suggested product,
+    # and the whole request turned FAILED after its list was already waiting for approval.
+    from agent import suggestions as module
+    from gateway.offers import OfferDataError
+
+    original = module.tools.check_offers
+
+    async def broken_for_berries(body, env):
+        if "900702" in body.product_ids:
+            raise OfferDataError("Missing or unsupported logistic model for 900702.")
+        return await original(body, env)
+
+    monkeypatch.setattr(module.tools, "check_offers", broken_for_berries)
+    with environment(tmp_path, ideas=[idea(), idea("herbs")]) as (client, _):
+        detail = start(client)
+        assert detail.status == "WAITING_APPROVAL", detail.error
+        assert detail.error is None
+        assert [s.offer.product_id for s in detail.suggestions] == ["900703"]
+        assert verify_chain(detail.steps)
+
+
+def test_failed_suggestion_step_keeps_the_waiting_quote(tmp_path: Path, monkeypatch):
+    from gateway import runner
+
+    async def crash(request_id, env):
+        raise RuntimeError("model unavailable")
+
+    monkeypatch.setattr(runner, "propose_suggestions", crash)
+    with environment(tmp_path, ideas=[idea()]) as (client, _):
+        detail = start(client)
+        assert detail.status == "WAITING_APPROVAL", detail.error
+        assert detail.approval_id is not None and detail.suggestions == []
+        assert detail.steps[-1].type == "EXCEPTION"
+        assert verify_chain(detail.steps)
