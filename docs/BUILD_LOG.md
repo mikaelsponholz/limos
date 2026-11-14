@@ -1,0 +1,48 @@
+# Build log
+
+How Limos was built, step by step. Each phase in `docs/PLAN.md` runs through the same loop: Claude Code plans the step and writes the prompt, Codex CLI builds it in a sandbox with no network or git access, the repo gate runs (ruff, ruff format, mypy strict, pytest), and a model from another family (Gemini through Antigravity) reviews the diff against the plan. A FAIL sends the step back to a fresh Codex session with the issues. Claude commits only after a PASS.
+
+- **Fix rounds** counts builds after the first, whether a gate failure or a review FAIL caused them.
+- **Tests** is the number of tests in the suite after the step's commit (`pytest --collect-only`).
+- Review levels: *standard* (`gemini-3.8-flash-medium`) for STANDARD and TEST steps, *strict* (`gemini-3.8-flash-high`, high effort) for ENGINE steps and copy.
+
+## Phase 0: Backend scaffold and data
+
+| Step | Tag | What was built | Builder | Reviewer | Fix rounds | Tests | Commit |
+|---|---|---|---|---|---|---|---|
+| 1 | STANDARD | FastAPI scaffold: health route, contract error format, CORS, uv project, MIT licence | Codex gpt-6.1-sol | Gemini 3.8 Flash, standard | 1 (mypy error caught by the gate) | 9 | 32cd37d |
+| 2 | STANDARD | Valio client with batching, retry and backoff, TTL cache, stock sentinel handling, fetch and ping scripts | Codex gpt-6.1-sol | Gemini 3.8 Flash, standard | 0 | 54 | 096144f |
+| 3 | ENGINE | Slim catalogue build, labels, allergens, pack sizes, deterministic token search | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 1 (real-data build crashed on a zero volume) | 204 | f4d8688 |
+| 4 | STANDARD | Gemini wrapper: structured output with one repair retry, validated tool loop, offline fake | Codex gpt-6.1-sol | Gemini 3.8 Flash, standard | 0 | 229 | b532877 |
+| 5 | TEST | Contract schemas, fixture round-trip tests, OpenAPI snapshot | Codex gpt-6.1-sol | Gemini 3.8 Flash, standard | 0 | 267 | b3aba95 |
+
+## Contract v0.3: Valio mentor requirements
+
+| Step | Tag | What was built | Builder | Reviewer | Fix rounds | Tests | Commit |
+|---|---|---|---|---|---|---|---|
+| 1 | TEST | Customers, reorder, clarifying question, suggestions and per-line deadlines in schemas, fixtures and the OpenAPI snapshot | Codex gpt-6.1-sol | Gemini 3.8 Flash, standard | 1 (restored renumbered v0.2 product ids) | 332 | 6014801 |
+
+## Phase 1: Thin end-to-end
+
+| Step | Tag | What was built | Builder | Reviewer | Fix rounds | Tests | Commit |
+|---|---|---|---|---|---|---|---|
+| 1 | ENGINE | Offers engine: unit and lot conversion, delivery date and order deadline per line, dietary checks, flags | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 0 | 419 | 93ac02c |
+| 2 | ENGINE | Policy engine with mandates and every guardrail rule except price change | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 0 | 535 | e24ad37 |
+| 3 | ENGINE | Price-locked quotes, hash-bound approvals, idempotent orders, store, hash-chained decision log | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 0 | 581 | 2508e22 |
+| 4 | ENGINE | Seeded customers, profile defaults with filled gaps, reorder with guest scaling | Codex gpt-6.1-sol (first run interrupted, resumed) | Gemini 3.8 Flash, strict | 0 | 607 | 8c347e0 |
+| 5 | STANDARD | Contract routes and a deterministic runner for item lists and reorders | Codex gpt-6.1-sol | Gemini 3.8 Flash, standard | 0 | 651 | 6bc58fc |
+| 6 | TEST | End-to-end tests over HTTP and a live smoke script | Codex gpt-6.1-sol | Gemini 3.8 Flash, standard | 0 | 656 | 1f45936 |
+
+## Phase 2: MCP server
+
+| Step | Tag | What was built | Builder | Reviewer | Fix rounds | Tests | Commit |
+|---|---|---|---|---|---|---|---|
+| 1 | STANDARD | MCP server on the official SDK over the gateway's REST tools, no approve tool | Codex gpt-6.1-sol | Gemini 3.8 Flash, standard | 0 | 671 | fdcf226 |
+| 2 | TEST | MCP client session tests: AUTO order, approval held until a human approves over REST | Codex gpt-6.1-sol | Gemini 3.8 Flash, standard | 0 | 680 | fcec345 |
+| 3 | COPY | `docs/MCP.md` and a plain REST client (copy by Claude) | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 0 | 686 | 9503366 |
+
+## Phase 3: Gemini agent
+
+| Step | Tag | What was built | Builder | Reviewer | Fix rounds | Tests | Commit |
+|---|---|---|---|---|---|---|---|
+| 1 | ENGINE | Free-text intent with Gemini Flash, gap filling by precedence with sources, free-text reorder | Codex gpt-6.1-sol | Gemini 3.8 Flash, strict | 0 | 718 | 8c4ea85 |
