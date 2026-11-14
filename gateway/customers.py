@@ -104,7 +104,10 @@ def list_customers(
 
 
 def apply_profile(
-    request: RequestCreate, customer: Customer | None = None
+    request: RequestCreate,
+    customer: Customer | None = None,
+    *,
+    respect_explicit_lists: bool = False,
 ) -> tuple[RequestCreate, list[FilledGap]]:
     """Return an isolated, resolved request and the provenance of every supplied gap."""
     resolved = request.model_copy(deep=True)
@@ -132,7 +135,11 @@ def apply_profile(
             resolved.budget = customer.defaults.budget
             record("budget", resolved.budget, f"Budget {resolved.budget:g} EUR")
         existing_keys = {preference.key for preference in request.preferences}
-        for preference in customer.preferences:
+        for preference in (
+            []
+            if respect_explicit_lists and "preferences" in request.model_fields_set
+            else customer.preferences
+        ):
             if preference.key not in existing_keys:
                 resolved.preferences.append(preference.model_copy(deep=True))
                 existing_keys.add(preference.key)
@@ -141,7 +148,11 @@ def apply_profile(
                     preference.model_dump(mode="json"),
                     f"Preference {preference.key}: {preference.level}",
                 )
-        if not request.exclude_allergens and customer.exclude_allergens:
+        if (
+            not request.exclude_allergens
+            and customer.exclude_allergens
+            and not (respect_explicit_lists and "exclude_allergens" in request.model_fields_set)
+        ):
             resolved.exclude_allergens = customer.exclude_allergens.copy()
             record(
                 "exclude_allergens",

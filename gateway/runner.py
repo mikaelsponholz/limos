@@ -1,9 +1,10 @@
-"""Deterministic item-list and reorder runner, without model calls."""
+"""Parse buyer intent, then run deterministic item-list and reorder paths."""
 
-from datetime import timedelta
 from fractions import Fraction
 from typing import cast
 
+from agent.intent import helsinki_today, parse_text, resolve_request
+from agent.llm import LLMOutputError
 from gateway import customers, tools
 from gateway.api.dependencies import Resources
 from gateway.audit import append_step
@@ -12,8 +13,6 @@ from gateway.policy.engine import REQUIRE_HARD_DIETARY_KEYS
 from gateway.schemas import (
     Constraint,
     Error,
-    FilledGap,
-    Intent,
     IntentItem,
     OffersBody,
     OrderBody,
@@ -36,52 +35,13 @@ def prepare(body: RequestCreate, env: Resources) -> tuple[RequestDetail, Request
         if body.customer_id
         else None
     )
-    resolved, gaps = customers.apply_profile(body, customer)
+    now = env.now()
+    resolution = resolve_request(body, customer, None, helsinki_today(now))
+    resolved = resolution.request
     buyer = resolved.buyer_id
     if buyer is None:
         raise GatewayError(422, "BUYER_REQUIRED", "A buyer is required.")
     env.permit(buyer, AGENT_ID)
-    now = env.now()
-    deliver_by = resolved.requested_date
-    if deliver_by is None:
-        deliver_by = now.date() + timedelta(days=1)
-        gaps.append(
-            FilledGap(
-                field="deliver_by",
-                value=deliver_by.isoformat(),
-                source="default",
-                note="Delivery requested for the next day.",
-            )
-        )
-    hard: list[Constraint] = [
-        p.key
-        for p in resolved.preferences
-        if p.level == "require" and p.key in REQUIRE_HARD_DIETARY_KEYS
-    ]
-    hard.extend(cast(Constraint, f"no_{code}") for code in resolved.exclude_allergens)
-    items = [
-        IntentItem(
-            **item.model_dump(exclude={"constraints"}),
-            item_id=f"it_{index}",
-            description_fi=item.description,
-            used_in=[],
-            constraints=list(dict.fromkeys([*item.constraints, *hard])),
-        )
-        for index, item in enumerate(resolved.items, 1)
-    ]
-    intent = Intent(
-        event=None,
-        dishes=[],
-        items=items,
-        deliver_by=deliver_by,
-        preferences=resolved.preferences,
-        exclude_allergens=resolved.exclude_allergens,
-        budget=resolved.budget,
-        priority=resolved.priority,
-        assumptions=[],
-        based_on=None,
-        filled_gaps=gaps,
-    )
     detail = RequestDetail(
         request_id=env.new_id("r_"),
         buyer_id=buyer,
@@ -90,7 +50,7 @@ def prepare(body: RequestCreate, env: Resources) -> tuple[RequestDetail, Request
         status="RUNNING",
         created_at=now,
         input=RequestInput(text=resolved.text, image_url=None),
-        intent=intent,
+        intent=resolution.intent,
         question=None,
         steps=[],
         candidates=[],
@@ -101,7 +61,8 @@ def prepare(body: RequestCreate, env: Resources) -> tuple[RequestDetail, Request
         error=None,
     )
     env.store.save_request(detail)
-    return detail, resolved
+    # Preserve which fields the buyer supplied until text precedence is resolved.
+    return detail, body.model_copy(deep=True)
 
 
 async def run(request_id: str, body: RequestCreate, env: Resources) -> None:
@@ -123,6 +84,39 @@ async def run(request_id: str, body: RequestCreate, env: Resources) -> None:
         )
         if detail.customer_id:
             log("CUSTOMER_LOADED", "Customer profile loaded")
+        parsed_text = False
+        if body.text:
+            llm = env.llm
+            if llm is None:
+                raise GatewayError(
+                    503, "AGENT_NOT_AVAILABLE", "Text parsing needs the Gemini agent."
+                )
+            today = helsinki_today(env.now())
+            parsed = parse_text(llm, body.text, today)
+            customer = (
+                customers.get_customer(detail.customer_id, env.store, **env.customer_paths)
+                if detail.customer_id
+                else None
+            )
+            resolution = resolve_request(body, customer, parsed.value, today)
+            body = resolution.request
+            detail.intent = resolution.intent
+            env.store.save_request(detail)
+            append_step(
+                env.store,
+                request_id,
+                "agent",
+                "INTENT_PARSED",
+                "Resolved the buyer's text and requirements",
+                {
+                    "text_fields": [
+                        gap.field for gap in detail.intent.filled_gaps if gap.source == "text"
+                    ]
+                },
+                parsed.model_id,
+                env.now(),
+            )
+            parsed_text = True
         lines: list[QuoteLine] = []
         if body.reorder_of:
             if detail.customer_id is None:
@@ -173,7 +167,8 @@ async def run(request_id: str, body: RequestCreate, env: Resources) -> None:
                 "AGENT_NOT_AVAILABLE",
                 "Text and event requests need the Gemini agent, which is not available yet.",
             )
-        log("INTENT_PARSED", "Item quantities and requirements resolved")
+        if not parsed_text:
+            log("INTENT_PARSED", "Item quantities and requirements resolved")
         env.store.save_request(detail)
         if body.reorder_of:
             log("CANDIDATES", f"Resolved {len(lines)} products from the past order")
@@ -298,11 +293,17 @@ async def run(request_id: str, body: RequestCreate, env: Resources) -> None:
     except Exception as exc:
         detail = env.store.get_request(request_id, detail.buyer_id) or detail
         detail.status = "FAILED"
-        detail.error = (
-            Error(code=exc.code, message=exc.message)
-            if isinstance(exc, GatewayError)
-            else Error(code="INTERNAL_ERROR", message="The request could not be completed.")
-        )
+        if isinstance(exc, GatewayError):
+            detail.error = Error(code=exc.code, message=exc.message)
+        elif isinstance(exc, LLMOutputError):
+            detail.error = Error(
+                code="LLM_OUTPUT_ERROR",
+                message="The text parser returned invalid output after repair.",
+            )
+        else:
+            detail.error = Error(
+                code="INTERNAL_ERROR", message="The request could not be completed."
+            )
         append_step(
             env.store,
             request_id,

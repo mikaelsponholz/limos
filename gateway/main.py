@@ -7,6 +7,7 @@ from uuid import uuid4
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from agent.llm import LLM
 from gateway.api import approvals, audit, customers, gateway_tools, presets, requests
 from gateway.api.health import router as health_router
 from gateway.catalog.index import Catalog
@@ -31,6 +32,7 @@ def create_app(
     mandates: dict[str, MandateEntry] | None = None,
     customers_dir: Path = CUSTOMERS_DIR,
     customer_overlay_dir: Path = OVERLAY_DIR,
+    llm: LLM | None = None,
 ) -> FastAPI:
     config = settings if settings is not None else Settings()
 
@@ -47,6 +49,7 @@ def create_app(
     application.state.store = store
     application.state.catalog = catalog
     application.state.valio = valio
+    application.state.llm = llm
     application.state.owns_valio = False
     application.state.clock = clock if clock is not None else lambda: datetime.now(UTC)
     application.state.id_generator = (
