@@ -44,4 +44,5 @@ files = ["gateway", "agent", "mcp_server"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 # Keep pytest's temp dir in the repo: a sandbox-created %TEMP%\pytest-of-<user> can be unreadable.
-addopts = "--basetemp=.pytest-tmp"
+# --tb=short: long tracebacks print frame arguments, which can include DATABASE_URL.
+addopts = "--basetemp=.pytest-tmp --tb=short"
