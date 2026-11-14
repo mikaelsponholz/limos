@@ -67,6 +67,7 @@ const REASONS: Record<string, string> = {
   TERMINAL_LOW_RELIABILITY: "Delivery may be late",
   PRICE_CHANGED: "Price changed",
   CUTOFF_PASSED: "Order deadline passed",
+  APPROVAL_ALWAYS_REQUIRED: "Always needs your OK",
 };
 
 /** Short plain label for a rule id (the full sentence is in the quote's policy). */
