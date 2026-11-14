@@ -14,7 +14,11 @@ dependencies = [
     "pydantic>=2",
     "httpx",
     "google-genai",
+    "mcp>=2.3.0",
 ]
+
+[project.scripts]
+limos-mcp = "mcp_server.server:main"
 
 [dependency-groups]
 dev = ["pytest", "pytest-asyncio", "ruff", "mypy"]
