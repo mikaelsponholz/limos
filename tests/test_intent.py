@@ -338,8 +338,10 @@ def test_text_items_run_existing_order_path_and_helsinki_date(tmp_path: Path) ->
 @pytest.mark.parametrize(
     "outputs,code",
     [
-        ([{}, {}], "AGENT_NOT_AVAILABLE"),
-        ([{"event_type": "wedding", "guests": 120}], "AGENT_NOT_AVAILABLE"),
+        (
+            [{"event_type": "wedding", "guests": 120, "event_date": "2026-11-20"}],
+            "AGENT_NOT_AVAILABLE",
+        ),
         ([{"guests": "many"}, {"guests": "many"}], "LLM_OUTPUT_ERROR"),
         ([{"exclude_allergens": ["invented-code"]}] * 2, "LLM_OUTPUT_ERROR"),
     ],

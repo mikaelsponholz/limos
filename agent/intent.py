@@ -32,6 +32,12 @@ from gateway.schemas import (
     Unit,
 )
 
+SYSTEM_DEFAULT_GUESTS = 30
+
+
+def default_delivery_day(today: date) -> date:
+    return today + timedelta(days=1)
+
 
 class TextModel(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
@@ -245,7 +251,7 @@ def resolve_request(
 
     deliver_by = resolved.requested_date
     if deliver_by is None:
-        deliver_by = today + timedelta(days=1)
+        deliver_by = default_delivery_day(today)
         record(
             "deliver_by", deliver_by.isoformat(), "default", "Delivery requested for the next day."
         )
@@ -282,7 +288,7 @@ def resolve_request(
                 guests = customer.defaults.typical_guests
                 record("event.guests", guests, "profile", f"Guests {guests}, from your profile.")
             else:
-                guests = 30
+                guests = SYSTEM_DEFAULT_GUESTS
                 record("event.guests", guests, "default", "Guests 30, system default.")
         if event_type is None:
             event_type = "other"

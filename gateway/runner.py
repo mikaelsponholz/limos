@@ -1,10 +1,12 @@
 """Parse buyer intent, then run deterministic item-list and reorder paths."""
 
+import json
 from fractions import Fraction
 from typing import cast
 
-from agent.intent import helsinki_today, parse_text, resolve_request
+from agent.intent import TextFacts, helsinki_today, parse_text, resolve_request
 from agent.llm import LLMOutputError
+from agent.question import apply_answer, choices_and_default, missing_field, word_question
 from gateway import customers, tools
 from gateway.api.dependencies import Resources
 from gateway.audit import append_step
@@ -16,6 +18,7 @@ from gateway.schemas import (
     IntentItem,
     OffersBody,
     OrderBody,
+    Question,
     QuoteBody,
     QuoteLine,
     RequestApprovalBody,
@@ -65,27 +68,110 @@ def prepare(body: RequestCreate, env: Resources) -> tuple[RequestDetail, Request
     return detail, body.model_copy(deep=True)
 
 
-async def run(request_id: str, body: RequestCreate, env: Resources) -> None:
+def answer_question(
+    request_id: str, question_id: str, answer: str | None, env: Resources
+) -> RequestCreate:
+    with env.store.transaction():
+        detail = tools.request_detail(env, request_id, env.request_buyer(request_id))
+        question = detail.question
+        if (
+            detail.status != "NEEDS_INPUT"
+            or question is None
+            or question.question_id != question_id
+        ):
+            raise GatewayError(409, "NO_OPEN_QUESTION", "There is no matching open question.")
+        requested = next(
+            step for step in reversed(detail.steps) if step.type == "CLARIFICATION_REQUESTED"
+        )
+        body = RequestCreate.model_validate_json(json.dumps(requested.detail["resolved_request"]))
+        customer = (
+            customers.get_customer(detail.customer_id, env.store, **env.customer_paths)
+            if detail.customer_id
+            else None
+        )
+        try:
+            body, gaps, answer_model = apply_answer(
+                body, detail.intent, question, answer, customer, env.llm, helsinki_today(env.now())
+            )
+        except LLMOutputError:
+            detail.status = "FAILED"
+            detail.question = None
+            detail.error = Error(
+                code="LLM_OUTPUT_ERROR",
+                message="The answer parser returned invalid output after repair.",
+            )
+            env.store.save_request(detail)
+            append_step(
+                env.store,
+                request_id,
+                "gateway",
+                "ERROR",
+                detail.error.message,
+                {"code": detail.error.code},
+                None,
+                env.now(),
+            )
+        else:
+            detail.intent.filled_gaps = gaps
+            detail.question = None
+            detail.status = "RUNNING"
+            env.store.save_request(detail)
+            append_step(
+                env.store,
+                request_id,
+                "user",
+                "CLARIFICATION_ANSWERED",
+                "Clarifying question answered",
+                {
+                    "question_id": question_id,
+                    "field": question.field,
+                    "used_default": answer is None,
+                },
+                None,
+                env.now(),
+            )
+            if answer_model is not None:
+                append_step(
+                    env.store,
+                    request_id,
+                    "agent",
+                    "INTENT_PARSED",
+                    "Resolved what to order from your answer",
+                    {},
+                    answer_model,
+                    env.now(),
+                )
+    if detail.status == "FAILED" and detail.error is not None:
+        raise GatewayError(422, detail.error.code, detail.error.message)
+    return body
+
+
+async def run(
+    request_id: str, body: RequestCreate, env: Resources, *, resume: bool = False
+) -> None:
     detail = tools.request_detail(env, request_id, env.request_buyer(request_id))
 
     def log(kind: StepType, title: str) -> None:
         append_step(env.store, request_id, "agent", kind, title, {}, None, env.now())
 
     try:
-        append_step(
-            env.store,
-            request_id,
-            "user",
-            "REQUEST_RECEIVED",
-            "Request received",
-            {},
-            None,
-            env.now(),
-        )
-        if detail.customer_id:
+        if not resume:
+            append_step(
+                env.store,
+                request_id,
+                "user",
+                "REQUEST_RECEIVED",
+                "Request received",
+                {},
+                None,
+                env.now(),
+            )
+        if detail.customer_id and not resume:
             log("CUSTOMER_LOADED", "Customer profile loaded")
         parsed_text = False
-        if body.text:
+        facts: TextFacts | None = None
+        model_id: str | None = None
+        if body.text and not resume:
             llm = env.llm
             if llm is None:
                 raise GatewayError(
@@ -93,15 +179,29 @@ async def run(request_id: str, body: RequestCreate, env: Resources) -> None:
                 )
             today = helsinki_today(env.now())
             parsed = parse_text(llm, body.text, today)
-            customer = (
-                customers.get_customer(detail.customer_id, env.store, **env.customer_paths)
-                if detail.customer_id
-                else None
+            facts, model_id = parsed.value, parsed.model_id
+            parsed_text = True
+        customer = (
+            customers.get_customer(detail.customer_id, env.store, **env.customer_paths)
+            if detail.customer_id
+            else None
+        )
+        resolution = resolve_request(body, customer, facts, helsinki_today(env.now()))
+        body = resolution.request
+        if resume:
+            previous = {gap.field: gap for gap in detail.intent.filled_gaps}
+            previous.update(
+                {
+                    gap.field: gap
+                    for gap in resolution.intent.filled_gaps
+                    if gap.field not in previous
+                }
             )
-            resolution = resolve_request(body, customer, parsed.value, today)
-            body = resolution.request
-            detail.intent = resolution.intent
-            env.store.save_request(detail)
+            resolution.intent.filled_gaps = list(previous.values())
+            resolution.intent.assumptions = detail.intent.assumptions
+        detail.intent = resolution.intent
+        env.store.save_request(detail)
+        if parsed_text:
             append_step(
                 env.store,
                 request_id,
@@ -113,10 +213,51 @@ async def run(request_id: str, body: RequestCreate, env: Resources) -> None:
                         gap.field for gap in detail.intent.filled_gaps if gap.source == "text"
                     ]
                 },
-                parsed.model_id,
+                model_id,
                 env.now(),
             )
-            parsed_text = True
+        elif not resume:
+            log("INTENT_PARSED", "Item quantities and requirements resolved")
+        asked_before = any(step.type == "CLARIFICATION_REQUESTED" for step in detail.steps)
+        field = missing_field(detail.intent, body.reorder_of)
+        # Preserve pre-agent item-list and reorder behaviour when no LLM is configured.
+        if field is not None and not asked_before and env.llm is not None:
+            choices, default = choices_and_default(
+                field, detail.intent, customer, helsinki_today(env.now())
+            )
+            event_type = detail.intent.event.type if detail.intent.event else None
+            if any(
+                gap.field == "event.type" and gap.source == "default"
+                for gap in detail.intent.filled_gaps
+            ):
+                event_type = None
+            wording = word_question(env.llm, field, event_type, choices)
+            detail.question = Question(
+                question_id=env.new_id("qn_"),
+                field=field,
+                text=wording.text,
+                choices=choices,
+                default=default,
+                asked_at=env.now(),
+            )
+            detail.status = "NEEDS_INPUT"
+            with env.store.transaction():
+                env.store.save_request(detail)
+                append_step(
+                    env.store,
+                    request_id,
+                    "agent",
+                    "CLARIFICATION_REQUESTED",
+                    wording.text,
+                    {
+                        "field": field,
+                        "fallback_used": wording.fallback_used,
+                        "resolved_request": body.model_dump(mode="json"),
+                    },
+                    wording.model,
+                    env.now(),
+                )
+            return
         lines: list[QuoteLine] = []
         if body.reorder_of:
             if detail.customer_id is None:
@@ -167,8 +308,6 @@ async def run(request_id: str, body: RequestCreate, env: Resources) -> None:
                 "AGENT_NOT_AVAILABLE",
                 "Text and event requests need the Gemini agent, which is not available yet.",
             )
-        if not parsed_text:
-            log("INTENT_PARSED", "Item quantities and requirements resolved")
         env.store.save_request(detail)
         if body.reorder_of:
             log("CANDIDATES", f"Resolved {len(lines)} products from the past order")

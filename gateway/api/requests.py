@@ -4,9 +4,18 @@ from gateway import customers, runner, tools
 from gateway.api.gateway_tools import Env
 from gateway.api.presets import RequestBody
 from gateway.errors import GatewayError
-from gateway.schemas import RequestCreated, RequestDetail, RequestListEntry
+from gateway.schemas import AnswerBody, RequestCreated, RequestDetail, RequestListEntry
 
 router = APIRouter()
+
+
+@router.post("/requests/{request_id}/answer", status_code=202, response_model=RequestCreated)
+async def answer_request(
+    request_id: str, body: AnswerBody, background: BackgroundTasks, env: Env
+) -> RequestCreated:
+    resolved = runner.answer_question(request_id, body.question_id, body.answer, env)
+    background.add_task(runner.run, request_id, resolved, env, resume=True)
+    return RequestCreated(request_id=request_id, status="RUNNING")
 
 
 @router.post("/requests", status_code=202, response_model=RequestCreated)
