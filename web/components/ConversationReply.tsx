@@ -65,6 +65,8 @@ export default function ConversationReply({ req, previousLines, latest, busy, on
     return lower.replace(/^same as /, "the same as ").replace(/, from your settings$/, " (from your settings)");
   }).filter(Boolean);
   const expanded = latest || open;
+  // The gateway ranks insights; the chat shows the top three as tips.
+  const tips = (req.insights ?? []).slice(0, 3);
   const listId = `list-${req.request_id}`;
 
   return (
@@ -92,6 +94,19 @@ export default function ConversationReply({ req, previousLines, latest, busy, on
           </section>
         )}
       </div>
+      {latest && tips.length > 0 && (
+        <section aria-label="Price tips" className="border-t border-hair">
+          <h2 className="mt-3 mb-1 text-[18px] font-semibold">Price tips</h2>
+          <ul className="m-0 p-0 list-none divide-y divide-hair">
+            {tips.map((tip, i) => (
+              <li key={`${tip.kind}-${i}`} className="py-3 flex flex-wrap items-baseline justify-between gap-3">
+                <p className="m-0 flex-[1_1_280px] min-w-0 text-[17px] text-ink">{tip.text}</p>
+                {tip.saving !== null && tip.saving > 0 && <span className="font-semibold tabular-nums text-petrol">{tip.kind === "waste" ? `${eur(tip.saving)} unused` : `save ${eur(tip.saving)}`}</span>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {latest && offered.length > 0 && !ordered && (
         <section className="border-t border-hair">
           <h2 className="mt-3 mb-1 text-[18px] font-semibold">If you want</h2>

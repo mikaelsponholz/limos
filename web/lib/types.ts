@@ -133,6 +133,15 @@ export interface Step {
   hash: string;
 }
 
+/** A price fact for the buyer from the gateway; it never changes the quote. */
+export interface PriceInsight {
+  kind: "delivery_date" | "price_change" | "season" | "waste" | "pack_size" | "discount" | "per_guest" | "price_trend";
+  item_id: string | null;
+  product_id: string | null;
+  text: string;
+  saving: number | null;
+}
+
 export interface LimosRequest {
   request_id: string;
   buyer_id: string;
@@ -155,6 +164,8 @@ export interface LimosRequest {
   approval_id: string | null;
   order: Order | null;
   error: { code: string; message: string } | null;
+  /** Most useful first; older gateways leave it out. */
+  insights?: PriceInsight[];
 }
 
 export interface PastOrder {
