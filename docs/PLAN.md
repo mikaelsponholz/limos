@@ -335,6 +335,7 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 - 2026-11-14: Committed customer seeds in `customers/` use invented placeholder products. `scripts/seed_customers.py --catalog data/valio/catalog.slim.json` writes real catalogue codes to `.runtime/customers/` (git-ignored), which the loader overlays.
 - 2026-11-14: Approve re-checks availability with a fresh Valio call and returns `409 AVAILABILITY_CHANGED` without ordering when a locked line is no longer deliverable. Requests with only text or an event end `FAILED` with `AGENT_NOT_AVAILABLE` until Phase 3.
 - 2026-11-14: Phase 1 added the contract routes, so `contract/openapi.json` was regenerated. Schemas, fixtures and `docs/api_contract.md` are unchanged. `CATALOG_PATH` is a new setting in `.env.example`.
+- 2026-11-15: MCP server uses the official `mcp` SDK 2.3.0 (v2 API, `MCPServer`), agent id `limos-mcp`, configured by `LIMOS_GATEWAY_URL`, `LIMOS_AGENT_ID` and `LIMOS_REQUEST_TIMEOUT_SECONDS`. The plain REST client uses agent id `limos-script`.
 - 2026-11-13: MCP server is its own phase right after the thin end-to-end flow.
 - 2026-11-13: Storage capacity rule is an add-on phase. Menu photo is stretch.
 - 2026-11-13: Pitch is time saving, without speed promises.
@@ -342,6 +343,7 @@ Gate for every backend phase: `uv run ruff check . ; uv run ruff format --check 
 
 ## Open questions
 
+- Mikael and Johannes: a quote made directly through `POST /gateway/quotes` (MCP or script, without a `request_id`) carries no item constraints or excluded allergens, so `ALLERGEN_*` and `DIETARY_*` rules can't fire for it. Fixing it needs a contract change (constraints on `QuoteBody` or `QuoteLine`), so it waits for agreement.
 - Johannes: agree contract v0.3 (customers, question, suggestions, per-line deadlines) and the shopping-list UI requirements in section 8b.
 
 - Organisers: is a past `closingTime` for Terminal products intended?
