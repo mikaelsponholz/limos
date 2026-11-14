@@ -945,7 +945,8 @@
           "database": {
             "enum": [
               "ok",
-              "unconfigured"
+              "unconfigured",
+              "unavailable"
             ],
             "title": "Database",
             "type": "string"

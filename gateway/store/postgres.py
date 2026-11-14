@@ -73,6 +73,15 @@ class PostgresStore:
     def close(self) -> None:
         self._pool.close()
 
+    def ping(self, timeout: float = 3.0) -> bool:
+        """True when the database answers a query; used by /health."""
+        try:
+            with self._pool.connection(timeout=timeout) as conn:
+                conn.execute("SELECT 1")
+        except Exception:  # noqa: BLE001 - any failure means the database is not usable
+            return False
+        return True
+
     def migrate(self) -> list[str]:
         scripts = sorted(MIGRATIONS.glob("*.sql"))
         with self._pool.connection() as conn, conn.transaction():

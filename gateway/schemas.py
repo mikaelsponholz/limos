@@ -145,7 +145,8 @@ class Health(ContractModel):
     status: Literal["ok"]
     # Health failure values are unspecified; preserve the existing route's unconfigured state.
     valio_api: Literal["ok", "unconfigured"]
-    database: Literal["ok", "unconfigured"]
+    # "unavailable": DATABASE_URL is set but the database does not answer (wrong password, down).
+    database: Literal["ok", "unconfigured", "unavailable"]
 
 
 class Quantity(ContractModel):
