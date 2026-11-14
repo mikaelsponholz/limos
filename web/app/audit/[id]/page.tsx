@@ -58,11 +58,11 @@ export default function AuditPage({ params }: { params: Promise<{ id: string }> 
     api.audit(id).then(setAudit);
   }, [id]);
 
-  if (!audit) return <main className="max-w-[860px] mx-auto px-6 py-10 text-muted">Loading…</main>;
+  if (!audit) return <main className="max-w-[860px] mx-auto px-4 sm:px-6 py-10 text-muted">Loading…</main>;
 
   return (
-    <main className="max-w-[860px] mx-auto px-6 pt-8 pb-12 flex flex-col gap-6">
-      <Link href="/" className="text-petrol underline self-start">
+    <main className="max-w-[860px] mx-auto px-4 sm:px-6 pt-8 pb-12 flex flex-col gap-6">
+      <Link href="/" className="min-h-11 inline-flex items-center text-petrol underline self-start">
         Back to my order
       </Link>
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -87,9 +87,13 @@ export default function AuditPage({ params }: { params: Promise<{ id: string }> 
       <ol className="bg-white rounded-2xl shadow-card px-5 py-2 m-0 list-none">
         {audit.steps.map((s) => (
           <li key={s.seq} className="py-3.5 border-t border-hair first:border-t-0 flex gap-4">
-            <span className="flex-none w-16 text-muted text-[15px] tabular-nums">{dayTime(s.at).split(", ")[1]}</span>
-            <span className="flex-1">
-              <span className="block text-[14px] font-semibold text-soft">{WHO[s.actor] ?? s.actor}</span>
+            <span className="hidden sm:block flex-none w-16 text-muted text-[15px] tabular-nums">{dayTime(s.at).split(", ")[1]}</span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-[14px] font-semibold text-soft">
+                {WHO[s.actor] ?? s.actor}
+                {/* On a phone the time moves up here to leave the full width for the step. */}
+                <span className="sm:hidden font-normal text-muted tabular-nums"> · {dayTime(s.at).split(", ")[1]}</span>
+              </span>
               {plain(s)}
             </span>
           </li>

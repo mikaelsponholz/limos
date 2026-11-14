@@ -18,7 +18,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <CustomerProvider>
           <Header />
           <div className="flex-1">{children}</div>
-          <footer className="max-w-[1080px] w-full mx-auto px-6 py-6 text-sm text-muted">
+          <footer className="max-w-[1080px] w-full mx-auto px-4 sm:px-6 py-6 text-sm text-muted">
             Prices and availability from the Valio Aimo test API. Orders are simulated. Ordering rules are fixed code, not AI.
           </footer>
         </CustomerProvider>

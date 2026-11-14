@@ -119,14 +119,14 @@ export default function OrderPage() {
     }
   };
 
-  if (!customer) return <main className="max-w-[1080px] mx-auto px-6 py-10 text-muted">Loading…</main>;
+  if (!customer) return <main className="max-w-[1080px] mx-auto px-4 sm:px-6 py-10 text-muted">Loading…</main>;
 
   const first = customer.name.split(" ")[0];
   const history = customer.order_history.slice(0, 3);
   const last = history[0];
 
   return (
-    <main className="max-w-[1080px] mx-auto px-6 pt-8 pb-12 flex flex-col gap-6">
+    <main className="max-w-[1080px] mx-auto px-4 sm:px-6 pt-8 pb-12 flex flex-col gap-6">
       <section className="flex flex-col gap-3">
         <h1 className="text-[30px] leading-tight font-bold tracking-tight">
           {last ? `Hi ${first}! Same as last time?` : `Hi ${first}, what would you like to order?`}
@@ -175,7 +175,7 @@ export default function OrderPage() {
                     type="button"
                     disabled={busy}
                     onClick={() => start({ reorder_of: o.order_ref })}
-                    className={`w-full text-left bg-white rounded-2xl shadow-card px-4 sm:px-5 py-3.5 min-h-16 flex items-center gap-4 hover:ring-2 hover:ring-petrol-ring ${
+                    className={`w-full text-left bg-white rounded-2xl shadow-card px-4 sm:px-5 py-3.5 min-h-16 flex items-center gap-3 sm:gap-4 hover:ring-2 hover:ring-petrol-ring ${
                       running?.reorderOf === o.order_ref ? "ring-2 ring-petrol" : "disabled:opacity-60"
                     }`}
                   >
@@ -191,11 +191,13 @@ export default function OrderPage() {
                           <>
                             Last ordered {day(o.date)}
                             {o.guests ? ` · ${o.guests} people` : ""}
+                            {/* On a phone the price sits on this line, so the title gets the full width. */}
+                            {o.total > 0 && <span className="sm:hidden font-bold text-ink tabular-nums"> · {eur(o.total)}</span>}
                           </>
                         )}
                       </span>
                     </span>
-                    {o.total > 0 && <span className="flex-none font-bold tabular-nums">{eur(o.total)}</span>}
+                    {o.total > 0 && <span className="hidden sm:block flex-none font-bold tabular-nums">{eur(o.total)}</span>}
                   </button>
                   {running?.reorderOf === o.order_ref && (
                     <div className="mt-2">
@@ -290,11 +292,11 @@ function ListView({
             <li key={i}>
               {g.text}{" "}
               {g.toSettings ? (
-                <Link href="/settings" className="text-petrol underline font-semibold">
+                <Link href="/settings" className="inline-flex items-center min-h-11 -my-2.5 text-petrol underline font-semibold">
                   Change
                 </Link>
               ) : (
-                <button onClick={onChange} className="text-petrol underline font-semibold">
+                <button onClick={onChange} className="inline-flex items-center min-h-11 -my-2.5 text-petrol underline font-semibold">
                   Change
                 </button>
               )}

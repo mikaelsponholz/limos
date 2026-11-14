@@ -23,7 +23,7 @@ export default function SettingsPage() {
   const { settings, update } = useSettings(customer?.customer_id);
   const [saved, setSaved] = useState(false);
 
-  if (!customer) return <main className="max-w-[720px] mx-auto px-6 py-10 text-muted">Loading…</main>;
+  if (!customer) return <main className="max-w-[720px] mx-auto px-4 sm:px-6 py-10 text-muted">Loading…</main>;
 
   const eff = effective(settings, customer);
   const changed = settings.preferences || settings.exclude_allergens || settings.priority || settings.budget !== null;
