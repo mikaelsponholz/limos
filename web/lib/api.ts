@@ -1,5 +1,6 @@
 // One function per backend endpoint (docs/api_contract.md v0.3).
 // NEXT_PUBLIC_USE_MOCK=true serves fixtures instead of calling the backend.
+import { nextDeliveryDay } from "./format";
 import { mock } from "./mock";
 import { ApiError, type ApprovalDetail, type ApprovalSummary, type Audit, type Customer, type CustomerSummary, type LimosRequest, type Order } from "./types";
 
@@ -44,7 +45,8 @@ export const api = {
     priority?: unknown;
     budget?: unknown;
   }): Promise<Started> =>
-    USE_MOCK ? mock.createRequest(body) : post("/requests", body),
+    // The gateway defaults to "tomorrow", which can be a Sunday with no deliveries.
+    USE_MOCK ? mock.createRequest(body) : post("/requests", { requested_date: nextDeliveryDay(), ...body }),
   getRequest: (id: string): Promise<LimosRequest> => (USE_MOCK ? mock.getRequest(id) : call(`/requests/${id}`)),
   answer: (id: string, question_id: string, answer: string | null): Promise<Started> =>
     USE_MOCK ? mock.answer(id, question_id, answer) : post(`/requests/${id}/answer`, { question_id, answer }),
@@ -55,12 +57,13 @@ export const api = {
     approval_id: string,
     body: { quote_id: string; content_hash: string; approver: string },
   ): Promise<{ status: "APPROVED"; order: Order }> =>
-    USE_MOCK ? mock.approve(approval_id, body) : post(`/approvals/${approval_id}/approve`, body),
+    // The gateway requires comment (and reason on reject) even when the person wrote none.
+    USE_MOCK ? mock.approve(approval_id, body) : post(`/approvals/${approval_id}/approve`, { comment: "", ...body }),
 
   approvals: (): Promise<ApprovalSummary[]> => (USE_MOCK ? mock.approvals() : call("/approvals?status=PENDING")),
   approval: (id: string): Promise<ApprovalDetail> => (USE_MOCK ? mock.approval(id) : call(`/approvals/${id}`)),
   reject: (id: string, body: { approver: string; reason?: string }): Promise<{ status: "REJECTED" }> =>
-    USE_MOCK ? mock.reject(id, body) : post(`/approvals/${id}/reject`, body),
+    USE_MOCK ? mock.reject(id, body) : post(`/approvals/${id}/reject`, { ...body, reason: body.reason ?? "" }),
   /** Mock only: makes the shown prices stale so Approve returns 409. */
   simulatePriceChange: (id: string): Promise<void> => (USE_MOCK ? mock.simulatePriceChange(id) : Promise.resolve()),
 

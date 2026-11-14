@@ -17,7 +17,15 @@ export function dayTime(iso: string | null | undefined): string {
   return `${day(iso)}, ${t}`;
 }
 
-export const isPast = (iso: string | null | undefined) => !!iso && new Date(iso).getTime() < Date.now();
+/** The next weekday after today ("2026-11-16"), so a default delivery never lands on a weekend. */
+export function nextDeliveryDay(now = new Date()): string {
+  const d = new Date(now.toLocaleDateString("en-CA", { timeZone: TZ }) + "T12:00:00Z");
+  do d.setUTCDate(d.getUTCDate() + 1);
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6);
+  return d.toISOString().slice(0, 10);
+}
+
+export const isPast =(iso: string | null | undefined) => !!iso && new Date(iso).getTime() < Date.now();
 
 /** A soft category tile for a product, from words in its name. */
 export function categoryOf(name: string): { icon: string; tile: string; ink: string } {

@@ -3,7 +3,42 @@ import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { dayTime } from "@/lib/format";
-import type { Audit } from "@/lib/types";
+import { reasonLabel } from "@/components/OrderLine";
+import type { Audit, Step } from "@/lib/types";
+
+const TOOLS: Record<string, string> = {
+  request_quote: "Asked Valio Aimo for today's prices and stock",
+  check_offers: "Checked prices and stock with Valio Aimo",
+  search_products: "Searched the Valio Aimo catalogue",
+  place_order: "Sent the order to Valio Aimo",
+};
+
+/** Plain words for the gateway's log steps. Falls back to the step's own title. */
+function plain(s: Step): string {
+  const d = (s.detail ?? {}) as Record<string, unknown>;
+  switch (s.type) {
+    case "REQUEST_RECEIVED":
+      return s.title === "Request received" ? "Asked for a new list" : s.title;
+    case "TOOL_CALL":
+      return TOOLS[String(d.tool)] ?? s.title;
+    case "QUOTE_CREATED":
+      return typeof d.total === "number" ? `Locked the prices: ${d.total.toFixed(2)} EUR excl. VAT` : s.title;
+    case "POLICY_DECISION": {
+      if (!d.outcome) return s.title;
+      const rules = Array.isArray(d.rules) ? (d.rules as unknown[]) : [];
+      const why = rules
+        .map((r) => reasonLabel(typeof r === "string" ? r : String((r as { rule_id?: string }).rule_id)).toLowerCase())
+        .join(", ");
+      if (d.outcome === "AUTO") return "Can be ordered without a check: no rule needed a person";
+      if (d.outcome === "BLOCK") return `Can't be ordered: ${why || "a rule stopped it"}`;
+      return `Needs a check before ordering${why ? `: ${why}` : ""}`;
+    }
+    case "ORDER_PLACED":
+      return d.simulated ? "Order placed with Valio Aimo (simulated for the demo)" : s.title;
+    default:
+      return s.title;
+  }
+}
 
 const WHO: Record<string, string> = {
   user: "You",
@@ -55,7 +90,7 @@ export default function AuditPage({ params }: { params: Promise<{ id: string }> 
             <span className="flex-none w-16 text-muted text-[15px] tabular-nums">{dayTime(s.at).split(", ")[1]}</span>
             <span className="flex-1">
               <span className="block text-[14px] font-semibold text-soft">{WHO[s.actor] ?? s.actor}</span>
-              {s.title}
+              {plain(s)}
             </span>
           </li>
         ))}

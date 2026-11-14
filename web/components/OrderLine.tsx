@@ -28,7 +28,8 @@ export default function OrderLine({ l }: { l: Offer }) {
       <span className="flex-1 min-w-0 flex flex-col">
         <span className="font-semibold leading-snug">{l.name}</span>
         <span className="text-[15px] text-soft">
-          {l.quantity_text} · {eur(l.unit_price)} each
+          {/* The gateway writes whole numbers as "2.0 x 1.45 kg"; show "2 x 1.45 kg". */}
+          {l.quantity_text.replace(/\b(\d+)\.0\b/g, "$1")} · {eur(l.unit_price)} each
         </span>
         {note && <span className="text-[15px] text-warn">{note}</span>}
         <span className="text-[14px] text-muted">
