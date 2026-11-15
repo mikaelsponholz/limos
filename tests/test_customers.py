@@ -50,8 +50,10 @@ def test_both_seeds_validate_and_match_demo_profiles() -> None:
     assert executive.buyer_id == "ab-oy" and executive.age_group == "55_plus"
     assert executive.playful is False
     assert executive.preferences == [Preference(key="finnish_origin", level="prefer")]
+    # The resolved cheesecake may contain tree nuts, so Frank cannot exclude them yet.
+    assert executive.exclude_allergens == []
     assert executive.defaults == CustomerDefaults(
-        priority="quality", typical_guests=30, budget=None
+        priority="quality", typical_guests=30, budget=1500
     )
     assert [o.order_ref for o in executive.order_history] == ["ph_pena_01"]
     assert {o.event_type for o in executive.order_history} == {"company_meeting"}
@@ -60,8 +62,12 @@ def test_both_seeds_validate_and_match_demo_profiles() -> None:
     ] == [
         ("900310", 2),
         ("900312", 6),
-        ("900313", 2),
+        ("900313", 14),
     ]
+    peppercorn = executive.order_history[0].lines[2]
+    assert (peppercorn.sales_unit, peppercorn.quantity_text) == ("ST", "14 x 13 g")
+    assert (peppercorn.unit_price, peppercorn.line_total) == (2.5, 35.0)
+    assert executive.order_history[0].total == 127.0
     assert chef.buyer_id == "bistro-example" and chef.age_group == "under_35" and chef.playful
     assert "Example" in chef.name and "Example" in chef.company and chef.role == "Chef"
     assert {p.key for p in chef.preferences} == {"organic", "low_carbon"}
@@ -211,10 +217,10 @@ def test_without_profile_records_only_missing_system_priority() -> None:
 @pytest.mark.parametrize(
     ("guests_now", "scale", "quantities"),
     [
-        (80, 80 / 30, [6, 16, 6]),
-        (10, 1 / 3, [1, 2, 1]),
-        (30, 1.0, [2, 6, 2]),
-        (None, 1.0, [2, 6, 2]),
+        (80, 80 / 30, [6, 16, 38]),
+        (10, 1 / 3, [1, 2, 5]),
+        (30, 1.0, [2, 6, 14]),
+        (None, 1.0, [2, 6, 14]),
     ],
 )
 def test_reorder_scaling_and_provenance(

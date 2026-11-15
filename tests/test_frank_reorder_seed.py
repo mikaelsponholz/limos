@@ -78,9 +78,11 @@ def test_verified_override_replaces_only_matching_history_line(
         "990104",
     ]
     assert lines[0].name == "Example juustokakku"
-    assert [line.quantity_sales_units for line in lines] == [2, 6, 2]
-    assert [line.line_total for line in lines] == [77, 15, 29.96]
-    assert customer.order_history[0].total == 121.96
+    assert [line.quantity_sales_units for line in lines] == [2, 6, 14]
+    assert [line.line_total for line in lines] == [77, 15, 35]
+    assert customer.order_history[0].total == 127.0
+    assert customer.defaults.budget == 1500
+    assert customer.exclude_allergens == []
     assert (seeds / "c_pena.json").read_bytes() == original
 
 

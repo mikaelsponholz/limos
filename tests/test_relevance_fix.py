@@ -1,6 +1,7 @@
 """Suitability regressions with invented products, FakeLLM and fake Valio only."""
 
 import json
+from math import ceil
 
 import pytest
 
@@ -421,6 +422,112 @@ def test_pena_scaled_reorder_shortage_offers_valio_split(tmp_path):
         assert detail.intent.items[0].quantity == 3
         assert {line.product_id for line in detail.quote.lines} == {"900310", "990099"}
         assert any(line.substitute_source == "valio" for line in detail.quote.lines)
+
+
+def test_frank_80_guest_peppercorn_shortage_keeps_all_three_lines(tmp_path):
+    # Seed quantities are jars. Fake Valio prices the six-jar carton, as upstream does.
+    amount = price().catalog_price.model_dump(by_alias=True)
+    records = [
+        product("900310", names={"en": "Example Bakery layer cake 24 portions"}),
+        product(
+            "900312",
+            names={"en": "Example oat drink for coffee 1 l"},
+            sales_unit="ST",
+            pack_size={"value": 1, "unit": "L"},
+        ),
+        product(
+            "900313",
+            names={"en": "Example green peppercorns 13 g"},
+            sales_unit="KI",
+            base_unit="PRK",
+            units=[{"unitId": "KI", "sizeInBaseUnits": 6}],
+            pack_size={"value": 0.013, "unit": "kg"},
+            substitutions=[{"product": "900313", "substituteProduct": "990099"}],
+        ),
+        product(
+            "990099",
+            names={"en": "Invented green pepper whole 160 g substitute"},
+            sales_unit="ST",
+            pack_size={"value": 0.160, "unit": "kg"},
+        ),
+    ]
+    with preset_environment(tmp_path, "company_lunch_60") as client:
+        client.app.state.catalog = Catalog(records)
+        client.app.state.valio = FakeValio(
+            [
+                price("900310"),
+                price("900312", comparisonUnit="L"),
+                price(
+                    "900313",
+                    catalogPrice={**amount, "value": "14.98", "valueWithTax": "17.00"},
+                    comparisonPrice={**amount, "value": "192.05"},
+                ),
+                price(
+                    "990099",
+                    catalogPrice={**amount, "value": "5.00", "valueWithTax": "5.68"},
+                    comparisonPrice={**amount, "value": "31.25"},
+                ),
+            ],
+            [
+                stock(
+                    record.product_id,
+                    scheduleLines=[
+                        schedule(
+                            3 if record.product_id == "900313" else 100,
+                            salesUnit=record.sales_unit,
+                        )
+                    ],
+                )
+                for record in records
+            ],
+        )
+        from agent.llm import FakeLLM
+
+        client.app.state.llm = FakeLLM(
+            structured_outputs=[
+                picks(
+                    choice("it_1", "900310"),
+                    choice("it_2", "900312"),
+                    choice("it_3", "900313", ["990099"]),
+                ),
+                EXPLANATION,
+            ]
+        )
+        response = client.post(
+            "/requests",
+            json={
+                "customer_id": "c_pena",
+                "reorder_of": "ph_pena_01",
+                "event": {
+                    "type": "company_meeting",
+                    "guests": 80,
+                    "date": "2026-11-21",
+                    "dishes": [],
+                },
+                "requested_date": "2026-11-20",
+            },
+        )
+        assert response.status_code == 202, response.text
+        detail = poll(client, response.json()["request_id"])
+        assert detail.error is None and detail.status == "WAITING_APPROVAL"
+        assert detail.intent.based_on.scale == 80 / 30
+        assert detail.intent.budget == 1500
+        assert detail.intent.exclude_allergens == []
+        assert [item.quantity for item in detail.intent.items] == [6, 16, pytest.approx(0.494)]
+        peppercorn = next(line for line in detail.candidates if line.product_id == "900313")
+        assert peppercorn.pack_size.value == 0.078
+        assert ceil(peppercorn.quantity_requested.value / peppercorn.pack_size.value) == 7
+        assert peppercorn.quantity_sales_units == 3
+        assert peppercorn.unit_price == 14.98
+        assert peppercorn.available_amount == 3
+        assert "PARTIAL" in peppercorn.flags
+        assert {line.item_id for line in detail.quote.lines} == {"it_1", "it_2", "it_3"}
+        substitute = next(line for line in detail.quote.lines if line.product_id == "990099")
+        assert substitute.is_substitute and substitute.substitute_source == "valio"
+        assert substitute.substitute_for == "900313"
+        assert sum(
+            line.quantity_covered.value for line in detail.quote.lines if line.item_id == "it_3"
+        ) >= 0.494
 
 
 def cake_catalog():

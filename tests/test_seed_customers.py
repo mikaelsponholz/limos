@@ -96,6 +96,8 @@ def test_cli_resolves_overlay_offline_with_only_count_output(tmp_path: Path) -> 
         "900403": "900704",
     }
     for customer_id, customer in resolved.items():
+        assert customer.defaults == original[customer_id].defaults
+        assert customer.exclude_allergens == original[customer_id].exclude_allergens
         for order, previous in zip(
             customer.order_history, original[customer_id].order_history, strict=True
         ):
@@ -109,6 +111,7 @@ def test_cli_resolves_overlay_offline_with_only_count_output(tmp_path: Path) -> 
     assert beetroot.quantity_text == "4 x 2 kg" and beetroot.sales_unit == "KI"
     assert resolved["c_pena"].order_history[0].lines[0].quantity_text == "2 ST"
     assert resolved["c_pena"].order_history[0].lines[1].quantity_text == "6 x 1 L"
+    assert resolved["c_pena"].order_history[0].lines[2].quantity_text == "14 x 0.013 kg"
     # A rerun starts from committed seed ids, never the resolved overlay codes.
     assert seed_customers(catalog_path, out=out) == (2, 6)
     assert seed_bytes() == before
@@ -152,6 +155,13 @@ def test_custom_seed_directory_and_spec(tmp_path: Path) -> None:
         "900707",
         "Santa Maria Viherpippuri Kokonainen 13 g",
     )
+    assert (peppercorn.quantity_sales_units, peppercorn.unit_price, peppercorn.line_total) == (
+        14,
+        2.5,
+        35.0,
+    )
+    assert resolved.defaults.budget == 1500
+    assert resolved.order_history[0].total == 127.0
 
 
 def test_missing_match_writes_nothing_and_cli_does_not_echo_input(tmp_path: Path) -> None:
