@@ -50,6 +50,7 @@ QUOTE = {
 def gateway(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     monkeypatch.setenv("LIMOS_GATEWAY_URL", "http://invented.invalid")
     monkeypatch.setenv("LIMOS_AGENT_ID", "limos-mcp")
+    monkeypatch.delenv("LIMOS_BUYER_ID", raising=False)
     monkeypatch.setenv("LIMOS_REQUEST_TIMEOUT_SECONDS", "2")
     ids = count(1)
     return create_app(

@@ -3,11 +3,12 @@
 import argparse
 import logging
 from datetime import date
+from typing import Annotated
 from urllib.parse import quote
 
 import httpx
 from mcp.server.mcpserver import MCPServer
-from pydantic import JsonValue
+from pydantic import Field, JsonValue
 
 from gateway.schemas import (
     AgentIdentity,
@@ -27,11 +28,20 @@ from mcp_server.gateway_client import GatewayClient
 def create_server(*, client: httpx.AsyncClient | None = None) -> MCPServer[None]:
     """Build a server; tests can supply a client with a mock or ASGI transport."""
     gateway = GatewayClient(client)
-    server: MCPServer[None] = MCPServer("limos-mcp")
+    instructions = None
+    buyer_field = Field()
+    if gateway.buyer_id is not None:
+        instructions = (
+            f"This server acts for buyer {gateway.buyer_id} only. "
+            "Omit buyer_id in tool calls to use this configured buyer. "
+            "Do not ask the user for a buyer id. The gateway still enforces the buyer's mandate."
+        )
+        buyer_field = Field(default=gateway.buyer_id, description=instructions)
+    server: MCPServer[None] = MCPServer("limos-mcp", instructions=instructions)
 
     @server.tool(structured_output=True)
     async def search_products(
-        buyer_id: str,
+        buyer_id: Annotated[str, buyer_field],
         query: str,
         constraints: list[Constraint],
         exclude_allergens: list[AllergenCode],
@@ -53,7 +63,7 @@ def create_server(*, client: httpx.AsyncClient | None = None) -> MCPServer[None]
 
     @server.tool(structured_output=True)
     async def check_offers(
-        buyer_id: str,
+        buyer_id: Annotated[str, buyer_field],
         product_ids: list[str],
         item_id: str,
         quantity: float,
@@ -81,7 +91,7 @@ def create_server(*, client: httpx.AsyncClient | None = None) -> MCPServer[None]
 
     @server.tool(structured_output=True)
     async def request_quote(
-        buyer_id: str,
+        buyer_id: Annotated[str, buyer_field],
         requested_date: date,
         lines: list[QuoteLine],
         request_id: str | None = None,
@@ -112,7 +122,7 @@ def create_server(*, client: httpx.AsyncClient | None = None) -> MCPServer[None]
 
     @server.tool(structured_output=True)
     async def request_approval(
-        buyer_id: str,
+        buyer_id: Annotated[str, buyer_field],
         quote_id: str,
         explanation: str,
         alternative_quote_ids: list[str] | None = None,
@@ -131,7 +141,7 @@ def create_server(*, client: httpx.AsyncClient | None = None) -> MCPServer[None]
 
     @server.tool(structured_output=True)
     async def place_order(
-        buyer_id: str, quote_id: str, idempotency_key: str
+        buyer_id: Annotated[str, buyer_field], quote_id: str, idempotency_key: str
     ) -> dict[str, JsonValue]:
         """Place an order; quotes needing approval fail without a matching human approval."""
         return await gateway.request(
@@ -146,7 +156,9 @@ def create_server(*, client: httpx.AsyncClient | None = None) -> MCPServer[None]
         )
 
     @server.tool(structured_output=True)
-    async def get_order_status(buyer_id: str, order_id: str) -> dict[str, JsonValue]:
+    async def get_order_status(
+        buyer_id: Annotated[str, buyer_field], order_id: str
+    ) -> dict[str, JsonValue]:
         """Get an order's current status from the gateway."""
         return await gateway.request(
             "GET",

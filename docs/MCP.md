@@ -15,7 +15,7 @@ There is no approve tool. An agent can ask for approval, but only a person can g
 | `place_order` | Places a simulated order for an `AUTO` quote, or for an approved quote whose content hash still matches. The same idempotency key returns the same order. |
 | `get_order_status` | Returns an order. |
 
-Every tool takes a `buyer_id`. The server adds its own agent id (`limos-mcp` by default), and the gateway checks it against that buyer's mandate.
+Set `LIMOS_BUYER_ID` to make every tool's `buyer_id` optional and default it to that buyer. The server tells the model which buyer it acts for and rejects a different `buyer_id` before calling the gateway. Without this setting, every tool requires `buyer_id`. The server adds its own agent id (`limos-mcp` by default), and the gateway checks it against that buyer's mandate.
 
 The gateway always enforces the buyer's allergen and dietary rules: standalone quotes use the union of that buyer's customer profiles, while quotes with a `request_id` keep the request's per-item rules. The optional `request_quote` fields `exclude_allergens` and `constraints` apply to every line and can only add restrictions. Omitting them or sending empty lists cannot remove existing rules.
 
@@ -45,6 +45,7 @@ Settings, all optional:
 |---|---|---|
 | `LIMOS_GATEWAY_URL` | `http://localhost:8000` | Where the gateway runs |
 | `LIMOS_AGENT_ID` | `limos-mcp` | The agent id sent with every call. It must be in the buyer's mandate. |
+| `LIMOS_BUYER_ID` | Unset | Default buyer for every tool. When set, calls for another buyer are rejected. When unset, `buyer_id` is required. |
 | `LIMOS_REQUEST_TIMEOUT_SECONDS` | `10` | Timeout for each gateway call |
 
 The MCP server holds no keys. The gateway has the Valio and Gemini keys.
@@ -59,7 +60,10 @@ Add this to `claude_desktop_config.json` and restart Claude Desktop. Replace the
     "limos": {
       "command": "uv",
       "args": ["--directory", "C:/path/to/limos", "run", "limos-mcp"],
-      "env": {"LIMOS_GATEWAY_URL": "http://localhost:8000"}
+      "env": {
+        "LIMOS_GATEWAY_URL": "http://localhost:8000",
+        "LIMOS_BUYER_ID": "ab-oy"
+      }
     }
   }
 }
@@ -67,7 +71,7 @@ Add this to `claude_desktop_config.json` and restart Claude Desktop. Replace the
 
 ## Walkthrough
 
-Ask Claude something like: "Using Limos as buyer `demo-catering`, order 5 kg of butter and 40 l of lactose-free milk for delivery on 17 November."
+With `LIMOS_BUYER_ID` set, ask Claude something like: "Using Limos, order 5 kg of butter and 40 l of lactose-free milk for delivery on 17 November." Without the setting, include the buyer id in your request.
 
 1. `search_products` finds candidates for each item.
 2. `check_offers` returns prices, stock, pack sizes, delivery date and order deadline for the short list.
