@@ -51,7 +51,8 @@
       "priority": "price",
       "customer_id": "c_chef",
       "reorder_of": null,
-      "revises": null
+      "revises": null,
+      "stock_levels": null
     },
     "customer_id": "c_chef"
   },
@@ -104,7 +105,8 @@
       "priority": "balanced",
       "customer_id": null,
       "reorder_of": null,
-      "revises": null
+      "revises": null,
+      "stock_levels": null
     },
     "customer_id": null
   },
@@ -147,7 +149,8 @@
       "priority": "balanced",
       "customer_id": null,
       "reorder_of": null,
-      "revises": null
+      "revises": null,
+      "stock_levels": null
     },
     "customer_id": null
   },
@@ -192,7 +195,8 @@
       "priority": "balanced",
       "customer_id": "c_pena",
       "reorder_of": null,
-      "revises": null
+      "revises": null,
+      "stock_levels": null
     },
     "customer_id": "c_pena"
   }

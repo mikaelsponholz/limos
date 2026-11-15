@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from agent.constraints import item_constraints
 from agent.llm import LLM, StructuredResult
+from agent.stock import stock_items
 from gateway import customers
 from gateway.schemas import (
     AllergenCode,
@@ -321,6 +322,17 @@ def resolve_request(
                         )
                 else:
                     text_gap(field, list(merged.exclude_allergens))
+
+    # Stock levels from a photo outrank text items; explicit form items outrank both.
+    if request.stock_levels and "items" not in request.model_fields_set:
+        merged.items, stock_notes = stock_items(request.stock_levels, customer)
+        assumptions.extend(stock_notes)
+        record(
+            "items",
+            [item.model_dump(mode="json") for item in merged.items],
+            "profile",
+            f"{len(merged.items)} items to refill, from the stock photo and your stock list.",
+        )
 
     resolved, profile_gaps = customers.apply_profile(
         merged, customer, respect_explicit_lists=facts is not None

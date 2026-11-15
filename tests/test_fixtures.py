@@ -106,7 +106,9 @@ def test_create_requires_buyer_or_customer(identity: dict[str, Any]) -> None:
 
 
 def test_customer_alone_is_not_request_input() -> None:
-    with pytest.raises(ValidationError, match="preset_id, text, event, items or reorder_of"):
+    with pytest.raises(
+        ValidationError, match="preset_id, text, event, items, reorder_of or stock_levels"
+    ):
         schemas.RequestCreate.model_validate({"customer_id": "c_pena"})
 
 

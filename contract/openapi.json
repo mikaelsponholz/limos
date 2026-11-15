@@ -573,6 +573,13 @@
             "const": true,
             "title": "Simulated",
             "type": "boolean"
+          },
+          "stock": {
+            "items": {
+              "$ref": "#/components/schemas/StockItem"
+            },
+            "title": "Stock",
+            "type": "array"
           }
         },
         "required": [
@@ -2805,6 +2812,21 @@
             "default": null,
             "title": "Revises"
           },
+          "stock_levels": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Stock Levels"
+          },
           "text": {
             "anyOf": [
               {
@@ -3522,6 +3544,159 @@
         },
         "title": "Steps",
         "type": "array"
+      },
+      "StockItem": {
+        "additionalProperties": false,
+        "description": "One stocked product and how much a full shelf holds, for refills from a stock photo.",
+        "properties": {
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Aliases",
+            "type": "array"
+          },
+          "constraints": {
+            "items": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "lactose_free",
+                    "gluten_free",
+                    "finnish_origin",
+                    "organic",
+                    "vegetarian",
+                    "vegan",
+                    "low_carbon"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "enum": [
+                    "no_milk",
+                    "no_lactose",
+                    "no_gluten",
+                    "no_wheat",
+                    "no_egg",
+                    "no_fish",
+                    "no_crustaceans",
+                    "no_molluscs",
+                    "no_peanuts",
+                    "no_tree_nuts",
+                    "no_soy",
+                    "no_sesame",
+                    "no_celery",
+                    "no_mustard",
+                    "no_sulphites",
+                    "no_lupin"
+                  ],
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Constraints",
+            "type": "array"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "full_quantity": {
+            "exclusiveMinimum": 0,
+            "title": "Full Quantity",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "reorder_below_percent": {
+            "default": 50,
+            "maximum": 100,
+            "minimum": 0,
+            "title": "Reorder Below Percent",
+            "type": "number"
+          },
+          "unit": {
+            "enum": [
+              "g",
+              "kg",
+              "ml",
+              "L",
+              "pcs"
+            ],
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "full_quantity",
+          "unit"
+        ],
+        "title": "StockItem",
+        "type": "object"
+      },
+      "StockReadBody": {
+        "additionalProperties": false,
+        "properties": {
+          "customer_id": {
+            "title": "Customer Id",
+            "type": "string"
+          },
+          "image_base64": {
+            "minLength": 1,
+            "title": "Image Base64",
+            "type": "string"
+          },
+          "mime_type": {
+            "enum": [
+              "image/jpeg",
+              "image/png",
+              "image/webp"
+            ],
+            "title": "Mime Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "customer_id",
+          "image_base64",
+          "mime_type"
+        ],
+        "title": "StockReadBody",
+        "type": "object"
+      },
+      "StockReading": {
+        "additionalProperties": false,
+        "properties": {
+          "levels": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Levels",
+            "type": "object"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "unmatched": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unmatched",
+            "type": "array"
+          }
+        },
+        "required": [
+          "levels",
+          "unmatched",
+          "model"
+        ],
+        "title": "StockReading",
+        "type": "object"
       },
       "Suggestion": {
         "additionalProperties": false,
@@ -4475,6 +4650,44 @@
           }
         },
         "summary": "Accept Suggestion"
+      }
+    },
+    "/stock/read": {
+      "post": {
+        "operationId": "read_stock_stock_read_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockReadBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockReading"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Stock"
       }
     }
   }
