@@ -258,6 +258,40 @@ def test_gateway_happy_paths_and_buyer_isolation(client: TestClient) -> None:
     )
 
 
+@pytest.mark.parametrize("invalid_ids", [["900102"], ["900101", "900102", "900103"]])
+def test_offers_isolates_incomplete_logistic_models(
+    client: TestClient, invalid_ids: list[str]
+) -> None:
+    codes = ["900101", "900102", "900103"]
+    client.app.state.valio.stock = [
+        stock(code, logisticModel=None) if code in invalid_ids else stock(code) for code in codes
+    ]
+    response = client.post(
+        "/gateway/offers",
+        json={
+            **IDENTITY,
+            "product_ids": codes,
+            "item_id": "it_1",
+            "quantity": 2,
+            "unit": "kg",
+            "requested_date": "2026-11-17",
+            "constraints": [],
+            "exclude_allergens": [],
+        },
+    )
+    expected_ids = [code for code in codes if code not in invalid_ids]
+    if expected_ids:
+        assert response.status_code == 200, response.text
+        offers = OffersResponse.model_validate_json(response.text).offers
+        assert [offer.product_id for offer in offers] == expected_ids
+    else:
+        assert response.status_code == 502, response.text
+        assert response.json()["error"] == {
+            "code": "OFFER_DATA_INVALID",
+            "message": "Missing or unsupported logistic model for 900101.",
+        }
+
+
 @pytest.mark.parametrize("identity", [{"buyer_id": "unknown"}, {"agent_id": "not-permitted"}])
 @pytest.mark.parametrize(
     "endpoint,body",
