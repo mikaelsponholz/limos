@@ -208,7 +208,7 @@ Approval `options` are alternative quotes (at most 3): the recommended one and a
 | `birthday_kids_25` | 25 | Nut-free; a may-contain-nuts product → `ALLERGEN_MAY_CONTAIN` approval with a safe option |
 | `company_lunch_60` | 60 | Kotimainen required; budget set so the total exceeds it → `BUDGET_EXCEEDED` approval with a cheaper option |
 
-Plus free text. Each preset may name a seeded customer (`company_lunch_60` → Frank, `restaurant_weekly` → the chef). Presets are built from data, not luck: `scripts/find_demo_cases.py` finds products that trigger each case (for example courgette 460025, not deliverable, with Valio substitute 460150 in stock). A test per preset runs against recorded responses and fails unless the expected outcome and rules appear. `uv run python scripts/demo_check.py` re-runs all presets live before the demo.
+Plus free text. Each preset may name a seeded customer (`company_lunch_60` → Frank, `restaurant_weekly` → the chef). Presets are built from data, not luck: `scripts/find_demo_cases.py` finds products that trigger each case (for example a product that is not deliverable but has a Valio substitute in stock). A test per preset runs against recorded responses and fails unless the expected outcome and rules appear. `uv run python scripts/demo_check.py` re-runs all presets live before the demo.
 
 ## 8a. Customers, history and reorder
 

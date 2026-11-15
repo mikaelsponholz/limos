@@ -117,7 +117,7 @@ Product data:
 - Data quality varies (e.g. fresh produce often lacks allergen data). Missing data must never be treated as "safe".
 
 ### Verified example for the demo
-Lactose-free milk exists in many forms, e.g. `464306` (Valio Arki Eila kevytmaitojuoma 1 l, laktoositon, sold per `ST`, case of 20, 4 Valio-approved substitutes incl. `465039`), `465039` (Eila 1 l, sold per `KI` of 5, Terminal), `463038` (Eila 10 l novobox, `KI` of 2), Arla alternatives. A real price call for `464306` returned 1.01 EUR/L excl. VAT (list price 1.44, so a customer net price applies).
+Lactose-free milk exists in many forms, e.g. a 1 l carton sold per `ST` with Valio-approved substitutes, the same milk sold per `KI` case from a Terminal supplier, and a 10 l pack sold per `KI` of 2. A price call can return a catalogue price below the list price when a customer net price applies.
 
 ---
 
@@ -209,7 +209,7 @@ limos/
 1. Confirm you have read this context and summarise the plan back in max 10 bullet points.
 2. Initialise the repo skeleton in the current folder `limos/` exactly as in the layout above: folders, empty `__init__.py` files, `.gitignore` (must cover `.env`, `data/valio/*.json`, `__pycache__`, `.venv`), `.env.example` with `VALIO_API_KEY`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `DATABASE_URL`, a `pyproject.toml` or `requirements.txt` with the stack above, and a short `README.md` (what Limos is, how to run, the one-line pitch).
 3. Write `gateway/valio_client.py`: an async httpx client for `/ping`, `/price` and `/availability` with the API key from env, a timeout, retry with backoff on 429/5xx, and typed Pydantic response models matching `openapi.json`.
-4. Add `scripts/ping_valio.py` that pings the API and fetches price + availability for `464306`, `465039`, `463038` for next Monday, and prints a compact table.
+4. Add `scripts/ping_valio.py` that pings the API and fetches price + availability for three product codes for next Monday, and prints a compact table.
 5. Do not build anything else yet.
 
 **Report back:** the file tree, the output of `scripts/ping_valio.py`, and any surprises in the data or API.
