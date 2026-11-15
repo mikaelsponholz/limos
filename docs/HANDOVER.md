@@ -64,7 +64,7 @@ Your `agent/intent.py` change merged cleanly. Mikael and Claude will stay out of
 1. **Frank's demo shortage.** The video should show Frank's "same as last time for the wedding, 80 people, Saturday" with a stock shortage plus a sensible Valio substitute.
    - **Seed now:** one order with your cheesecake plus 6 × Oatly iKaffe 1L for 30 guests (`customers/c_pena.json`, `scripts/customer_seed_spec.json`).
    - **Problem:** Oatly isn't short live (39 243 in stock), and no cake has a Valio substitute.
-   - **Live scan:** the only shortage realistic for 80 guests is Santa Maria green peppercorns 13 g (stock 3) → Salliselta green pepper whole 160 g (ample stock). The others need hundreds of kilos.
+   - **Live scan:** only one shortage was realistic for 80 guests (a small spice pack with an in-stock Valio substitute). The others need hundreds of kilos.
    - **Not decided:** use peppercorns, or show Frank's reorder without a shortage.
 2. **Live check.** After any seed change:
    - Re-seed with `python scripts/seed_customers.py --catalog data/valio/catalog.slim.json`.
