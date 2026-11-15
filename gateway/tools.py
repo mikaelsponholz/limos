@@ -8,7 +8,14 @@ from gateway.api.dependencies import Resources
 from gateway.audit import append_step
 from gateway.customers import append_placed_order, load_customers
 from gateway.errors import GatewayError
-from gateway.offers import OfferSnapshot, OfferValio, _check, build_offers, price_fixed_lines
+from gateway.offers import (
+    OfferDataError,
+    OfferSnapshot,
+    OfferValio,
+    _check,
+    build_offers,
+    price_fixed_lines,
+)
 from gateway.policy import ItemContext
 from gateway.policy.engine import REQUIRE_HARD_DIETARY_KEYS
 from gateway.schemas import (
@@ -72,13 +79,32 @@ def search_products(body: SearchBody, env: Resources) -> SearchResponse:
 
 async def check_offers(body: OffersBody, env: Resources) -> list[Offer]:
     mandate = env.permit(body.buyer_id, body.agent_id)
-    return await build_offers(
-        body,
-        catalog=env.catalog,
-        valio=env.valio,
-        now=env.now(),
-        max_overbuy_percent=mandate.max_overbuy_percent,
-    )
+    try:
+        return await build_offers(
+            body,
+            catalog=env.catalog,
+            valio=env.valio,
+            now=env.now(),
+            max_overbuy_percent=mandate.max_overbuy_percent,
+        )
+    except OfferDataError:
+        offers = []
+        for code in body.product_ids:
+            try:
+                offers.extend(
+                    await build_offers(
+                        body.model_copy(update={"product_ids": [code]}),
+                        catalog=env.catalog,
+                        valio=env.valio,
+                        now=env.now(),
+                        max_overbuy_percent=mandate.max_overbuy_percent,
+                    )
+                )
+            except OfferDataError:
+                continue
+        if not offers:
+            raise
+        return offers
 
 
 async def check_offers_batch(
