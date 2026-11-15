@@ -1,6 +1,7 @@
 const TZ = "Europe/Helsinki";
 
-export const eur = (n: number) => `${n.toFixed(2)} €`;
+// Non-breaking space, so the euro sign never wraps onto its own line.
+export const eur = (n: number) => `${n.toFixed(2)} €`;
 
 /** "Fri 20 Nov" from "2026-11-20" (date only, no timezone shift). */
 export function day(iso: string | null | undefined): string {

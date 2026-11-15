@@ -2,7 +2,7 @@
 // NEXT_PUBLIC_USE_MOCK=true serves fixtures instead of calling the backend.
 import { nextDeliveryDay } from "./format";
 import { mock } from "./mock";
-import { ApiError, type ApprovalDetail, type ApprovalSummary, type Audit, type Customer, type CustomerSummary, type LimosRequest, type Order } from "./types";
+import { ApiError, type ApprovalDetail, type ApprovalSummary, type Audit, type CreateRequestBody, type Customer, type CustomerSummary, type LimosRequest, type Order } from "./types";
 
 export const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK !== "false";
 export const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
@@ -36,15 +36,7 @@ export const api = {
   customers: (): Promise<CustomerSummary[]> => (USE_MOCK ? mock.customers() : call("/customers")),
   customer: (id: string): Promise<Customer> => (USE_MOCK ? mock.customer(id) : call(`/customers/${id}`)),
 
-  createRequest: (body: {
-    customer_id: string;
-    text?: string;
-    reorder_of?: string;
-    preferences?: unknown;
-    exclude_allergens?: unknown;
-    priority?: unknown;
-    budget?: unknown;
-  }): Promise<Started> =>
+  createRequest: (body: CreateRequestBody): Promise<Started> =>
     // The gateway defaults to "tomorrow", which can be a Sunday with no deliveries.
     USE_MOCK ? mock.createRequest(body) : post("/requests", { requested_date: nextDeliveryDay(), ...body }),
   getRequest: (id: string): Promise<LimosRequest> => (USE_MOCK ? mock.getRequest(id) : call(`/requests/${id}`)),
