@@ -525,9 +525,12 @@ def test_frank_80_guest_peppercorn_shortage_keeps_all_three_lines(tmp_path):
         substitute = next(line for line in detail.quote.lines if line.product_id == "990099")
         assert substitute.is_substitute and substitute.substitute_source == "valio"
         assert substitute.substitute_for == "900313"
-        assert sum(
-            line.quantity_covered.value for line in detail.quote.lines if line.item_id == "it_3"
-        ) >= 0.494
+        assert (
+            sum(
+                line.quantity_covered.value for line in detail.quote.lines if line.item_id == "it_3"
+            )
+            >= 0.494
+        )
 
 
 def cake_catalog():
