@@ -15,11 +15,14 @@ class GatewayClient:
     def __init__(self, client: httpx.AsyncClient | None = None) -> None:
         self.url = os.getenv("LIMOS_GATEWAY_URL", "http://localhost:8000").rstrip("/")
         self.agent_id = os.getenv("LIMOS_AGENT_ID", "limos-mcp")
+        self.buyer_id = os.getenv("LIMOS_BUYER_ID") or None
         self.timeout = float(os.getenv("LIMOS_REQUEST_TIMEOUT_SECONDS", "10"))
         # Injected clients belong to their caller; production clients close after each request.
         self._client = client
 
     async def request(self, method: str, path: str, body: AgentIdentity) -> dict[str, JsonValue]:
+        if self.buyer_id is not None and body.buyer_id != self.buyer_id:
+            raise ToolError(f"This server acts for buyer {self.buyer_id} only")
         payload = body.model_dump(mode="json", exclude_none=True, exclude_unset=True)
         try:
             if self._client is not None:

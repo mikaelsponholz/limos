@@ -21,12 +21,24 @@ SEARCH = {
 
 @pytest.fixture(autouse=True)
 def mcp_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    for name in ("LIMOS_GATEWAY_URL", "LIMOS_AGENT_ID", "LIMOS_REQUEST_TIMEOUT_SECONDS"):
+    for name in (
+        "LIMOS_GATEWAY_URL",
+        "LIMOS_AGENT_ID",
+        "LIMOS_BUYER_ID",
+        "LIMOS_REQUEST_TIMEOUT_SECONDS",
+    ):
         monkeypatch.delenv(name, raising=False)
 
 
-async def test_tool_list() -> None:
-    tools = await create_server().list_tools()
+@pytest.mark.parametrize("buyer_id", [None, "invented-buyer"])
+async def test_tool_list(monkeypatch: pytest.MonkeyPatch, buyer_id: str | None) -> None:
+    if buyer_id is not None:
+        monkeypatch.setenv("LIMOS_BUYER_ID", buyer_id)
+    server = create_server()
+    tools = await server.list_tools()
+    if buyer_id is not None:
+        assert f"This server acts for buyer {buyer_id} only" in (server.instructions or "")
+        assert "Do not ask the user for a buyer id" in (server.instructions or "")
     assert len(tools) == 6
     assert {tool.name for tool in tools} == {
         "search_products",
@@ -37,7 +49,11 @@ async def test_tool_list() -> None:
         "get_order_status",
     }
     for tool in tools:
-        assert "buyer_id" in tool.input_schema["required"]
+        assert ("buyer_id" in tool.input_schema["required"]) is (buyer_id is None)
+        if buyer_id is not None:
+            buyer_schema = tool.input_schema["properties"]["buyer_id"]
+            assert buyer_schema["default"] == buyer_id
+            assert buyer_id in buyer_schema["description"]
         assert "agent_id" not in tool.input_schema["properties"]
         assert tool.output_schema is not None
 
@@ -102,7 +118,28 @@ async def test_tool_list() -> None:
         ),
     ],
 )
-async def test_http_mapping(name: str, arguments: dict[str, Any], method: str, path: str) -> None:
+@pytest.mark.parametrize(
+    ("configured_buyer", "supplied_buyer", "error"),
+    [
+        (None, "invented-buyer", None),
+        (None, None, "buyer_id"),
+        ("invented-buyer", None, None),
+        ("invented-buyer", "invented-buyer", None),
+        ("invented-buyer", "invented-other", "This server acts for buyer invented-buyer only"),
+    ],
+)
+async def test_http_mapping(
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+    arguments: dict[str, Any],
+    method: str,
+    path: str,
+    configured_buyer: str | None,
+    supplied_buyer: str | None,
+    error: str | None,
+) -> None:
+    if configured_buyer is not None:
+        monkeypatch.setenv("LIMOS_BUYER_ID", configured_buyer)
     calls: list[httpx.Request] = []
     response = {"invented_result": {"values": [1, None, True], "status": "ok"}}
 
@@ -111,9 +148,17 @@ async def test_http_mapping(name: str, arguments: dict[str, Any], method: str, p
         return httpx.Response(200, json=response)
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
-        result = await create_server(client=client).call_tool(
-            name, {"buyer_id": "invented-buyer", **arguments}
-        )
+        server = create_server(client=client)
+        supplied_arguments = dict(arguments)
+        if supplied_buyer is not None:
+            supplied_arguments["buyer_id"] = supplied_buyer
+        if error is not None:
+            with pytest.raises(ToolError, match=error) as caught:
+                await server.call_tool(name, supplied_arguments)
+            assert not isinstance(caught.value, UnexpectedToolError)
+            assert calls == []
+            return
+        result = await server.call_tool(name, supplied_arguments)
         assert not client.is_closed
 
     assert isinstance(result, CallToolResult)
