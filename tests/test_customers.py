@@ -2,6 +2,7 @@
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -38,7 +39,9 @@ def test_both_seeds_validate_and_match_demo_profiles() -> None:
         )
         for order in customer.order_history:
             assert order.simulated is True and order.source == "seeded"
-            assert sum(line.line_total for line in order.lines) == order.total
+            assert sum(Decimal(str(line.line_total)) for line in order.lines) == Decimal(
+                str(order.total)
+            )
             for line in order.lines:
                 assert line.product_id.startswith("900") and len(line.product_id) == 6
                 assert line.name.startswith("Example ")
@@ -47,10 +50,24 @@ def test_both_seeds_validate_and_match_demo_profiles() -> None:
     assert executive.buyer_id == "ab-oy" and executive.age_group == "55_plus"
     assert executive.playful is False
     assert executive.preferences == [Preference(key="finnish_origin", level="prefer")]
+    # The resolved cheesecake may contain tree nuts, so Frank cannot exclude them yet.
+    assert executive.exclude_allergens == []
     assert executive.defaults == CustomerDefaults(
-        priority="quality", typical_guests=30, budget=None
+        priority="quality", typical_guests=30, budget=1500
     )
-    assert {o.event_type for o in executive.order_history} == {"company_meeting", "staff_coffee"}
+    assert [o.order_ref for o in executive.order_history] == ["ph_pena_01"]
+    assert {o.event_type for o in executive.order_history} == {"company_meeting"}
+    assert [
+        (line.product_id, line.quantity_sales_units) for line in executive.order_history[0].lines
+    ] == [
+        ("900310", 2),
+        ("900312", 6),
+        ("900313", 14),
+    ]
+    peppercorn = executive.order_history[0].lines[2]
+    assert (peppercorn.sales_unit, peppercorn.quantity_text) == ("ST", "14 x 13 g")
+    assert (peppercorn.unit_price, peppercorn.line_total) == (2.5, 35.0)
+    assert executive.order_history[0].total == 127.0
     assert chef.buyer_id == "bistro-example" and chef.age_group == "under_35" and chef.playful
     assert "Example" in chef.name and "Example" in chef.company and chef.role == "Chef"
     assert {p.key for p in chef.preferences} == {"organic", "low_carbon"}
@@ -92,17 +109,17 @@ def test_overlay_must_validate_and_retain_ownership(tmp_path: Path) -> None:
 def test_loader_paths_and_newest_seeded_summary(tmp_path: Path) -> None:
     profiles = tmp_path / "profiles"
     profiles.mkdir()
-    customer = frank()
+    customer = load_customers(overlay_dir=None)["c_chef"]
     customer.order_history.reverse()  # The loader cannot assume input order.
-    (profiles / "c_pena.json").write_text(customer.model_dump_json(), encoding="utf-8")
+    (profiles / "c_chef.json").write_text(customer.model_dump_json(), encoding="utf-8")
     store = MemoryStore()
-    loaded = get_customer("c_pena", store, customers_dir=profiles, overlay_dir=tmp_path)
-    assert loaded.order_history[0].order_ref == "ph_pena_01"
+    loaded = get_customer("c_chef", store, customers_dir=profiles, overlay_dir=tmp_path)
+    assert loaded.order_history[0].order_ref == "ph_chef_01"
     summaries = list_customers(store, customers_dir=profiles, overlay_dir=tmp_path)
     assert len(summaries) == 1 and summaries[0].last_order is not None
-    assert summaries[0].last_order.order_ref == "ph_pena_01"
+    assert summaries[0].last_order.order_ref == "ph_chef_01"
     customer.order_history.clear()
-    (profiles / "c_pena.json").write_text(customer.model_dump_json(), encoding="utf-8")
+    (profiles / "c_chef.json").write_text(customer.model_dump_json(), encoding="utf-8")
     assert list_customers(store, customers_dir=profiles, overlay_dir=tmp_path)[0].last_order is None
 
 
@@ -198,11 +215,16 @@ def test_without_profile_records_only_missing_system_priority() -> None:
 
 
 @pytest.mark.parametrize(
-    ("guests_now", "scale", "quantity"),
-    [(80, 80 / 30, 6), (10, 1 / 3, 1), (30, 1.0, 2), (None, 1.0, 2)],
+    ("guests_now", "scale", "quantities"),
+    [
+        (80, 80 / 30, [6, 16, 38]),
+        (10, 1 / 3, [1, 2, 5]),
+        (30, 1.0, [2, 6, 14]),
+        (None, 1.0, [2, 6, 14]),
+    ],
 )
 def test_reorder_scaling_and_provenance(
-    guests_now: int | None, scale: float, quantity: int
+    guests_now: int | None, scale: float, quantities: list[int]
 ) -> None:
     customer = frank()
     before = customer.model_dump()
@@ -216,12 +238,11 @@ def test_reorder_scaling_and_provenance(
         "guests_now": guests_now,
         "scale": scale,
     }
-    assert len(lines) == 1 and lines[0].quantity_sales_units == quantity
-    assert (lines[0].product_id, lines[0].name, lines[0].sales_unit) == (
-        past.lines[0].product_id,
-        past.lines[0].name,
-        past.lines[0].sales_unit,
-    )
+    assert len(lines) == 3
+    assert [line.quantity_sales_units for line in lines] == quantities
+    assert [(line.product_id, line.name, line.sales_unit) for line in lines] == [
+        (line.product_id, line.name, line.sales_unit) for line in past.lines
+    ]
     assert customer.model_dump() == before
 
 
@@ -250,10 +271,10 @@ def test_reorder_missing_cross_customer_and_invalid_guests() -> None:
 
 
 def test_latest_order_finds_newest_matching_event_and_handles_empty_history() -> None:
-    customer = frank()
+    customer = load_customers(overlay_dir=None)["c_chef"]
     customer.order_history.reverse()
-    assert latest_order(customer).order_ref == "ph_pena_01"
-    assert latest_order(customer, "staff_coffee").order_ref == "ph_pena_02"
+    assert latest_order(customer).order_ref == "ph_chef_01"
+    assert latest_order(customer, "restaurant_weekly").order_ref == "ph_chef_02"
     assert latest_order(customer, "missing") is None
     customer.order_history.clear()
     assert latest_order(customer) is None
@@ -315,7 +336,6 @@ async def test_append_idempotence_persistence_summary_and_buyer_scope(
     assert [o.order_ref for o in loaded.order_history] == [
         "ph_o_example_01",
         "ph_pena_01",
-        "ph_pena_02",
     ]
     assert latest_order(loaded).order_ref == past.order_ref
     summary = next(c for c in list_customers(store, **kwargs) if c.customer_id == "c_pena")

@@ -50,7 +50,8 @@
       "budget": null,
       "priority": "price",
       "customer_id": "c_chef",
-      "reorder_of": null
+      "reorder_of": null,
+      "revises": null
     },
     "customer_id": "c_chef"
   },
@@ -102,7 +103,8 @@
       "budget": 900,
       "priority": "balanced",
       "customer_id": null,
-      "reorder_of": null
+      "reorder_of": null,
+      "revises": null
     },
     "customer_id": null
   },
@@ -144,7 +146,8 @@
       "budget": 250,
       "priority": "balanced",
       "customer_id": null,
-      "reorder_of": null
+      "reorder_of": null,
+      "revises": null
     },
     "customer_id": null
   },
@@ -188,7 +191,8 @@
       "budget": 300,
       "priority": "balanced",
       "customer_id": "c_pena",
-      "reorder_of": null
+      "reorder_of": null,
+      "revises": null
     },
     "customer_id": "c_pena"
   }

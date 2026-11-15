@@ -6,20 +6,28 @@ import json
 from agent.constraints import item_constraints
 from agent.errors import error_code
 from agent.exceptions import ItemPlan
-from agent.expansion import build_event_items, expand_event
-from agent.intent import TextFacts, helsinki_today, parse_text, resolve_request
+from agent.expansion import build_event_items, expand_event, propose_dishes
+from agent.intent import (
+    TextFacts,
+    helsinki_today,
+    parse_text,
+    resolve_request,
+    revision_context,
+)
 from agent.llm import LLMOutputError
 from agent.loop import run_loop
 from agent.pipeline import run_pipeline
 from agent.purchasing import create_options, resolve_item
 from agent.question import apply_answer, choices_and_default, missing_field, word_question
 from agent.suggestions import propose_suggestions
-from gateway import customers, tools
+from gateway import customers, quotes, tools
 from gateway.api.dependencies import Resources
 from gateway.audit import append_step
 from gateway.errors import GatewayError
 from gateway.schemas import (
+    Dish,
     Error,
+    EventDish,
     IntentItem,
     Offer,
     OffersBody,
@@ -39,7 +47,81 @@ from gateway.schemas import (
 AGENT_ID = "limos-runner"
 
 
+REVISABLE = {"NEEDS_INPUT", "WAITING_APPROVAL", "BLOCKED", "REJECTED", "FAILED"}
+
+
+def _revised_request(body: RequestCreate, env: Resources) -> RequestDetail | None:
+    if not body.revises:
+        return None
+    buyer = env.store.request_buyer(body.revises)
+    previous = env.store.get_request(body.revises, buyer) if buyer else None
+    if previous is None or (body.buyer_id and body.buyer_id != previous.buyer_id):
+        raise GatewayError(404, "NOT_FOUND", "Request to revise not found.")
+    if body.customer_id and body.customer_id != previous.customer_id:
+        raise GatewayError(404, "NOT_FOUND", "Request to revise not found.")
+    if previous.status not in REVISABLE:
+        raise GatewayError(
+            409,
+            "NOT_REVISABLE",
+            "This request is still running or already ordered, so it cannot be changed.",
+        )
+    return previous
+
+
+def _replace(previous: RequestDetail, new_id: str, env: Resources) -> None:
+    """Close the earlier request so its quote can never be ordered next to the new one."""
+    title = f"Replaced by the changed request {new_id}"
+    approval = (
+        env.store.get_approval(previous.approval_id, previous.buyer_id)
+        if previous.approval_id
+        else None
+    )
+    rejected = False
+    if approval is not None and approval.status == "PENDING":
+        try:
+            quotes.reject(
+                approval.approval_id,
+                "buyer",
+                title,
+                env.now(),
+                store=env.store,
+                buyer_id=previous.buyer_id,
+            )
+            rejected = True
+        except GatewayError:
+            # An expired or already decided quote cannot be ordered either.
+            pass
+    previous = env.store.get_request(previous.request_id, previous.buyer_id) or previous
+    previous.status = "REJECTED"
+    previous.question = None
+    for suggestion in previous.suggestions:
+        if suggestion.status == "OFFERED":
+            suggestion.status = "DECLINED"
+    if previous.quote is not None:
+        previous.quote = env.store.get_quote(previous.quote.quote_id, previous.buyer_id)
+    env.store.save_request(previous)
+    if not rejected:
+        append_step(
+            env.store,
+            previous.request_id,
+            "user",
+            "REJECTED",
+            title,
+            {"replaced_by": new_id},
+            None,
+            env.now(),
+        )
+
+
 def prepare(body: RequestCreate, env: Resources) -> tuple[RequestDetail, RequestCreate]:
+    previous = _revised_request(body, env)
+    if previous is not None:
+        body = body.model_copy(
+            update={
+                "buyer_id": body.buyer_id or previous.buyer_id,
+                "customer_id": body.customer_id or previous.customer_id,
+            }
+        )
     customer = (
         customers.get_customer(body.customer_id, env.store, **env.customer_paths)
         if body.customer_id
@@ -70,7 +152,12 @@ def prepare(body: RequestCreate, env: Resources) -> tuple[RequestDetail, Request
         order=None,
         error=None,
     )
-    env.store.save_request(detail)
+    if previous is not None:
+        with env.store.transaction():
+            env.store.save_request(detail)
+            _replace(previous, detail.request_id, env)
+    else:
+        env.store.save_request(detail)
     # Preserve which fields the buyer supplied until text precedence is resolved.
     return detail, body.model_copy(deep=True)
 
@@ -185,7 +272,19 @@ async def run(
                     503, "AGENT_NOT_AVAILABLE", "Text parsing needs the Gemini agent."
                 )
             today = helsinki_today(env.now())
-            parsed = parse_text(llm, body.text, today)
+            known = (
+                customers.get_customer(detail.customer_id, env.store, **env.customer_paths)
+                if detail.customer_id
+                else None
+            )
+            revised = env.store.get_request(body.revises, detail.buyer_id) if body.revises else None
+            parsed = parse_text(
+                llm,
+                body.text,
+                today,
+                known,
+                revision_context(revised) if revised else None,
+            )
             if parsed.repaired and env.settings.agent_mode == "pipeline":
                 append_step(
                     env.store,
@@ -289,6 +388,28 @@ async def run(
             and not body.reorder_of
             and env.llm is not None
         ):
+            if not detail.intent.dishes and not detail.intent.items:
+                proposed = propose_dishes(
+                    env.llm,
+                    detail.intent.event,
+                    detail.intent.preferences,
+                    detail.intent.exclude_allergens,
+                )
+                names = proposed.value.dishes
+                detail.intent.dishes = [
+                    Dish(dish_id=f"d_{index}", name=name, servings=detail.intent.event.guests)
+                    for index, name in enumerate(names, 1)
+                ]
+                if body.event is not None:
+                    body.event.dishes = [
+                        EventDish(name=dish.name, servings=dish.servings)
+                        for dish in detail.intent.dishes
+                    ]
+                detail.intent.assumptions.append(
+                    f"No dishes were named; proposed {', '.join(names[:-1])} and {names[-1]}. "
+                    "Change them before approving."
+                )
+                env.store.save_request(detail)
             expanded = expand_event(
                 env.llm,
                 detail.intent.event,

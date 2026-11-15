@@ -1,6 +1,7 @@
 """Resolve simulated customer history offline, writing only a runtime overlay."""
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -11,10 +12,12 @@ if __package__ in (None, ""):
 from pydantic import TypeAdapter
 
 from gateway.catalog.index import Catalog
+from gateway.catalog.models import SlimRecord
 from gateway.customers import CUSTOMERS_DIR, OVERLAY_DIR, ROOT, load_customers
 from gateway.schemas import Customer
 
 SEED_SPEC = ROOT / "scripts" / "customer_seed_spec.json"
+DEMO_CASES = ROOT / ".runtime" / "demo_cases.json"
 
 
 def _check_destination(out: Path, customers_dir: Path) -> None:
@@ -33,10 +36,15 @@ def seed_customers(
     customers_dir: Path = CUSTOMERS_DIR,
     out: Path = OVERLAY_DIR,
     seed_spec: Path = SEED_SPEC,
+    demo_cases: Path = DEMO_CASES,
 ) -> tuple[int, int]:
     _check_destination(out, customers_dir)  # before the slow catalogue load
     return resolve_customers(
-        Catalog.load(catalog_path), customers_dir=customers_dir, out=out, seed_spec=seed_spec
+        Catalog.load(catalog_path),
+        customers_dir=customers_dir,
+        out=out,
+        seed_spec=seed_spec,
+        demo_cases=demo_cases,
     )
 
 
@@ -46,11 +54,29 @@ def resolve_customers(
     customers_dir: Path = CUSTOMERS_DIR,
     out: Path = OVERLAY_DIR,
     seed_spec: Path = SEED_SPEC,
+    demo_cases: Path = DEMO_CASES,
 ) -> tuple[int, int]:
     """Resolve the history against an already loaded catalogue (the gateway reuses its own)."""
     _check_destination(out, customers_dir)
     queries = TypeAdapter(dict[str, str]).validate_json(seed_spec.read_bytes())
     customers = load_customers(customers_dir, overlay_dir=None)
+    # A verified live shortage replaces only the history line it was found for.
+    overrides: dict[str, SlimRecord] = {}
+    if demo_cases.is_file():
+        cases = json.loads(demo_cases.read_bytes())
+        if cases.get("live") is True:
+            for row in cases.get("cases", []):
+                if row.get("case") != "reorder_shortage" or row.get("status") != "verified":
+                    continue
+                record = catalog.lookup(row["product_id"])
+                history_code = row.get("history_product_id")
+                if (
+                    record is not None
+                    and history_code
+                    and not record.sales_block
+                    and record.sales_unit
+                ):
+                    overrides.setdefault(history_code, record)
     resolved_customers: list[Customer] = []
     line_count = 0
     for customer in customers.values():
@@ -59,7 +85,9 @@ def resolve_customers(
                 query = queries.get(line.product_id)
                 if not query:
                     raise ValueError("Missing seed search term for a history line.")
-                product = next(
+                product = (
+                    overrides.get(line.product_id) if customer.customer_id == "c_pena" else None
+                ) or next(
                     (
                         record
                         for record in catalog.search(query, exclude_sales_blocked=True)

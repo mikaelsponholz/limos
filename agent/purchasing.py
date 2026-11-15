@@ -1,7 +1,7 @@
 """Fetch exception shortlists through gateway tools, then let pure code choose."""
 
 import json
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from fractions import Fraction
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -32,6 +32,11 @@ async def resolve_item(
     fetch: FetchOffers,
     search: Search,
     llm: LLM | None,
+    *,
+    suitable_ids: Sequence[str] | None = None,
+    valio_substitutes: Sequence[Offer] | None = None,
+    agent_substitutes: Sequence[Offer] = (),
+    substitute_origins: Mapping[str, str] | None = None,
 ) -> ItemPlan:
     if not offers:
         raise GatewayError(404, "NO_CANDIDATES", "No products match the requested item.")
@@ -41,9 +46,9 @@ async def resolve_item(
         exclude_allergens=detail.intent.exclude_allergens,
     )
     original = offers[0]
-    substitutes: list[Offer] = []
-    proposed: list[Offer] = []
-    if (
+    substitutes: list[Offer] = list(valio_substitutes or ())
+    proposed: list[Offer] = list(agent_substitutes)
+    if valio_substitutes is None and (
         not usable(original, context)
         or original.quantity_covered.value < item.quantity
         or (original.available_date and original.available_date > detail.intent.deliver_by)
@@ -110,6 +115,8 @@ async def resolve_item(
             proposed,
             context=context,
             lots=lots,
+            suitable_ids=suitable_ids,
+            substitute_origins=substitute_origins,
         )
     except ValueError:
         raise GatewayError(

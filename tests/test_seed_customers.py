@@ -33,6 +33,18 @@ def invented_catalog(path: Path) -> list[SlimRecord]:
         ),
         SlimRecord(product_id="900704", names=LocalizedText(fi="Example peruna"), sales_unit="ST"),
         SlimRecord(
+            product_id="900706",
+            names=LocalizedText(en="Example oat drink iKaffe 1L"),
+            sales_unit="ST",
+            pack_size=PackSize(value=1.0, unit="L"),
+        ),
+        SlimRecord(
+            product_id="900707",
+            names=LocalizedText(fi="Santa Maria Viherpippuri Kokonainen 13 g"),
+            sales_unit="ST",
+            pack_size=PackSize(value=0.013, unit="kg"),
+        ),
+        SlimRecord(
             product_id="900700",
             names=LocalizedText(fi="Example juustokakku blocked"),
             sales_unit="ST",
@@ -52,7 +64,8 @@ def seed_bytes() -> dict[str, bytes]:
 def test_cli_resolves_overlay_offline_with_only_count_output(tmp_path: Path) -> None:
     before = seed_bytes()
     catalog_path = tmp_path / "catalog.slim.json"
-    invented_catalog(catalog_path)
+    records = invented_catalog(catalog_path)
+    names = {record.product_id: record.names.fi or record.names.en for record in records}
     out = tmp_path / ".runtime" / "customers"
     result = subprocess.run(
         [
@@ -69,33 +82,38 @@ def test_cli_resolves_overlay_offline_with_only_count_output(tmp_path: Path) -> 
         check=False,
     )
     assert result.returncode == 0 and result.stderr == ""
-    assert result.stdout.strip() == "Customers written: 2. History lines resolved: 5."
+    assert result.stdout.strip() == "Customers written: 2. History lines resolved: 6."
     assert seed_bytes() == before
     original = load_customers(overlay_dir=None)
     resolved = load_customers(overlay_dir=out)
     assert {p.name for p in out.iterdir()} == {"c_pena.json", "c_chef.json"}
     expected = {
         "900310": "900701",
-        "900311": "900701",
+        "900312": "900706",
+        "900313": "900707",
         "900401": "900702",
         "900402": "900703",
         "900403": "900704",
     }
     for customer_id, customer in resolved.items():
+        assert customer.defaults == original[customer_id].defaults
+        assert customer.exclude_allergens == original[customer_id].exclude_allergens
         for order, previous in zip(
             customer.order_history, original[customer_id].order_history, strict=True
         ):
             assert order.total == previous.total and order.source == "seeded" and order.simulated
             for line, old in zip(order.lines, previous.lines, strict=True):
                 assert line.product_id == expected[old.product_id]
-                assert line.name.startswith("Example ")
+                assert line.name == names[line.product_id]
                 assert line.unit_price == old.unit_price and line.line_total == old.line_total
                 assert line.quantity_sales_units == old.quantity_sales_units
     beetroot = resolved["c_chef"].order_history[0].lines[0]
     assert beetroot.quantity_text == "4 x 2 kg" and beetroot.sales_unit == "KI"
     assert resolved["c_pena"].order_history[0].lines[0].quantity_text == "2 ST"
+    assert resolved["c_pena"].order_history[0].lines[1].quantity_text == "6 x 1 L"
+    assert resolved["c_pena"].order_history[0].lines[2].quantity_text == "14 x 0.013 kg"
     # A rerun starts from committed seed ids, never the resolved overlay codes.
-    assert seed_customers(catalog_path, out=out) == (2, 5)
+    assert seed_customers(catalog_path, out=out) == (2, 6)
     assert seed_bytes() == before
 
 
@@ -105,12 +123,45 @@ def test_custom_seed_directory_and_spec(tmp_path: Path) -> None:
     customer = load_customers(overlay_dir=None)["c_pena"]
     (seeds / "c_pena.json").write_text(customer.model_dump_json(), encoding="utf-8")
     spec = tmp_path / "queries.json"
-    spec.write_text('{"900310":"juustokakku", "900311":"täytekakku"}', encoding="utf-8")
+    spec.write_text(
+        json.dumps(
+            {
+                "900310": "juustokakku",
+                "900312": "Oatly iKaffe 1L",
+                "900313": "Santa Maria Viherpippuri Kokonainen 13 g",
+            }
+        ),
+        encoding="utf-8",
+    )
     catalog_path = tmp_path / "catalog.slim.json"
     invented_catalog(catalog_path)
     assert seed_customers(
         catalog_path, customers_dir=seeds, seed_spec=spec, out=tmp_path / "out"
-    ) == (1, 2)
+    ) == (1, 3)
+    resolved = load_customers(customers_dir=seeds, overlay_dir=tmp_path / "out")["c_pena"]
+    assert [line.product_id for line in resolved.order_history[0].lines] == [
+        "900701",
+        "900706",
+        "900707",
+    ]
+    peppercorn = next(
+        line
+        for line, old in zip(
+            resolved.order_history[0].lines, customer.order_history[0].lines, strict=True
+        )
+        if old.product_id == "900313"
+    )
+    assert (peppercorn.product_id, peppercorn.name) == (
+        "900707",
+        "Santa Maria Viherpippuri Kokonainen 13 g",
+    )
+    assert (peppercorn.quantity_sales_units, peppercorn.unit_price, peppercorn.line_total) == (
+        14,
+        2.5,
+        35.0,
+    )
+    assert resolved.defaults.budget == 1500
+    assert resolved.order_history[0].total == 127.0
 
 
 def test_missing_match_writes_nothing_and_cli_does_not_echo_input(tmp_path: Path) -> None:

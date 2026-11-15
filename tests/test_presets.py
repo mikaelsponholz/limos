@@ -18,7 +18,7 @@ from gateway.settings import Settings
 from gateway.store import MemoryStore
 from gateway.valio.models import AvailabilityResponse, PriceResponse
 from tests.test_e2e import poll
-from tests.test_offers import NOW, FakeValio
+from tests.test_offers import NOW, FakeValio, price, product, stock
 
 ROOT = Path(__file__).resolve().parents[1]
 NUTS = {"tree_nuts", "peanuts"}
@@ -205,13 +205,37 @@ def test_pena_same_as_last_time_scales_newest_matching_order_and_updates_history
     tmp_path: Path,
 ) -> None:
     with environment(tmp_path, "company_lunch_60", reorder=True) as client:
+        # Extend only this test's in-memory recording for Frank's new second line.
+        oat_drink = product(
+            "900312",
+            names={"en": "Example oat drink for coffee 1 l"},
+            sales_unit="ST",
+            pack_size={"value": 1, "unit": "L"},
+            country_of_origin="fi",
+        )
+        client.app.state.catalog = Catalog(
+            [
+                *TypeAdapter(list[SlimRecord]).validate_python(
+                    recording("company_lunch_60")["catalog"]
+                ),
+                oat_drink,
+            ]
+        )
+        client.app.state.valio.prices.append(price("900312"))
+        client.app.state.valio.stock.append(stock("900312"))
         # Include an older match and a newer non-match so selection cannot pass by list position.
         customer = client.get("/customers/c_pena").json()
         newest = next(
             order for order in customer["order_history"] if order["event_type"] == "company_meeting"
         )
         older = {**newest, "order_ref": "invented-older-board", "date": "2026-09-01"}
-        unrelated = {**customer["order_history"][1], "date": "2026-11-13"}
+        unrelated = {
+            **newest,
+            "order_ref": "invented-staff-coffee",
+            "date": "2026-11-13",
+            "title": "Example staff coffee table",
+            "event_type": "staff_coffee",
+        }
         customer["order_history"] = [older, unrelated, newest]
         overlays = client.app.state.customer_overlay_dir
         overlays.mkdir()
@@ -229,7 +253,8 @@ def test_pena_same_as_last_time_scales_newest_matching_order_and_updates_history
         assert (detail.intent.based_on.guests_before, detail.intent.based_on.guests_now) == (30, 75)
         assert detail.quote is not None
         assert [(line.product_id, line.quantity_sales_units) for line in detail.quote.lines] == [
-            ("900310", 5)
+            ("900310", 5),
+            ("900312", 15),
         ]
         assert "APPROVAL_ALWAYS_REQUIRED" in rules(detail.quote)
         assert_audit(client, detail)
@@ -239,4 +264,6 @@ def test_pena_same_as_last_time_scales_newest_matching_order_and_updates_history
         assert history[0]["order_ref"] == f"ph_{ordered.order.order_id}"
         assert history[0]["source"] == "limos" and history[0]["simulated"] is True
         assert history[0]["guests"] == 75
-        assert history[0]["lines"][0]["quantity_sales_units"] == 5
+        assert [
+            (line["product_id"], line["quantity_sales_units"]) for line in history[0]["lines"]
+        ] == [("900310", 5), ("900312", 15)]

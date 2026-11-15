@@ -356,15 +356,20 @@
         "choices": [
           {
             "item_id": "it_1",
-            "product_id": "900821"
+            "product_id": "900821",
+            "suitable_ids": [
+              "900822"
+            ]
           },
           {
             "item_id": "it_2",
-            "product_id": "900823"
+            "product_id": "900823",
+            "suitable_ids": []
           },
           {
             "item_id": "it_3",
-            "product_id": "900824"
+            "product_id": "900824",
+            "suitable_ids": []
           }
         ]
       },

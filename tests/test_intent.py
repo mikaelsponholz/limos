@@ -447,3 +447,24 @@ def test_new_guest_count_repeats_the_newest_scalable_order(guests: int | None, t
         request(), customer, facts(guests=guests, reorder={"repeat": True}), TODAY
     )
     assert resolved.request.reorder_of == target
+
+
+def test_product_without_amount_quotes_one_pack_with_a_note() -> None:
+    resolved = resolve_request(
+        request(), None, facts(items=[{"description": "maito"}], deliver_by="2026-11-15"), TODAY
+    )
+    item = resolved.request.items[0]
+    assert (item.description, item.quantity, item.unit) == ("maito", 1, "pcs")
+    assert any("No amount was given for maito" in note for note in resolved.intent.assumptions)
+
+
+def test_past_order_titles_reach_the_parser_for_a_known_customer() -> None:
+    llm = FakeLLM(structured_outputs=[{}, {}])
+    parse_text(llm, "kakkua perjantaiksi", TODAY, profile())
+    sent = json.loads(llm.calls[0].contents[0].parts[0].text.split("\nReturn JSON")[0])
+    assert sent["past_orders"][0] == {
+        "title": "Invented team coffee",
+        "event_type": "staff_coffee",
+    }
+    parse_text(llm, "kakkua perjantaiksi", TODAY)
+    assert "past_orders" not in llm.calls[1].contents[0].parts[0].text

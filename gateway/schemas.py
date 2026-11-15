@@ -262,6 +262,8 @@ class RequestCreate(ContractModel):
     buyer_id: str | None = None
     customer_id: str | None = None
     reorder_of: str | None = None
+    # An earlier request this one changes; its open approval is replaced, not ordered.
+    revises: str | None = None
     # Create-field defaults are unspecified; omissions enable each of the five input forms.
     preset_id: PresetId | None = None
     text: str | None = None
@@ -275,12 +277,14 @@ class RequestCreate(ContractModel):
 
     @model_validator(mode="after")
     def require_input(self) -> Self:
-        if not (self.buyer_id or self.customer_id):
+        if not (self.buyer_id or self.customer_id or self.revises):
             raise ValueError("At least one of buyer_id or customer_id must be set.")
         if not (self.preset_id or self.text or self.event or self.items or self.reorder_of):
             raise ValueError(
                 "At least one of preset_id, text, event, items or reorder_of must be set."
             )
+        if self.revises and not self.text:
+            raise ValueError("A revision needs the buyer's change as text.")
         return self
 
 

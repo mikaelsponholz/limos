@@ -170,9 +170,14 @@ async def test_conversion_and_lot_rounding(
     covered: float,
     text: str,
 ) -> None:
+    # Keep price evidence consistent with the pack in this conversion test.
+    evidence = price()
+    assert evidence.catalog_price is not None and evidence.comparison_price is not None
+    evidence.comparison_price.value = evidence.catalog_price.value / Decimal(str(pack["value"]))
     result = await offer(
         record=product(pack_size=pack, allowedLotSize=lot),
         body=request(quantity=float(quantity), unit=unit),
+        prices=[evidence],
     )
     assert result.quantity_sales_units == units
     assert result.quantity_requested.value == quantity
@@ -205,7 +210,12 @@ async def test_resolves_catalogue_conversion_before_name() -> None:
 
 
 async def test_resolves_pack_from_invented_name() -> None:
-    result = await offer(record=product(pack_size=None, names={"fi": "Keksitty jauho 500 g"}))
+    evidence = price()
+    assert evidence.comparison_price is not None
+    evidence.comparison_price.value = Decimal("6.70")  # 3.35 EUR per 500 g pack.
+    result = await offer(
+        record=product(pack_size=None, names={"fi": "Keksitty jauho 500 g"}), prices=[evidence]
+    )
     assert result.pack_size is not None and result.pack_size.value == 0.5
     assert result.quantity_sales_units == 6
 
